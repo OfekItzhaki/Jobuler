@@ -31,7 +31,6 @@ jobs:
 
       - name: Test
         run: dotnet test Jobuler.sln --no-build --configuration Release --verbosity normal
-        continue-on-error: true  # no test projects yet — remove when tests are added
 
   # ── Python Solver ───────────────────────────────────────────────────────────
   solver:
@@ -52,9 +51,15 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
 
+      - name: Install test dependencies
+        run: pip install pytest ruff
+
       - name: Lint with ruff
-        run: pip install ruff && ruff check .
+        run: ruff check .
         continue-on-error: true
+
+      - name: Run solver tests
+        run: pytest tests/ -v
 
       - name: Run solver health check
         run: |

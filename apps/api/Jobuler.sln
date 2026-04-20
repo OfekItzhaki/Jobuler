@@ -11,6 +11,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Jobuler.Application", "Jobu
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Jobuler.Infrastructure", "Jobuler.Infrastructure\Jobuler.Infrastructure.csproj", "{A1B2C3D4-0001-0001-0001-000000000004}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Jobuler.Tests", "Jobuler.Tests\Jobuler.Tests.csproj", "{A1B2C3D4-0001-0001-0001-000000000005}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU

@@ -2,6 +2,7 @@
 
 import { useTranslations } from "next-intl";
 import { useAuthStore } from "@/lib/store/authStore";
+import { useSpaceStore } from "@/lib/store/spaceStore";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { clsx } from "clsx";
@@ -13,6 +14,7 @@ interface AppShellProps {
 export default function AppShell({ children }: AppShellProps) {
   const t = useTranslations();
   const { displayName, isAdminMode, enterAdminMode, exitAdminMode, logout } = useAuthStore();
+  const { currentSpaceName } = useSpaceStore();
   const router = useRouter();
 
   async function handleLogout() {
@@ -28,6 +30,11 @@ export default function AppShell({ children }: AppShellProps) {
         isAdminMode ? "bg-amber-50 border-amber-300" : "bg-white border-gray-200"
       )}>
         <nav className="flex items-center gap-6 text-sm font-medium">
+          {currentSpaceName && (
+            <Link href="/spaces" className="text-gray-400 hover:text-gray-600 text-xs">
+              {currentSpaceName}
+            </Link>
+          )}
           <Link href="/schedule/today" className="hover:text-blue-600">
             {t("nav.today")}
           </Link>
@@ -38,6 +45,9 @@ export default function AppShell({ children }: AppShellProps) {
             <>
               <Link href="/admin/schedule" className="text-amber-700 hover:text-amber-900">
                 {t("admin.title")}
+              </Link>
+              <Link href="/admin/people" className="text-amber-700 hover:text-amber-900">
+                {t("admin.people")}
               </Link>
               <Link href="/admin/logs" className="text-amber-700 hover:text-amber-900">
                 {t("nav.logs")}

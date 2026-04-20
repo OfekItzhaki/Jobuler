@@ -28,8 +28,9 @@ export const useAuthStore = create<AuthState>()(
         const result = await apiLogin(email, password);
         localStorage.setItem("access_token", result.accessToken);
         localStorage.setItem("refresh_token", result.refreshToken);
-        // Set locale cookie for next-intl SSR
-        document.cookie = `locale=${result.preferredLocale}; path=/; max-age=31536000`;
+        // Set cookies for Next.js middleware route guard and SSR
+        document.cookie = `access_token=${result.accessToken}; path=/; max-age=900; SameSite=Strict`;
+        document.cookie = `locale=${result.preferredLocale}; path=/; max-age=31536000; SameSite=Strict`;
         set({
           userId: result.userId,
           displayName: result.displayName,
@@ -46,6 +47,9 @@ export const useAuthStore = create<AuthState>()(
         }
         localStorage.removeItem("access_token");
         localStorage.removeItem("refresh_token");
+        // Clear cookies
+        document.cookie = "access_token=; path=/; max-age=0";
+        document.cookie = "locale=; path=/; max-age=0";
         set({ userId: null, displayName: null, isAuthenticated: false, isAdminMode: false });
       },
 

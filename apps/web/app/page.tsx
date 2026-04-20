@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 
-// Root redirects to today's schedule (or login if not authenticated — handled by middleware)
+// Root redirects to spaces selector — the space page auto-redirects
+// to /schedule/today if the user only has one space
 export default function RootPage() {
-  redirect("/schedule/today");
+  redirect("/spaces");
 }
