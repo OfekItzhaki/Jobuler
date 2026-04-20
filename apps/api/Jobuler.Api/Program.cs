@@ -1,8 +1,10 @@
 using FluentValidation;
 using Jobuler.Api.Middleware;
+using Jobuler.Application.AI;
 using Jobuler.Application.Auth.Commands;
 using Jobuler.Application.Common;
 using Jobuler.Application.Scheduling;
+using Jobuler.Infrastructure.AI;
 using Jobuler.Infrastructure.Auth;
 using Jobuler.Infrastructure.Logging;
 using Jobuler.Infrastructure.Persistence;
@@ -84,6 +86,17 @@ builder.Services.AddHttpClient<ISolverClient, SolverHttpClient>(client =>
     client.BaseAddress = new Uri(solverUrl);
     client.Timeout = TimeSpan.FromSeconds(120);
 });
+
+// ─── AI assistant (optional — only registered when API key is configured) ────
+if (!string.IsNullOrEmpty(builder.Configuration["AI:ApiKey"]))
+{
+    builder.Services.AddHttpClient<IAiAssistant, OpenAiAssistant>();
+}
+else
+{
+    // Register a no-op fallback so the app starts without AI configured
+    builder.Services.AddSingleton<IAiAssistant, NoOpAiAssistant>();
+}
 
 // Background worker — dequeues and processes solver jobs
 builder.Services.AddHostedService<SolverWorkerService>();

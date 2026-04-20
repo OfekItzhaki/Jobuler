@@ -1,0 +1,109 @@
+name: Deploy to AWS
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+env:
+  AWS_REGION: us-east-1
+  ECR_REGISTRY: ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.us-east-1.amazonaws.com
+
+jobs:
+  # ── Build and push Docker images to ECR ────────────────────────────────────
+  build-and-push:
+    name: Build & Push Images
+    runs-on: ubuntu-latest
+    outputs:
+      api-image: ${{ steps.meta-api.outputs.tags }}
+      solver-image: ${{ steps.meta-solver.outputs.tags }}
+      web-image: ${{ steps.meta-web.outputs.tags }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build and push API image
+        id: meta-api
+        uses: docker/build-push-action@v5
+        with:
+          context: apps/api
+          file: infra/docker/api.Dockerfile
+          push: true
+          tags: ${{ env.ECR_REGISTRY }}/jobuler-api:${{ github.sha }},${{ env.ECR_REGISTRY }}/jobuler-api:latest
+
+      - name: Build and push Solver image
+        id: meta-solver
+        uses: docker/build-push-action@v5
+        with:
+          context: apps/solver
+          file: infra/docker/solver.Dockerfile
+          push: true
+          tags: ${{ env.ECR_REGISTRY }}/jobuler-solver:${{ github.sha }},${{ env.ECR_REGISTRY }}/jobuler-solver:latest
+
+      - name: Build and push Web image
+        id: meta-web
+        uses: docker/build-push-action@v5
+        with:
+          context: apps/web
+          file: infra/docker/web.Dockerfile
+          push: true
+          tags: ${{ env.ECR_REGISTRY }}/jobuler-web:${{ github.sha }},${{ env.ECR_REGISTRY }}/jobuler-web:latest
+
+  # ── Deploy to ECS ───────────────────────────────────────────────────────────
+  deploy:
+    name: Deploy to ECS
+    runs-on: ubuntu-latest
+    needs: build-and-push
+    environment: production
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Deploy API to ECS
+        run: |
+          aws ecs update-service \
+            --cluster jobuler-cluster \
+            --service jobuler-api \
+            --force-new-deployment \
+            --region ${{ env.AWS_REGION }}
+
+      - name: Deploy Solver to ECS
+        run: |
+          aws ecs update-service \
+            --cluster jobuler-cluster \
+            --service jobuler-solver \
+            --force-new-deployment \
+            --region ${{ env.AWS_REGION }}
+
+      - name: Deploy Web to ECS
+        run: |
+          aws ecs update-service \
+            --cluster jobuler-cluster \
+            --service jobuler-web \
+            --force-new-deployment \
+            --region ${{ env.AWS_REGION }}
+
+      - name: Wait for API deployment
+        run: |
+          aws ecs wait services-stable \
+            --cluster jobuler-cluster \
+            --services jobuler-api \
+            --region ${{ env.AWS_REGION }}
