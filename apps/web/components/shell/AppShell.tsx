@@ -55,6 +55,9 @@ export default function AppShell({ children }: AppShellProps) {
               <Link href="/admin/constraints" className="text-amber-700 hover:text-amber-900 whitespace-nowrap">
                 {t("admin.constraints")}
               </Link>
+              <Link href="/admin/groups" className="text-amber-700 hover:text-amber-900 whitespace-nowrap">
+                {t("admin.groups")}
+              </Link>
               <Link href="/admin/logs" className="text-amber-700 hover:text-amber-900 whitespace-nowrap">
                 {t("nav.logs")}
               </Link>
