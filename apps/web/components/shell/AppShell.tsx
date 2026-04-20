@@ -35,9 +35,14 @@ export default function AppShell({ children }: AppShellProps) {
             {t("nav.tomorrow")}
           </Link>
           {isAdminMode && (
-            <Link href="/admin" className="text-amber-700 hover:text-amber-900">
-              {t("nav.admin")}
-            </Link>
+            <>
+              <Link href="/admin/schedule" className="text-amber-700 hover:text-amber-900">
+                {t("admin.title")}
+              </Link>
+              <Link href="/admin/logs" className="text-amber-700 hover:text-amber-900">
+                {t("nav.logs")}
+              </Link>
+            </>
           )}
         </nav>
 

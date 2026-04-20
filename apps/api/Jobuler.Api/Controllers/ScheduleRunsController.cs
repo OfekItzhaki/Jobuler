@@ -1,5 +1,6 @@
 using Jobuler.Application.Common;
 using Jobuler.Application.Scheduling.Commands;
+using Jobuler.Application.Scheduling.Queries;
 using Jobuler.Domain.Spaces;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
@@ -40,6 +41,15 @@ public class ScheduleRunsController : ControllerBase
             new TriggerSolverCommand(spaceId, req.TriggerMode ?? "standard", CurrentUserId), ct);
 
         return Accepted(new { runId });
+    }
+
+    /// <summary>Poll the status of a solver run.</summary>
+    [HttpGet("{runId:guid}")]
+    public async Task<IActionResult> GetRun(Guid spaceId, Guid runId, CancellationToken ct)
+    {
+        await _permissions.RequirePermissionAsync(CurrentUserId, spaceId, Permissions.SpaceAdminMode, ct);
+        var result = await _mediator.Send(new GetScheduleRunQuery(spaceId, runId), ct);
+        return result is null ? NotFound() : Ok(result);
     }
 }
 

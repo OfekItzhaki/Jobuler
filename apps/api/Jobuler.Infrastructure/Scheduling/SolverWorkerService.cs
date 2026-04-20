@@ -1,6 +1,8 @@
 using Jobuler.Application.Scheduling;
+using Jobuler.Application.Scheduling.Commands;
 using Jobuler.Domain.Scheduling;
 using Jobuler.Infrastructure.Persistence;
+using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -50,6 +52,7 @@ public class SolverWorkerService : BackgroundService
         var normalizer = scope.ServiceProvider.GetRequiredService<ISolverPayloadNormalizer>();
         var client     = scope.ServiceProvider.GetRequiredService<ISolverClient>();
         var db         = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var mediator   = scope.ServiceProvider.GetRequiredService<IMediator>();
 
         var job = await queue.DequeueAsync(ct);
         if (job is null)
@@ -153,6 +156,9 @@ public class SolverWorkerService : BackgroundService
                 run.MarkCompleted(summaryJson);
 
             await db.SaveChangesAsync(ct);
+
+            // Update fairness counters after successful solve
+            await mediator.Send(new UpdateFairnessCountersCommand(job.SpaceId, version.Id), ct);
 
             _logger.LogInformation(
                 "Solver job completed: run_id={RunId} version={Version} feasible={Feasible} assignments={Count}",

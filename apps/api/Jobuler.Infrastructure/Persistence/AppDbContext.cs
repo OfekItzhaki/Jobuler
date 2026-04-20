@@ -1,6 +1,7 @@
 using Jobuler.Domain.Constraints;
 using Jobuler.Domain.Groups;
 using Jobuler.Domain.Identity;
+using Jobuler.Domain.Logs;
 using Jobuler.Domain.People;
 using Jobuler.Domain.Scheduling;
 using Jobuler.Domain.Spaces;
@@ -52,6 +53,10 @@ public class AppDbContext : DbContext
     public DbSet<Assignment> Assignments => Set<Assignment>();
     public DbSet<AssignmentChangeSummary> AssignmentChangeSummaries => Set<AssignmentChangeSummary>();
     public DbSet<FairnessCounter> FairnessCounters => Set<FairnessCounter>();
+
+    // Logs
+    public DbSet<SystemLog> SystemLogs => Set<SystemLog>();
+    public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
