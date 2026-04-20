@@ -1,0 +1,47 @@
+{
+  "app": {
+    "name": "Jobuler",
+    "tagline": "Force Scheduling System"
+  },
+  "auth": {
+    "login": "Login",
+    "logout": "Logout",
+    "register": "Register",
+    "email": "Email",
+    "password": "Password",
+    "displayName": "Display Name",
+    "loginButton": "Sign In",
+    "registerButton": "Sign Up",
+    "invalidCredentials": "Invalid credentials"
+  },
+  "nav": {
+    "schedule": "Schedule",
+    "today": "Today",
+    "tomorrow": "Tomorrow",
+    "admin": "Admin",
+    "logs": "Logs"
+  },
+  "schedule": {
+    "title": "Schedule",
+    "noAssignments": "No assignments",
+    "person": "Person",
+    "task": "Task",
+    "time": "Time"
+  },
+  "admin": {
+    "title": "Admin Mode",
+    "enterAdmin": "Enter Admin Mode",
+    "exitAdmin": "Exit Admin Mode",
+    "spaces": "Spaces",
+    "people": "People",
+    "tasks": "Tasks",
+    "constraints": "Constraints",
+    "publish": "Publish",
+    "rollback": "Rollback"
+  },
+  "errors": {
+    "unauthorized": "Unauthorized",
+    "notFound": "Not found",
+    "serverError": "Server error"
+  }
+}

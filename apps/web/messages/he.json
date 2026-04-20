@@ -1,0 +1,47 @@
+{
+  "app": {
+    "name": "ג'ובולר",
+    "tagline": "מערכת תזמון כוחות"
+  },
+  "auth": {
+    "login": "התחברות",
+    "logout": "התנתקות",
+    "register": "הרשמה",
+    "email": "דואר אלקטרוני",
+    "password": "סיסמה",
+    "displayName": "שם תצוגה",
+    "loginButton": "כניסה",
+    "registerButton": "הרשמה",
+    "invalidCredentials": "פרטי התחברות שגויים"
+  },
+  "nav": {
+    "schedule": "לוח זמנים",
+    "today": "היום",
+    "tomorrow": "מחר",
+    "admin": "ניהול",
+    "logs": "יומן"
+  },
+  "schedule": {
+    "title": "לוח זמנים",
+    "noAssignments": "אין שיבוצים",
+    "person": "אדם",
+    "task": "משימה",
+    "time": "שעה"
+  },
+  "admin": {
+    "title": "מצב ניהול",
+    "enterAdmin": "כניסה למצב ניהול",
+    "exitAdmin": "יציאה ממצב ניהול",
+    "spaces": "מרחבים",
+    "people": "אנשים",
+    "tasks": "משימות",
+    "constraints": "אילוצים",
+    "publish": "פרסום",
+    "rollback": "שחזור"
+  },
+  "errors": {
+    "unauthorized": "אין הרשאה",
+    "notFound": "לא נמצא",
+    "serverError": "שגיאת שרת"
+  }
+}

@@ -1,0 +1,47 @@
+{
+  "app": {
+    "name": "Джобулер",
+    "tagline": "Система планирования смен"
+  },
+  "auth": {
+    "login": "Вход",
+    "logout": "Выход",
+    "register": "Регистрация",
+    "email": "Электронная почта",
+    "password": "Пароль",
+    "displayName": "Отображаемое имя",
+    "loginButton": "Войти",
+    "registerButton": "Зарегистрироваться",
+    "invalidCredentials": "Неверные учётные данные"
+  },
+  "nav": {
+    "schedule": "Расписание",
+    "today": "Сегодня",
+    "tomorrow": "Завтра",
+    "admin": "Администрирование",
+    "logs": "Журнал"
+  },
+  "schedule": {
+    "title": "Расписание",
+    "noAssignments": "Нет назначений",
+    "person": "Человек",
+    "task": "Задача",
+    "time": "Время"
+  },
+  "admin": {
+    "title": "Режим администратора",
+    "enterAdmin": "Войти в режим администратора",
+    "exitAdmin": "Выйти из режима администратора",
+    "spaces": "Пространства",
+    "people": "Люди",
+    "tasks": "Задачи",
+    "constraints": "Ограничения",
+    "publish": "Опубликовать",
+    "rollback": "Откат"
+  },
+  "errors": {
+    "unauthorized": "Нет доступа",
+    "notFound": "Не найдено",
+    "serverError": "Ошибка сервера"
+  }
+}

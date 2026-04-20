@@ -1,0 +1,45 @@
+{
+  "space_id": "10000000-0000-0000-0000-000000000001",
+  "run_id": "00000000-0000-0000-0000-000000000099",
+  "trigger_mode": "standard",
+  "horizon_start": "2026-04-20",
+  "horizon_end": "2026-04-26",
+  "stability_weights": {
+    "today_tomorrow": 10.0,
+    "days_3_4": 3.0,
+    "days_5_7": 1.0
+  },
+  "people": [
+    { "person_id": "50000000-0000-0000-0000-000000000001", "role_ids": ["20000000-0000-0000-0000-000000000001"], "qualification_ids": [], "group_ids": ["40000000-0000-0000-0000-000000000001"] },
+    { "person_id": "50000000-0000-0000-0000-000000000002", "role_ids": ["20000000-0000-0000-0000-000000000001"], "qualification_ids": [], "group_ids": ["40000000-0000-0000-0000-000000000001"] },
+    { "person_id": "50000000-0000-0000-0000-000000000003", "role_ids": ["20000000-0000-0000-0000-000000000001"], "qualification_ids": [], "group_ids": ["40000000-0000-0000-0000-000000000002"] }
+  ],
+  "availability_windows": [],
+  "presence_windows": [],
+  "task_slots": [
+    {
+      "slot_id": "slot-001", "task_type_id": "60000000-0000-0000-0000-000000000001",
+      "task_type_name": "עמדה 1", "burden_level": "neutral",
+      "starts_at": "2026-04-20T08:00:00", "ends_at": "2026-04-20T16:00:00",
+      "required_headcount": 1, "priority": 5,
+      "required_role_ids": [], "required_qualification_ids": [], "allows_overlap": false
+    },
+    {
+      "slot_id": "slot-002", "task_type_id": "60000000-0000-0000-0000-000000000003",
+      "task_type_name": "מטבח", "burden_level": "disliked",
+      "starts_at": "2026-04-20T06:00:00", "ends_at": "2026-04-20T14:00:00",
+      "required_headcount": 1, "priority": 5,
+      "required_role_ids": [], "required_qualification_ids": [], "allows_overlap": false
+    }
+  ],
+  "hard_constraints": [
+    {
+      "constraint_id": "c-001", "rule_type": "min_rest_hours",
+      "scope_type": "space", "scope_id": null,
+      "payload": { "hours": 8 }
+    }
+  ],
+  "soft_constraints": [],
+  "baseline_assignments": [],
+  "fairness_counters": []
+}

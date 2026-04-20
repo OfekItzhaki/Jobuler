@@ -1,0 +1,28 @@
+using Jobuler.Domain.Identity;
+using Jobuler.Infrastructure.Persistence;
+using MediatR;
+using Microsoft.EntityFrameworkCore;
+
+namespace Jobuler.Application.Auth.Commands;
+
+public class RegisterCommandHandler : IRequestHandler<RegisterCommand, Guid>
+{
+    private readonly AppDbContext _db;
+
+    public RegisterCommandHandler(AppDbContext db) => _db = db;
+
+    public async Task<Guid> Handle(RegisterCommand request, CancellationToken ct)
+    {
+        var exists = await _db.Users.AnyAsync(u => u.Email == request.Email.ToLowerInvariant().Trim(), ct);
+        if (exists)
+            throw new InvalidOperationException("Email already registered.");
+
+        var hash = BCrypt.Net.BCrypt.HashPassword(request.Password, workFactor: 12);
+        var user = User.Create(request.Email, request.DisplayName, hash, request.PreferredLocale);
+
+        _db.Users.Add(user);
+        await _db.SaveChangesAsync(ct);
+
+        return user.Id;
+    }
+}
