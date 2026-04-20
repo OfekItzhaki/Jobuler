@@ -1,17 +1,22 @@
+using FluentValidation;
 using Jobuler.Api.Middleware;
 using Jobuler.Application.Auth.Commands;
 using Jobuler.Application.Common;
 using Jobuler.Application.Scheduling;
 using Jobuler.Infrastructure.Auth;
+using Jobuler.Infrastructure.Logging;
 using Jobuler.Infrastructure.Persistence;
 using Jobuler.Infrastructure.Scheduling;
+using MediatR;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using Serilog;
 using StackExchange.Redis;
 using System.Text;
+using System.Threading.RateLimiting;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -52,10 +57,17 @@ builder.Services.AddAuthorization();
 
 // ─── Application services ────────────────────────────────────────────────────
 builder.Services.AddMediatR(cfg =>
-    cfg.RegisterServicesFromAssembly(typeof(LoginCommand).Assembly));
+{
+    cfg.RegisterServicesFromAssembly(typeof(LoginCommand).Assembly);
+    cfg.AddBehavior(typeof(IPipelineBehavior<,>), typeof(ValidationBehavior<,>));
+});
+
+builder.Services.AddValidatorsFromAssembly(typeof(LoginCommand).Assembly);
 
 builder.Services.AddScoped<IJwtService, JwtService>();
 builder.Services.AddScoped<IPermissionService, PermissionService>();
+builder.Services.AddScoped<IAuditLogger, AuditLogger>();
+builder.Services.AddScoped<ISystemLogger, SystemLogger>();
 
 // ─── Redis ───────────────────────────────────────────────────────────────────
 var redisConn = builder.Configuration["Redis:ConnectionString"] ?? "localhost:6379";
@@ -101,7 +113,29 @@ builder.Services.AddSwaggerGen(c =>
     });
 });
 
-// ─── CORS (dev only — tighten in production) ─────────────────────────────────
+// ─── Rate limiting ───────────────────────────────────────────────────────────
+builder.Services.AddRateLimiter(options =>
+{
+    // Strict limit on auth endpoints — prevents brute force
+    options.AddFixedWindowLimiter("auth", o =>
+    {
+        o.PermitLimit = 10;
+        o.Window = TimeSpan.FromMinutes(1);
+        o.QueueProcessingOrder = QueueProcessingOrder.OldestFirst;
+        o.QueueLimit = 0;
+    });
+
+    // General API limit per IP
+    options.AddFixedWindowLimiter("api", o =>
+    {
+        o.PermitLimit = 200;
+        o.Window = TimeSpan.FromMinutes(1);
+        o.QueueProcessingOrder = QueueProcessingOrder.OldestFirst;
+        o.QueueLimit = 5;
+    });
+
+    options.RejectionStatusCode = 429;
+});
 builder.Services.AddCors(options =>
     options.AddDefaultPolicy(policy =>
         policy.WithOrigins("http://localhost:3000")
@@ -121,6 +155,7 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseCors();
+app.UseRateLimiter();
 app.UseAuthentication();
 app.UseAuthorization();
 app.UseMiddleware<TenantContextMiddleware>();

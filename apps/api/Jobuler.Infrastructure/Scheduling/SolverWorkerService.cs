@@ -1,6 +1,7 @@
 using Jobuler.Application.Scheduling;
 using Jobuler.Application.Scheduling.Commands;
 using Jobuler.Domain.Scheduling;
+using Jobuler.Infrastructure.Logging;
 using Jobuler.Infrastructure.Persistence;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
@@ -53,6 +54,7 @@ public class SolverWorkerService : BackgroundService
         var client     = scope.ServiceProvider.GetRequiredService<ISolverClient>();
         var db         = scope.ServiceProvider.GetRequiredService<AppDbContext>();
         var mediator   = scope.ServiceProvider.GetRequiredService<IMediator>();
+        var sysLog     = scope.ServiceProvider.GetRequiredService<ISystemLogger>();
 
         var job = await queue.DequeueAsync(ct);
         if (job is null)
@@ -160,6 +162,13 @@ public class SolverWorkerService : BackgroundService
             // Update fairness counters after successful solve
             await mediator.Send(new UpdateFairnessCountersCommand(job.SpaceId, version.Id), ct);
 
+            // System log — solver completed
+            var sev = output.TimedOut ? "warning" : (output.Feasible ? "info" : "error");
+            var evt = output.Feasible ? "solver_completed" : "solver_infeasible";
+            await sysLog.LogAsync(job.SpaceId, sev, evt,
+                $"Solver run {job.RunId} finished. Feasible={output.Feasible} TimedOut={output.TimedOut} Assignments={assignments.Count}",
+                detailsJson: summaryJson, actorUserId: job.RequestedByUserId, ct: ct);
+
             _logger.LogInformation(
                 "Solver job completed: run_id={RunId} version={Version} feasible={Feasible} assignments={Count}",
                 job.RunId, nextVersion, output.Feasible, assignments.Count);
@@ -169,6 +178,12 @@ public class SolverWorkerService : BackgroundService
             _logger.LogError(ex, "Solver job failed: run_id={RunId}", job.RunId);
             run.MarkFailed(ex.Message);
             await db.SaveChangesAsync(ct);
+
+            // System log — solver failed
+            var sysLog2 = scope.ServiceProvider.GetRequiredService<ISystemLogger>();
+            await sysLog2.LogAsync(job.SpaceId, "error", "solver_failed",
+                $"Solver run {job.RunId} failed: {ex.Message}",
+                actorUserId: job.RequestedByUserId, ct: ct);
         }
     }
 

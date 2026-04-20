@@ -1,12 +1,15 @@
+using FluentValidation;
 using Jobuler.Application.Auth.Commands;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace Jobuler.Api.Controllers;
 
 [ApiController]
 [Route("auth")]
+[EnableRateLimiting("auth")]
 public class AuthController : ControllerBase
 {
     private readonly IMediator _mediator;

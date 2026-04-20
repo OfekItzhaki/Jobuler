@@ -1,3 +1,4 @@
+using Jobuler.Application.Common;
 using Jobuler.Domain.Scheduling;
 using Jobuler.Infrastructure.Persistence;
 using MediatR;
@@ -13,8 +14,13 @@ public record PublishVersionCommand(
 public class PublishVersionCommandHandler : IRequestHandler<PublishVersionCommand>
 {
     private readonly AppDbContext _db;
+    private readonly IAuditLogger _audit;
 
-    public PublishVersionCommandHandler(AppDbContext db) => _db = db;
+    public PublishVersionCommandHandler(AppDbContext db, IAuditLogger audit)
+    {
+        _db = db;
+        _audit = audit;
+    }
 
     public async Task Handle(PublishVersionCommand req, CancellationToken ct)
     {
@@ -32,7 +38,14 @@ public class PublishVersionCommandHandler : IRequestHandler<PublishVersionComman
 
         // Publish enforces draft-only rule inside the domain entity
         version.Publish(req.RequestingUserId);
-
         await _db.SaveChangesAsync(ct);
+
+        // Audit log — required by security rules
+        await _audit.LogAsync(
+            req.SpaceId, req.RequestingUserId,
+            "publish_schedule",
+            "schedule_version", req.VersionId,
+            afterJson: $"{{\"version_number\":{version.VersionNumber}}}",
+            ct: ct);
     }
 }

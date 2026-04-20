@@ -1,3 +1,4 @@
+using FluentValidation;
 using System.Net;
 using System.Text.Json;
 
@@ -32,13 +33,17 @@ public class ExceptionHandlingMiddleware
 
     private async Task HandleExceptionAsync(HttpContext context, Exception ex)
     {
-        var (statusCode, message) = ex switch
+        var (statusCode, message, errors) = ex switch
         {
-            UnauthorizedAccessException => (HttpStatusCode.Forbidden, ex.Message),
-            KeyNotFoundException        => (HttpStatusCode.NotFound, ex.Message),
-            InvalidOperationException   => (HttpStatusCode.BadRequest, ex.Message),
-            ArgumentException           => (HttpStatusCode.BadRequest, ex.Message),
-            _                           => (HttpStatusCode.InternalServerError, "An unexpected error occurred.")
+            ValidationException ve => (
+                HttpStatusCode.BadRequest,
+                "Validation failed.",
+                ve.Errors.Select(e => e.ErrorMessage).ToList()),
+            UnauthorizedAccessException => (HttpStatusCode.Forbidden, ex.Message, (List<string>?)[]),
+            KeyNotFoundException        => (HttpStatusCode.NotFound, ex.Message, (List<string>?)[]),
+            InvalidOperationException   => (HttpStatusCode.BadRequest, ex.Message, (List<string>?)[]),
+            ArgumentException           => (HttpStatusCode.BadRequest, ex.Message, (List<string>?)[]),
+            _                           => (HttpStatusCode.InternalServerError, "An unexpected error occurred.", (List<string>?)[])
         };
 
         if (statusCode == HttpStatusCode.InternalServerError)
@@ -49,7 +54,11 @@ public class ExceptionHandlingMiddleware
         context.Response.StatusCode = (int)statusCode;
         context.Response.ContentType = "application/json";
 
-        var body = JsonSerializer.Serialize(new { error = message });
+        var body = JsonSerializer.Serialize(new
+        {
+            error = message,
+            errors = errors?.Count > 0 ? errors : null
+        });
         await context.Response.WriteAsync(body);
     }
 }
