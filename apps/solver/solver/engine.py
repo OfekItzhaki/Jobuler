@@ -117,7 +117,12 @@ def _empty_result(input: SolverInput) -> SolverOutput:
         uncovered_slot_ids=[],
         hard_conflicts=[],
         soft_penalty_total=0.0,
-        stability_metrics=StabilityMetrics(0, 0, 0, 0.0),
+        stability_metrics=StabilityMetrics(
+            today_tomorrow_changes=0,
+            days_3_4_changes=0,
+            days_5_7_changes=0,
+            total_stability_penalty=0.0
+        ),
         fairness_metrics=[],
         explanation_fragments=["No slots or people to schedule."]
     )
@@ -136,7 +141,12 @@ def _compute_uncovered(solver, assign, slots, num_people, feasible) -> list[str]
 
 def _compute_stability(solver, assign, input: SolverInput, feasible) -> StabilityMetrics:
     if not feasible:
-        return StabilityMetrics(0, 0, 0, 0.0)
+        return StabilityMetrics(
+            today_tomorrow_changes=0,
+            days_3_4_changes=0,
+            days_5_7_changes=0,
+            total_stability_penalty=0.0
+        )
 
     from solver.objectives import _stability_weight
     from datetime import date
