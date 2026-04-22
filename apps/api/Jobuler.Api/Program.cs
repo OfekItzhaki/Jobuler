@@ -142,7 +142,7 @@ builder.Services.AddRateLimiter(options =>
     // Strict limit on auth endpoints — prevents brute force
     options.AddFixedWindowLimiter("auth", o =>
     {
-        o.PermitLimit = 10;
+        o.PermitLimit = builder.Environment.IsDevelopment() ? 100 : 10;
         o.Window = TimeSpan.FromMinutes(1);
         o.QueueProcessingOrder = QueueProcessingOrder.OldestFirst;
         o.QueueLimit = 0;
