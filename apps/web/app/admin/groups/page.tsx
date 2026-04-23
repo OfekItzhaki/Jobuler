@@ -58,7 +58,7 @@ export default function GroupsPage() {
     setError(null);
     try {
       await apiClient.post(`/spaces/${currentSpaceId}/groups`, {
-        groupTypeId: null, name: newGroupName.trim(), description: null,
+        name: newGroupName.trim(), description: null,
       });
       await loadGroups();
       setNewGroupName("");

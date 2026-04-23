@@ -76,7 +76,8 @@ public class GetGroupMembersQueryHandler : IRequestHandler<GetGroupMembersQuery,
         await _db.GroupMemberships.AsNoTracking()
             .Where(m => m.GroupId == req.GroupId && m.SpaceId == req.SpaceId)
             .Join(_db.People, m => m.PersonId, p => p.Id,
-                (m, p) => new GroupMemberDto(p.Id, p.FullName, p.DisplayName))
+                (m, p) => new { p.Id, p.FullName, p.DisplayName })
             .OrderBy(p => p.FullName)
+            .Select(p => new GroupMemberDto(p.Id, p.FullName, p.DisplayName))
             .ToListAsync(ct);
 }
