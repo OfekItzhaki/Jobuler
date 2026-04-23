@@ -5,7 +5,7 @@ using Microsoft.EntityFrameworkCore;
 namespace Jobuler.Application.Groups.Queries;
 
 public record GroupTypeDto(Guid Id, string Name, string? Description, bool IsActive);
-public record GroupDto(Guid Id, Guid GroupTypeId, string GroupTypeName, string Name, string? Description, bool IsActive, int MemberCount);
+public record GroupDto(Guid Id, Guid? GroupTypeId, string? GroupTypeName, string Name, string? Description, bool IsActive, int MemberCount);
 public record GroupMemberDto(Guid PersonId, string FullName, string? DisplayName);
 
 public record GetGroupTypesQuery(Guid SpaceId) : IRequest<List<GroupTypeDto>>;
@@ -34,10 +34,18 @@ public class GetGroupsQueryHandler : IRequestHandler<GetGroupsQuery, List<GroupD
     {
         var groups = await _db.Groups.AsNoTracking()
             .Where(g => g.SpaceId == req.SpaceId && g.IsActive)
-            .Join(_db.GroupTypes, g => g.GroupTypeId, t => t.Id,
-                (g, t) => new { g, TypeName = t.Name })
-            .OrderBy(x => x.TypeName).ThenBy(x => x.g.Name)
+            .OrderBy(g => g.Name)
             .ToListAsync(ct);
+
+        // Fetch type names only for groups that have a type (left-join equivalent)
+        var typeIds = groups.Where(g => g.GroupTypeId.HasValue)
+            .Select(g => g.GroupTypeId!.Value).Distinct().ToList();
+
+        var typeNames = typeIds.Any()
+            ? await _db.GroupTypes.AsNoTracking()
+                .Where(t => typeIds.Contains(t.Id))
+                .ToDictionaryAsync(t => t.Id, t => t.Name, ct)
+            : new Dictionary<Guid, string>();
 
         var memberCounts = await _db.GroupMemberships.AsNoTracking()
             .Where(m => m.SpaceId == req.SpaceId)
@@ -45,9 +53,15 @@ public class GetGroupsQueryHandler : IRequestHandler<GetGroupsQuery, List<GroupD
             .Select(g => new { GroupId = g.Key, Count = g.Count() })
             .ToDictionaryAsync(x => x.GroupId, x => x.Count, ct);
 
-        return groups.Select(x => new GroupDto(
-            x.g.Id, x.g.GroupTypeId, x.TypeName, x.g.Name, x.g.Description,
-            x.g.IsActive, memberCounts.GetValueOrDefault(x.g.Id, 0))).ToList();
+        return groups.Select(g => new GroupDto(
+            g.Id,
+            g.GroupTypeId,
+            g.GroupTypeId.HasValue ? typeNames.GetValueOrDefault(g.GroupTypeId.Value) : null,
+            g.Name,
+            g.Description,
+            g.IsActive,
+            memberCounts.GetValueOrDefault(g.Id, 0)
+        )).ToList();
     }
 }
 

@@ -80,5 +80,5 @@ public class GroupsController : ControllerBase
 }
 
 public record CreateGroupTypeRequest(string Name, string? Description);
-public record CreateGroupRequest(Guid GroupTypeId, string Name, string? Description);
+public record CreateGroupRequest(Guid? GroupTypeId, string Name, string? Description);
 public record AddMemberRequest(Guid PersonId);

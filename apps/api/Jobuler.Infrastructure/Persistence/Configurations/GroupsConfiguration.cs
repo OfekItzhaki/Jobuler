@@ -28,7 +28,7 @@ public class GroupConfiguration : IEntityTypeConfiguration<Group>
         builder.HasKey(g => g.Id);
         builder.Property(g => g.Id).HasColumnName("id");
         builder.Property(g => g.SpaceId).HasColumnName("space_id");
-        builder.Property(g => g.GroupTypeId).HasColumnName("group_type_id");
+        builder.Property(g => g.GroupTypeId).HasColumnName("group_type_id").IsRequired(false);
         builder.Property(g => g.Name).HasColumnName("name").IsRequired();
         builder.Property(g => g.Description).HasColumnName("description");
         builder.Property(g => g.IsActive).HasColumnName("is_active");

@@ -23,7 +23,7 @@ public class CreateGroupTypeCommandHandler : IRequestHandler<CreateGroupTypeComm
 }
 
 public record CreateGroupCommand(
-    Guid SpaceId, Guid GroupTypeId, string Name, string? Description) : IRequest<Guid>;
+    Guid SpaceId, Guid? GroupTypeId, string Name, string? Description) : IRequest<Guid>;
 
 public class CreateGroupCommandHandler : IRequestHandler<CreateGroupCommand, Guid>
 {

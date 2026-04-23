@@ -4,13 +4,12 @@ import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import AppShell from "@/components/shell/AppShell";
 import { apiClient } from "@/lib/api/client";
-import { createPerson, PersonDto } from "@/lib/api/people";
+import { createPerson } from "@/lib/api/people";
 import { useSpaceStore } from "@/lib/store/spaceStore";
 import { useAuthStore } from "@/lib/store/authStore";
 import Link from "next/link";
 
-interface GroupTypeDto { id: string; name: string; }
-interface GroupDto { id: string; groupTypeId: string; groupTypeName: string; name: string; memberCount: number; }
+interface GroupDto { id: string; name: string; memberCount: number; }
 interface MemberDto { personId: string; fullName: string; displayName: string | null; }
 
 export default function GroupsPage() {
@@ -18,22 +17,14 @@ export default function GroupsPage() {
   const { currentSpaceId } = useSpaceStore();
   const { isAdminMode } = useAuthStore();
 
-  const [groupTypes, setGroupTypes] = useState<GroupTypeDto[]>([]);
   const [groups, setGroups] = useState<GroupDto[]>([]);
   const [selectedGroup, setSelectedGroup] = useState<GroupDto | null>(null);
   const [members, setMembers] = useState<MemberDto[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Group type form
-  const [newTypeName, setNewTypeName] = useState("");
-  const [savingType, setSavingType] = useState(false);
-
-  // Group form
   const [newGroupName, setNewGroupName] = useState("");
-  const [newGroupTypeId, setNewGroupTypeId] = useState("");
   const [savingGroup, setSavingGroup] = useState(false);
 
-  // Add new person directly to group
   const [showAddPerson, setShowAddPerson] = useState(false);
   const [newPersonFull, setNewPersonFull] = useState("");
   const [newPersonDisplay, setNewPersonDisplay] = useState("");
@@ -41,15 +32,15 @@ export default function GroupsPage() {
 
   const [error, setError] = useState<string | null>(null);
 
+  async function loadGroups() {
+    if (!currentSpaceId) return;
+    const { data } = await apiClient.get(`/spaces/${currentSpaceId}/groups`);
+    setGroups(data);
+  }
+
   useEffect(() => {
     if (!currentSpaceId) { setLoading(false); return; }
-    Promise.all([
-      apiClient.get(`/spaces/${currentSpaceId}/group-types`).then(r => r.data),
-      apiClient.get(`/spaces/${currentSpaceId}/groups`).then(r => r.data),
-    ]).then(([types, grps]) => {
-      setGroupTypes(types); setGroups(grps);
-      if (types.length > 0) setNewGroupTypeId(types[0].id);
-    }).finally(() => setLoading(false));
+    loadGroups().finally(() => setLoading(false));
   }, [currentSpaceId]);
 
   async function loadMembers(group: GroupDto) {
@@ -59,26 +50,17 @@ export default function GroupsPage() {
     setMembers(data);
   }
 
-  async function handleCreateType(e: React.FormEvent) {
-    e.preventDefault();
-    if (!currentSpaceId || !newTypeName.trim()) return;
-    setSavingType(true);
-    try {
-      await apiClient.post(`/spaces/${currentSpaceId}/group-types`, { name: newTypeName, description: null });
-      const { data } = await apiClient.get(`/spaces/${currentSpaceId}/group-types`);
-      setGroupTypes(data); setNewTypeName("");
-    } catch { setError("שגיאה ביצירת סוג קבוצה"); }
-    finally { setSavingType(false); }
-  }
-
   async function handleCreateGroup(e: React.FormEvent) {
     e.preventDefault();
-    if (!currentSpaceId || !newGroupName.trim() || !newGroupTypeId) return;
+    if (!currentSpaceId || !newGroupName.trim()) return;
     setSavingGroup(true);
     try {
-      await apiClient.post(`/spaces/${currentSpaceId}/groups`, { groupTypeId: newGroupTypeId, name: newGroupName, description: null });
-      const { data } = await apiClient.get(`/spaces/${currentSpaceId}/groups`);
-      setGroups(data); setNewGroupName("");
+      // Create group without a type (groupTypeId is now optional on the backend)
+      await apiClient.post(`/spaces/${currentSpaceId}/groups`, {
+        groupTypeId: null, name: newGroupName.trim(), description: null,
+      });
+      await loadGroups();
+      setNewGroupName("");
     } catch { setError("שגיאה ביצירת קבוצה"); }
     finally { setSavingGroup(false); }
   }
@@ -88,15 +70,14 @@ export default function GroupsPage() {
     if (!currentSpaceId || !selectedGroup || !newPersonFull.trim()) return;
     setAddingPerson(true);
     try {
-      // Create person
       const { data: newP } = await apiClient.post(`/spaces/${currentSpaceId}/people`, {
         fullName: newPersonFull.trim(),
         displayName: newPersonDisplay.trim() || null,
         linkedUserId: null,
       });
-      // Add to group
       await apiClient.post(`/spaces/${currentSpaceId}/groups/${selectedGroup.id}/members`, { personId: newP.id });
       await loadMembers(selectedGroup);
+      await loadGroups();
       setNewPersonFull(""); setNewPersonDisplay(""); setShowAddPerson(false);
     } catch { setError("שגיאה בהוספת חייל"); }
     finally { setAddingPerson(false); }
@@ -116,28 +97,21 @@ export default function GroupsPage() {
           <p className="text-sm text-slate-500 mt-1">ניהול קבוצות וחיילים</p>
         </div>
 
-        {error && <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3 text-sm text-red-700">{error}</div>}
+        {error && (
+          <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3 text-sm text-red-700">{error}</div>
+        )}
 
         <div className="grid grid-cols-3 gap-6">
-          {/* Left: forms + groups table */}
+          {/* Left: create group + groups table */}
           <div className="col-span-2 space-y-4">
-            {/* Create group type */}
-            <form onSubmit={handleCreateType} className="flex gap-2">
-              <input value={newTypeName} onChange={e => setNewTypeName(e.target.value)}
-                placeholder="סוג קבוצה חדש (לדוגמה: כיתה)" className={`flex-1 ${inp}`} />
-              <button type="submit" disabled={savingType}
-                className="bg-slate-700 hover:bg-slate-800 text-white text-sm font-medium px-4 py-2.5 rounded-xl disabled:opacity-50 whitespace-nowrap">
-                {savingType ? "..." : "+ סוג"}
-              </button>
-            </form>
-
-            {/* Create group */}
+            {/* Create group — just a name */}
             <form onSubmit={handleCreateGroup} className="flex gap-2">
-              <select value={newGroupTypeId} onChange={e => setNewGroupTypeId(e.target.value)} className={inp}>
-                {groupTypes.map(gt => <option key={gt.id} value={gt.id}>{gt.name}</option>)}
-              </select>
-              <input value={newGroupName} onChange={e => setNewGroupName(e.target.value)}
-                placeholder="שם קבוצה חדשה" className={`flex-1 ${inp}`} />
+              <input
+                value={newGroupName}
+                onChange={e => setNewGroupName(e.target.value)}
+                placeholder="שם קבוצה חדשה (לדוגמה: כיתה א׳)"
+                className={`flex-1 ${inp}`}
+              />
               <button type="submit" disabled={savingGroup}
                 className="bg-blue-500 hover:bg-blue-600 text-white text-sm font-medium px-4 py-2.5 rounded-xl disabled:opacity-50 whitespace-nowrap">
                 {savingGroup ? "..." : `+ ${t("addGroup")}`}
@@ -151,28 +125,34 @@ export default function GroupsPage() {
                   <thead>
                     <tr className="border-b border-slate-100 bg-slate-50/80">
                       <th className="px-4 py-3 text-start text-xs font-semibold text-slate-500 uppercase tracking-wider">קבוצה</th>
-                      <th className="px-4 py-3 text-start text-xs font-semibold text-slate-500 uppercase tracking-wider">סוג</th>
                       <th className="px-4 py-3 text-start text-xs font-semibold text-slate-500 uppercase tracking-wider">חברים</th>
                       <th className="px-4 py-3"></th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
                     {groups.map(g => (
-                      <tr key={g.id} className={`hover:bg-slate-50/60 transition-colors ${selectedGroup?.id === g.id ? "bg-blue-50/40" : ""}`}>
+                      <tr key={g.id}
+                        className={`hover:bg-slate-50/60 transition-colors ${selectedGroup?.id === g.id ? "bg-blue-50/40" : ""}`}>
                         <td className="px-4 py-3.5 font-medium text-slate-900">{g.name}</td>
-                        <td className="px-4 py-3.5 text-slate-500">{g.groupTypeName}</td>
                         <td className="px-4 py-3.5">
-                          <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-slate-100 text-slate-600 text-xs font-semibold">{g.memberCount}</span>
+                          <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-slate-100 text-slate-600 text-xs font-semibold">
+                            {g.memberCount}
+                          </span>
                         </td>
                         <td className="px-4 py-3.5">
-                          <button onClick={() => loadMembers(g)} className="text-xs font-medium text-blue-600 hover:text-blue-700">
+                          <button onClick={() => loadMembers(g)}
+                            className="text-xs font-medium text-blue-600 hover:text-blue-700">
                             ניהול →
                           </button>
                         </td>
                       </tr>
                     ))}
                     {groups.length === 0 && (
-                      <tr><td colSpan={4} className="px-4 py-12 text-center text-slate-400 text-sm">{t("noData")}</td></tr>
+                      <tr>
+                        <td colSpan={3} className="px-4 py-12 text-center text-slate-400 text-sm">
+                          {t("noData")}
+                        </td>
+                      </tr>
                     )}
                   </tbody>
                 </table>
@@ -195,7 +175,6 @@ export default function GroupsPage() {
                   </button>
                 </div>
 
-                {/* Add new person form */}
                 {showAddPerson && (
                   <form onSubmit={handleAddNewPerson} className="space-y-2 border-t pt-3">
                     <input value={newPersonFull} onChange={e => setNewPersonFull(e.target.value)}
@@ -215,21 +194,21 @@ export default function GroupsPage() {
                   </form>
                 )}
 
-                {/* Members list */}
                 <div className="space-y-1.5">
                   {members.map(m => (
-                    <div key={m.personId} className="flex items-center gap-2.5 px-3 py-2.5 bg-slate-50 border border-slate-100 rounded-xl">
+                    <div key={m.personId}
+                      className="flex items-center gap-2.5 px-3 py-2.5 bg-slate-50 border border-slate-100 rounded-xl">
                       <div className="w-7 h-7 rounded-full bg-blue-100 flex items-center justify-center shrink-0">
                         <span className="text-xs font-semibold text-blue-600">
                           {(m.displayName ?? m.fullName).charAt(0).toUpperCase()}
                         </span>
                       </div>
-                      <div className="min-w-0">
+                      <div className="min-w-0 flex-1">
                         <p className="text-sm text-slate-700 truncate">{m.displayName ?? m.fullName}</p>
                         {m.displayName && <p className="text-xs text-slate-400 truncate">{m.fullName}</p>}
                       </div>
                       <Link href={`/admin/people/${m.personId}`}
-                        className="ms-auto text-xs text-blue-500 hover:text-blue-700 shrink-0">
+                        className="text-xs text-blue-500 hover:text-blue-700 shrink-0">
                         פרטים
                       </Link>
                     </div>

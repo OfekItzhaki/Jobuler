@@ -131,7 +131,7 @@ export default function AdminSchedulePage() {
           <svg className="w-12 h-12 text-slate-200 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
           </svg>
-          <p className="text-slate-500 text-sm">Enter admin mode to manage schedules.</p>
+          <p className="text-slate-500 text-sm">יש להיכנס למצב מנהל כדי לנהל סידורים.</p>
         </div>
       </AppShell>
     );
@@ -143,26 +143,38 @@ export default function AdminSchedulePage() {
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-slate-900">Schedule Management</h1>
-            <p className="text-sm text-slate-500 mt-1">Manage and publish schedule versions</p>
+            <h1 className="text-2xl font-bold text-slate-900">ניהול סידור</h1>
+            <p className="text-sm text-slate-500 mt-1">ניהול ופרסום גרסאות סידור</p>
           </div>
-          <button
-            onClick={handleTrigger}
-            disabled={actionLoading}
-            className="flex items-center gap-2 bg-blue-500 hover:bg-blue-600 text-white text-sm font-medium px-4 py-2.5 rounded-xl shadow-sm shadow-blue-500/20 disabled:opacity-50 transition-all"
-          >
-            {actionLoading ? (
-              <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-              </svg>
-            ) : (
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleEmergencyTrigger}
+              disabled={actionLoading}
+              className="flex items-center gap-2 bg-red-500 hover:bg-red-600 text-white text-sm font-medium px-4 py-2.5 rounded-xl shadow-sm shadow-red-500/20 disabled:opacity-50 transition-all"
+            >
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
               </svg>
-            )}
-            Trigger Solve
-          </button>
+              סידור חירום
+            </button>
+            <button
+              onClick={handleTrigger}
+              disabled={actionLoading}
+              className="flex items-center gap-2 bg-blue-500 hover:bg-blue-600 text-white text-sm font-medium px-4 py-2.5 rounded-xl shadow-sm shadow-blue-500/20 disabled:opacity-50 transition-all"
+            >
+              {actionLoading ? (
+                <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                </svg>
+              ) : (
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                </svg>
+              )}
+              הפעל סולבר
+            </button>
+          </div>
         </div>
 
         {/* Message banner */}
@@ -186,14 +198,14 @@ export default function AdminSchedulePage() {
         <div className="grid grid-cols-3 gap-6">
           {/* Version list */}
           <div className="space-y-3">
-            <h2 className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Versions</h2>
+            <h2 className="text-xs font-semibold text-slate-500 uppercase tracking-wider">גרסאות</h2>
             {loading && (
               <div className="flex items-center gap-2 text-slate-400 text-sm py-4">
                 <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                   <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
                 </svg>
-                Loading...
+                טוען...
               </div>
             )}
             <div className="space-y-1.5">
@@ -225,7 +237,7 @@ export default function AdminSchedulePage() {
                 <div className="flex items-center gap-2 flex-wrap">
                   <div className="flex items-center gap-2 me-2">
                     <span className="text-sm font-medium text-slate-700">
-                      Version {selected.version.versionNumber}
+                      גרסה {selected.version.versionNumber}
                     </span>
                     <StatusBadge status={selected.version.status} />
                   </div>
@@ -239,7 +251,7 @@ export default function AdminSchedulePage() {
                       <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                       </svg>
-                      Publish
+                      פרסם
                     </button>
                   )}
 
@@ -252,7 +264,7 @@ export default function AdminSchedulePage() {
                       <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
                       </svg>
-                      Rollback
+                      שחזר
                     </button>
                   )}
 
@@ -287,7 +299,7 @@ export default function AdminSchedulePage() {
                 <svg className="w-10 h-10 text-slate-200 mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
                 </svg>
-                <p className="text-slate-400 text-sm">Select a version to view details.</p>
+                <p className="text-slate-400 text-sm">בחר גרסה לצפייה בפרטים.</p>
               </div>
             )}
           </div>
