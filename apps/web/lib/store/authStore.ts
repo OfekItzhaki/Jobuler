@@ -64,6 +64,7 @@ export const useAuthStore = create<AuthState>()(
         displayName: state.displayName,
         preferredLocale: state.preferredLocale,
         isAuthenticated: state.isAuthenticated,
+        isAdminMode: state.isAdminMode,
       }),
     }
   )

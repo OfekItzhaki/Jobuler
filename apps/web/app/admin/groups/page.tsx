@@ -52,16 +52,19 @@ export default function GroupsPage() {
 
   async function handleCreateGroup(e: React.FormEvent) {
     e.preventDefault();
-    if (!currentSpaceId || !newGroupName.trim()) return;
+    if (!currentSpaceId) { setError("לא נבחר מרחב — נסה להתחבר מחדש"); return; }
+    if (!newGroupName.trim()) return;
     setSavingGroup(true);
+    setError(null);
     try {
-      // Create group without a type (groupTypeId is now optional on the backend)
       await apiClient.post(`/spaces/${currentSpaceId}/groups`, {
         groupTypeId: null, name: newGroupName.trim(), description: null,
       });
       await loadGroups();
       setNewGroupName("");
-    } catch { setError("שגיאה ביצירת קבוצה"); }
+    } catch (err: any) {
+      setError(err?.response?.data?.error || err?.response?.data?.message || "שגיאה ביצירת קבוצה");
+    }
     finally { setSavingGroup(false); }
   }
 
