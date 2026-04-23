@@ -1,12 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import { useAuthStore } from "@/lib/store/authStore";
 import { useSpaceStore } from "@/lib/store/spaceStore";
 import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
 import NotificationBell from "@/components/shell/NotificationBell";
+import { getMySpaces } from "@/lib/api/spaces";
 
 interface AppShellProps { children: React.ReactNode; }
 
@@ -47,8 +48,19 @@ function NavItem({ href, label, icon, admin }: { href: string; label: string; ic
 export default function AppShell({ children }: AppShellProps) {
   const t = useTranslations();
   const { displayName, isAdminMode, enterAdminMode, exitAdminMode, logout } = useAuthStore();
-  const { currentSpaceName } = useSpaceStore();
+  const { currentSpaceId, currentSpaceName, setCurrentSpace } = useSpaceStore();
   const router = useRouter();
+
+  // Auto-resolve space if missing — happens when localStorage was cleared or first login
+  useEffect(() => {
+    if (!currentSpaceId) {
+      getMySpaces().then(spaces => {
+        if (spaces.length > 0) {
+          setCurrentSpace(spaces[0].id, spaces[0].name);
+        }
+      }).catch(() => {});
+    }
+  }, [currentSpaceId]);
 
   async function handleLogout() { await logout(); router.push("/login"); }
 

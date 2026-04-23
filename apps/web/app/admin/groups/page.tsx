@@ -52,7 +52,7 @@ export default function GroupsPage() {
 
   async function handleCreateGroup(e: React.FormEvent) {
     e.preventDefault();
-    if (!currentSpaceId) { setError("לא נבחר מרחב — נסה להתחבר מחדש"); return; }
+    if (!currentSpaceId) { setError("טוען מרחב... נסה שוב בעוד שנייה"); return; }
     if (!newGroupName.trim()) return;
     setSavingGroup(true);
     setError(null);
