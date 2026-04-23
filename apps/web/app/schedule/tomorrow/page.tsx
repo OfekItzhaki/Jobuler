@@ -60,7 +60,7 @@ export default function TomorrowPage() {
           >
             <option value="">{t("selectGroup")}</option>
             {groups.map(g => (
-              <option key={g.id} value={g.id}>{g.name} ({g.groupTypeName})</option>
+              <option key={g.id} value={g.id}>{g.name}</option>
             ))}
           </select>
         </div>

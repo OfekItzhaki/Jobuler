@@ -49,9 +49,9 @@ export default function ConstraintsPage() {
       const updated = await getConstraints(currentSpaceId);
       setConstraints(updated);
       setShowManual(false);
-      setSuccess("Constraint saved.");
+      setSuccess("האילוץ נשמר בהצלחה.");
       setTimeout(() => setSuccess(null), 3000);
-    } catch { setError("Failed to save constraint."); }
+    } catch { setError("שגיאה בשמירת האילוץ."); }
     finally { setSaving(false); }
   }
 
@@ -77,7 +77,7 @@ export default function ConstraintsPage() {
           <svg className="w-12 h-12 text-slate-200 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
           </svg>
-          <p className="text-slate-500 text-sm">Admin mode required.</p>
+          <p className="text-slate-500 text-sm">נדרש מצב מנהל.</p>
         </div>
       </AppShell>
     );
@@ -91,8 +91,8 @@ export default function ConstraintsPage() {
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-slate-900">Constraints</h1>
-            <p className="text-sm text-slate-500 mt-1">Define scheduling rules and restrictions</p>
+            <h1 className="text-2xl font-bold text-slate-900">אילוצים</h1>
+            <p className="text-sm text-slate-500 mt-1">הגדרת כללי תזמון ומגבלות</p>
           </div>
           <button
             onClick={() => setShowManual(!showManual)}
@@ -101,7 +101,7 @@ export default function ConstraintsPage() {
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
             </svg>
-            Add manually
+            הוסף ידנית
           </button>
         </div>
 
@@ -130,10 +130,10 @@ export default function ConstraintsPage() {
         {showManual && (
           <form onSubmit={handleManualSubmit}
             className="bg-white border border-slate-200 rounded-2xl p-5 space-y-4 shadow-sm">
-            <h2 className="text-sm font-semibold text-slate-900">New constraint</h2>
+            <h2 className="text-sm font-semibold text-slate-900">אילוץ חדש</h2>
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-xs font-medium text-slate-500 mb-1.5">Scope type</label>
+                <label className="block text-xs font-medium text-slate-500 mb-1.5">סוג היקף</label>
                 <select value={scopeType} onChange={e => setScopeType(e.target.value)} className={inputClass}>
                   {["space", "person", "role", "group", "task_type"].map(s => (
                     <option key={s} value={s}>{s}</option>
@@ -141,14 +141,14 @@ export default function ConstraintsPage() {
                 </select>
               </div>
               <div>
-                <label className="block text-xs font-medium text-slate-500 mb-1.5">Severity</label>
+                <label className="block text-xs font-medium text-slate-500 mb-1.5">חומרה</label>
                 <select value={severity} onChange={e => setSeverity(e.target.value)} className={inputClass}>
-                  <option value="hard">Hard</option>
-                  <option value="soft">Soft</option>
+                  <option value="hard">קשיח</option>
+                  <option value="soft">רך</option>
                 </select>
               </div>
               <div>
-                <label className="block text-xs font-medium text-slate-500 mb-1.5">Rule type</label>
+                <label className="block text-xs font-medium text-slate-500 mb-1.5">סוג כלל</label>
                 <select value={ruleType} onChange={e => {
                   setRuleType(e.target.value);
                   const defaults: Record<string, string> = {
@@ -176,10 +176,10 @@ export default function ConstraintsPage() {
             <div className="flex gap-2">
               <button type="submit" disabled={saving}
                 className="bg-blue-500 hover:bg-blue-600 text-white text-sm font-medium px-4 py-2.5 rounded-xl disabled:opacity-50 transition-colors">
-                {saving ? "Saving..." : "Save"}
+                {saving ? "שומר..." : "שמור"}
               </button>
               <button type="button" onClick={() => setShowManual(false)}
-                className="text-sm text-slate-500 hover:text-slate-700 px-3 transition-colors">Cancel</button>
+                className="text-sm text-slate-500 hover:text-slate-700 px-3 transition-colors">ביטול</button>
             </div>
           </form>
         )}
@@ -190,7 +190,7 @@ export default function ConstraintsPage() {
               <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
               <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
             </svg>
-            Loading...
+            טוען...
           </div>
         )}
 
@@ -199,11 +199,11 @@ export default function ConstraintsPage() {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-slate-100 bg-slate-50/80">
-                <th className="px-4 py-3 text-start text-xs font-semibold text-slate-500 uppercase tracking-wider">Rule type</th>
-                <th className="px-4 py-3 text-start text-xs font-semibold text-slate-500 uppercase tracking-wider">Scope</th>
-                <th className="px-4 py-3 text-start text-xs font-semibold text-slate-500 uppercase tracking-wider">Severity</th>
+                <th className="px-4 py-3 text-start text-xs font-semibold text-slate-500 uppercase tracking-wider">סוג כלל</th>
+                <th className="px-4 py-3 text-start text-xs font-semibold text-slate-500 uppercase tracking-wider">היקף</th>
+                <th className="px-4 py-3 text-start text-xs font-semibold text-slate-500 uppercase tracking-wider">חומרה</th>
                 <th className="px-4 py-3 text-start text-xs font-semibold text-slate-500 uppercase tracking-wider">Payload</th>
-                <th className="px-4 py-3 text-start text-xs font-semibold text-slate-500 uppercase tracking-wider">Active</th>
+                <th className="px-4 py-3 text-start text-xs font-semibold text-slate-500 uppercase tracking-wider">פעיל</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -228,7 +228,7 @@ export default function ConstraintsPage() {
                       "text-xs font-medium",
                       c.isActive ? "text-emerald-600" : "text-slate-400"
                     )}>
-                      {c.isActive ? "Yes" : "No"}
+                      {c.isActive ? "כן" : "לא"}
                     </span>
                   </td>
                 </tr>
@@ -236,7 +236,7 @@ export default function ConstraintsPage() {
               {!loading && constraints.length === 0 && (
                 <tr>
                   <td colSpan={5} className="px-4 py-12 text-center text-slate-400 text-sm">
-                    No constraints yet.
+                    אין אילוצים עדיין.
                   </td>
                 </tr>
               )}
