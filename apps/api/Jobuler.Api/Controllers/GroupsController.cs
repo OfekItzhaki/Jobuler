@@ -88,7 +88,7 @@ public class GroupsController : ControllerBase
 
     [HttpPost("spaces/{spaceId:guid}/groups/{groupId:guid}/transfer")]
     public async Task<IActionResult> InitiateTransfer(Guid spaceId, Guid groupId,
-        [FromBody] TransferOwnershipRequest req, CancellationToken ct)
+        [FromBody] InitiateGroupTransferRequest req, CancellationToken ct)
     {
         await _permissions.RequirePermissionAsync(CurrentUserId, spaceId, Permissions.PeopleManage, ct);
         await _mediator.Send(new InitiateOwnershipTransferCommand(spaceId, groupId, CurrentUserId, req.ProposedPersonId), ct);
@@ -173,4 +173,4 @@ public record CreateGroupRequest(Guid? GroupTypeId, string Name, string? Descrip
 public record AddMemberByEmailRequest(string Email);
 public record UpdateGroupSettingsRequest(int SolverHorizonDays);
 public record RenameGroupRequest(string Name);
-public record TransferOwnershipRequest(Guid ProposedPersonId);
+public record InitiateGroupTransferRequest(Guid ProposedPersonId);
