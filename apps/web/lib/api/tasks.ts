@@ -46,8 +46,9 @@ export async function getTaskSlots(
   const params = new URLSearchParams();
   if (from) params.set("from", from);
   if (to) params.set("to", to);
+  const query = params.toString();
   const { data } = await apiClient.get(
-    `/spaces/${spaceId}/task-slots?${params.toString()}`
+    `/spaces/${spaceId}/task-slots${query ? `?${query}` : ''}`
   );
   return data;
 }

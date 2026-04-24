@@ -88,6 +88,8 @@ export default function GroupDetailPage() {
   const [scheduleData, setScheduleData] = useState<ScheduleAssignment[] | null>(null);
   const [scheduleLoading, setScheduleLoading] = useState(false);
   const [scheduleError, setScheduleError] = useState<string | null>(null);
+  const [scheduleDate, setScheduleDate] = useState<string>(new Date().toISOString().split("T")[0]);
+  const [scheduleView, setScheduleView] = useState<"day" | "week">("day");
   const [membersError, setMembersError] = useState<string | null>(null);
   const [taskTypes, setTaskTypes] = useState<TaskTypeDto[]>([]);
   const [taskSlots, setTaskSlots] = useState<TaskSlotDto[]>([]);
@@ -382,45 +384,188 @@ export default function GroupDetailPage() {
   }
 
   function renderSchedulePanel() {
-    if (scheduleLoading) {
-      return (
-        <div className="flex items-center gap-3 text-slate-400 text-sm py-8">
-          <svg className="animate-spin h-5 w-5 text-blue-400" fill="none" viewBox="0 0 24 24">
-            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-          </svg>
-          טוען...
-        </div>
-      );
+    const today = new Date().toISOString().split("T")[0];
+    const minDate = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
+    const maxDate = new Date(Date.now() + (group?.solverHorizonDays ?? 7) * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
+
+    function prevDay() {
+      const d = new Date(scheduleDate + "T00:00:00");
+      d.setDate(d.getDate() - 1);
+      const next = d.toISOString().split("T")[0];
+      if (next >= minDate) setScheduleDate(next);
     }
-    if (scheduleError) {
-      return <p className="text-sm text-red-600 py-4">{scheduleError}</p>;
+
+    function nextDay() {
+      const d = new Date(scheduleDate + "T00:00:00");
+      d.setDate(d.getDate() + 1);
+      const next = d.toISOString().split("T")[0];
+      if (next <= maxDate) setScheduleDate(next);
     }
-    if (!scheduleData || scheduleData.length === 0) {
-      return <p className="text-sm text-slate-400 py-8 text-center">אין סידור פורסם לקבוצה זו</p>;
+
+    function getWeekDates(): string[] {
+      const dates: string[] = [];
+      const start = new Date(scheduleDate + "T00:00:00");
+      start.setDate(start.getDate() - start.getDay());
+      for (let i = 0; i < 7; i++) {
+        const d = new Date(start);
+        d.setDate(start.getDate() + i);
+        dates.push(d.toISOString().split("T")[0]);
+      }
+      return dates;
     }
+
+    const formatDateLabel = (dateStr: string) => {
+      const d = new Date(dateStr + "T00:00:00");
+      const todayStr = new Date().toISOString().split("T")[0];
+      const yesterdayStr = new Date(Date.now() - 86400000).toISOString().split("T")[0];
+      const tomorrowStr = new Date(Date.now() + 86400000).toISOString().split("T")[0];
+      if (dateStr === todayStr) return "היום";
+      if (dateStr === yesterdayStr) return "אתמול";
+      if (dateStr === tomorrowStr) return "מחר";
+      return d.toLocaleDateString("he-IL", { weekday: "short", day: "numeric", month: "short" });
+    };
+
+    const dayAssignments = (scheduleData ?? []).filter(a => a.startsAt?.startsWith(scheduleDate));
+
+    const weekDates = getWeekDates();
+    const weekAssignments = weekDates.reduce<Record<string, ScheduleAssignment[]>>((acc, d) => {
+      acc[d] = (scheduleData ?? []).filter(a => a.startsAt?.startsWith(d));
+      return acc;
+    }, {});
+
     return (
-      <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b border-slate-100 bg-slate-50/80">
-              <th className="px-4 py-3 text-start text-xs font-semibold text-slate-500 uppercase tracking-wider">שם</th>
-              <th className="px-4 py-3 text-start text-xs font-semibold text-slate-500 uppercase tracking-wider">סוג משימה</th>
-              <th className="px-4 py-3 text-start text-xs font-semibold text-slate-500 uppercase tracking-wider">התחלה</th>
-              <th className="px-4 py-3 text-start text-xs font-semibold text-slate-500 uppercase tracking-wider">סיום</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-100">
-            {scheduleData.map((a: ScheduleAssignment, i: number) => (
-              <tr key={i} className="hover:bg-slate-50/60">
-                <td className="px-4 py-3.5 font-medium text-slate-900">{a.personName}</td>
-                <td className="px-4 py-3.5 text-slate-600">{a.taskTypeName}</td>
-                <td className="px-4 py-3.5 text-slate-500 text-xs">{new Date(a.startsAt).toLocaleString("he-IL")}</td>
-                <td className="px-4 py-3.5 text-slate-500 text-xs">{new Date(a.endsAt).toLocaleString("he-IL")}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+      <div className="space-y-4">
+        {/* Date navigation */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <button
+              onClick={prevDay}
+              disabled={scheduleDate <= minDate}
+              className="p-2 rounded-lg border border-slate-200 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            >
+              <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+              </svg>
+            </button>
+            <button
+              onClick={() => setScheduleDate(today)}
+              className={`px-3 py-1.5 rounded-lg text-sm font-medium border transition-colors ${
+                scheduleDate === today
+                  ? "bg-blue-500 text-white border-blue-500"
+                  : "border-slate-200 text-slate-600 hover:bg-slate-50"
+              }`}
+            >
+              היום
+            </button>
+            <button
+              onClick={nextDay}
+              disabled={scheduleDate >= maxDate}
+              className="p-2 rounded-lg border border-slate-200 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            >
+              <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+              </svg>
+            </button>
+            <span className="text-sm font-medium text-slate-700 mr-2">{formatDateLabel(scheduleDate)}</span>
+          </div>
+
+          {/* View toggle */}
+          <div className="flex gap-1 bg-slate-100 p-1 rounded-lg">
+            <button
+              onClick={() => setScheduleView("day")}
+              className={`px-3 py-1 rounded-md text-xs font-medium transition-all ${
+                scheduleView === "day" ? "bg-white text-slate-900 shadow-sm" : "text-slate-500"
+              }`}
+            >יום</button>
+            <button
+              onClick={() => setScheduleView("week")}
+              className={`px-3 py-1 rounded-md text-xs font-medium transition-all ${
+                scheduleView === "week" ? "bg-white text-slate-900 shadow-sm" : "text-slate-500"
+              }`}
+            >שבוע</button>
+          </div>
+        </div>
+
+        {/* Loading / error */}
+        {scheduleLoading && (
+          <div className="flex items-center gap-3 text-slate-400 text-sm py-8">
+            <svg className="animate-spin h-5 w-5 text-blue-400" fill="none" viewBox="0 0 24 24">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+            </svg>
+            טוען...
+          </div>
+        )}
+        {scheduleError && <p className="text-sm text-red-600 py-4">{scheduleError}</p>}
+
+        {/* Day view */}
+        {!scheduleLoading && !scheduleError && scheduleView === "day" && (
+          dayAssignments.length === 0 ? (
+            <p className="text-sm text-slate-400 py-8 text-center">אין משימות ב{formatDateLabel(scheduleDate)}</p>
+          ) : (
+            <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-slate-100 bg-slate-50/80">
+                    <th className="px-4 py-3 text-start text-xs font-semibold text-slate-500 uppercase tracking-wider">שם</th>
+                    <th className="px-4 py-3 text-start text-xs font-semibold text-slate-500 uppercase tracking-wider">סוג משימה</th>
+                    <th className="px-4 py-3 text-start text-xs font-semibold text-slate-500 uppercase tracking-wider">שעות</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {dayAssignments.map((a, i) => (
+                    <tr key={i} className="hover:bg-slate-50/60">
+                      <td className="px-4 py-3.5 font-medium text-slate-900">{a.personName}</td>
+                      <td className="px-4 py-3.5 text-slate-600">{a.taskTypeName}</td>
+                      <td className="px-4 py-3.5 text-slate-500 text-xs tabular-nums">
+                        {new Date(a.startsAt).toLocaleTimeString("he-IL", { hour: "2-digit", minute: "2-digit" })}
+                        <span className="mx-1 text-slate-300">–</span>
+                        {new Date(a.endsAt).toLocaleTimeString("he-IL", { hour: "2-digit", minute: "2-digit" })}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )
+        )}
+
+        {/* Week view */}
+        {!scheduleLoading && !scheduleError && scheduleView === "week" && (
+          <div className="space-y-4">
+            {weekDates.map(d => {
+              const items = weekAssignments[d] ?? [];
+              const isToday = d === today;
+              return (
+                <div key={d}>
+                  <h3 className={`text-xs font-semibold uppercase tracking-wider mb-2 ${isToday ? "text-blue-600" : "text-slate-500"}`}>
+                    {formatDateLabel(d)}
+                    {isToday && <span className="mr-2 text-blue-500 normal-case font-normal">• היום</span>}
+                  </h3>
+                  {items.length === 0 ? (
+                    <p className="text-xs text-slate-400 py-2 pr-2">אין משימות</p>
+                  ) : (
+                    <div className="space-y-1.5">
+                      {items.map((a, i) => (
+                        <div key={i} className="flex items-center gap-3 bg-white border border-slate-200 rounded-xl px-4 py-2.5">
+                          <div className="text-xs tabular-nums text-slate-500 w-20 shrink-0">
+                            {new Date(a.startsAt).toLocaleTimeString("he-IL", { hour: "2-digit", minute: "2-digit" })}
+                            <span className="mx-1 text-slate-300">–</span>
+                            {new Date(a.endsAt).toLocaleTimeString("he-IL", { hour: "2-digit", minute: "2-digit" })}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium text-slate-900 truncate">{a.personName}</p>
+                            <p className="text-xs text-slate-400 truncate">{a.taskTypeName}</p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
     );
   }

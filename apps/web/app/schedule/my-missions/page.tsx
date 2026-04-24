@@ -37,6 +37,7 @@ export default function MyMissionsPage() {
   const [range, setRange] = useState<Range>("week");
   const [assignments, setAssignments] = useState<MyAssignmentDto[]>([]);
   const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState("");
 
   useEffect(() => {
     if (!currentSpaceId) { setLoading(false); return; }
@@ -47,8 +48,14 @@ export default function MyMissionsPage() {
       .finally(() => setLoading(false));
   }, [currentSpaceId, range]);
 
-  // Group by date
-  const byDate = assignments.reduce<Record<string, MyAssignmentDto[]>>((acc, a) => {
+  // Group by date (filtered by search)
+  const filtered = assignments.filter(a =>
+    !search ||
+    a.taskTypeName.toLowerCase().includes(search.toLowerCase()) ||
+    a.groupName.toLowerCase().includes(search.toLowerCase())
+  );
+
+  const byDate = filtered.reduce<Record<string, MyAssignmentDto[]>>((acc, a) => {
     const day = a.slotStartsAt.split("T")[0];
     if (!acc[day]) acc[day] = [];
     acc[day].push(a);
@@ -79,9 +86,23 @@ export default function MyMissionsPage() {
           ))}
         </div>
 
+        {/* Search */}
+        <div className="relative max-w-sm">
+          <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="#94a3b8" strokeWidth={2}
+            style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)" }}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+          </svg>
+          <input
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder="חיפוש לפי סוג משימה או קבוצה..."
+            className="w-full border border-slate-200 rounded-xl pl-9 pr-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+        </div>
+
         {loading ? (
           <p className="text-slate-400 text-sm py-8">טוען...</p>
-        ) : assignments.length === 0 ? (
+        ) : filtered.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16 text-center bg-white rounded-xl border border-slate-200">
             <svg className="w-10 h-10 text-slate-200 mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
