@@ -9,8 +9,9 @@ using Jobuler.Application.Auth.Commands;
 using Jobuler.Application.Common;
 using Jobuler.Application.Scheduling;
 using Jobuler.Infrastructure.AI;
-using Jobuler.Application.Auth;
 using Jobuler.Infrastructure.Auth;
+using Jobuler.Infrastructure.Email;
+using Jobuler.Application.Auth;
 using Jobuler.Infrastructure.Logging;
 using Jobuler.Infrastructure.Persistence;
 using Jobuler.Infrastructure.Scheduling;
@@ -80,6 +81,7 @@ builder.Services.AddScoped<IAuditLogger, AuditLogger>();
 builder.Services.AddScoped<ISystemLogger, SystemLogger>();
 builder.Services.AddScoped<INotificationService, NotificationService>();
 builder.Services.AddScoped<IPdfRenderer, QuestPdfRenderer>();
+builder.Services.AddScoped<IEmailSender, NoOpEmailSender>();
 
 // ─── Redis ───────────────────────────────────────────────────────────────────
 var redisConn = builder.Configuration["Redis:ConnectionString"] ?? "localhost:6379";

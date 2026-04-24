@@ -6,15 +6,14 @@ import Link from "next/link";
 import AppShell from "@/components/shell/AppShell";
 import { useSpaceStore } from "@/lib/store/spaceStore";
 import { useAuthStore } from "@/lib/store/authStore";
+import { useRouter } from "next/navigation";
 import {
-  getGroups,
-  getGroupMembers,
-  addGroupMemberByEmail,
-  removeGroupMember,
-  updateGroupSettings,
-  GroupWithMemberCountDto,
-  GroupMemberDto,
+  getGroups, getGroupMembers, addGroupMemberByEmail, removeGroupMember,
+  updateGroupSettings, renameGroup, softDeleteGroup, restoreGroup,
+  getDeletedGroups, initiateOwnershipTransfer, cancelOwnershipTransfer,
+  GroupWithMemberCountDto, GroupMemberDto, DeletedGroupDto,
 } from "@/lib/api/groups";
+import { getAvatarColor, getAvatarLetter } from "@/lib/utils/groupAvatar";
 import { getTaskTypes, getTaskSlots, TaskTypeDto, TaskSlotDto } from "@/lib/api/tasks";
 import { getConstraints, ConstraintDto } from "@/lib/api/constraints";
 import { apiClient } from "@/lib/api/client";
@@ -60,6 +59,7 @@ export default function GroupDetailPage() {
 
   const { currentSpaceId } = useSpaceStore();
   const { adminGroupId, enterAdminMode, exitAdminMode } = useAuthStore();
+  const router = useRouter();
 
   // Cleanup admin mode on unmount
   useEffect(() => {
@@ -96,6 +96,19 @@ export default function GroupDetailPage() {
   const [constraints, setConstraints] = useState<ConstraintDto[]>([]);
   const [tasksSubTab, setTasksSubTab] = useState<"types" | "slots">("types");
   const [removeErrors, setRemoveErrors] = useState<Record<string, string>>({});
+  const [newGroupName, setNewGroupName] = useState("");
+  const [renameSaving, setRenameSaving] = useState(false);
+  const [renameError, setRenameError] = useState<string | null>(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleteSaving, setDeleteSaving] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [deletedGroups, setDeletedGroups] = useState<DeletedGroupDto[]>([]);
+  const [deletedGroupsLoading, setDeletedGroupsLoading] = useState(false);
+  const [transferPersonId, setTransferPersonId] = useState("");
+  const [transferSaving, setTransferSaving] = useState(false);
+  const [transferError, setTransferError] = useState<string | null>(null);
+  const [hasPendingTransfer, setHasPendingTransfer] = useState(false);
+  const [cancelTransferSaving, setCancelTransferSaving] = useState(false);
 
   // Fetch group on mount
   useEffect(() => {
@@ -106,6 +119,7 @@ export default function GroupDetailPage() {
         if (found) {
           setGroup(found);
           setSolverHorizon(found.solverHorizonDays);
+          setNewGroupName(found.name);
         } else {
           setNotFound(true);
         }
@@ -201,6 +215,71 @@ export default function GroupDetailPage() {
     } finally {
       setSavingSettings(false);
     }
+  }
+
+  // Fetch deleted groups when settings tab opens
+  useEffect(() => {
+    if (activeTab !== "settings" || !currentSpaceId || adminGroupId !== groupId) return;
+    setDeletedGroupsLoading(true);
+    getDeletedGroups(currentSpaceId)
+      .then(setDeletedGroups)
+      .finally(() => setDeletedGroupsLoading(false));
+  }, [activeTab, currentSpaceId, adminGroupId, groupId]);
+
+  async function handleRenameGroup() {
+    if (!currentSpaceId || !newGroupName.trim()) return;
+    setRenameSaving(true); setRenameError(null);
+    try {
+      await renameGroup(currentSpaceId, groupId, newGroupName.trim());
+      setGroup(prev => prev ? { ...prev, name: newGroupName.trim() } : prev);
+    } catch (err: any) {
+      setRenameError(err?.response?.data?.message ?? "שגיאה בשינוי השם");
+    } finally { setRenameSaving(false); }
+  }
+
+  async function handleDeleteGroup() {
+    if (!currentSpaceId) return;
+    setDeleteSaving(true); setDeleteError(null);
+    try {
+      await softDeleteGroup(currentSpaceId, groupId);
+      router.push("/groups");
+    } catch (err: any) {
+      setDeleteError(err?.response?.data?.message ?? "שגיאה במחיקת הקבוצה");
+      setDeleteSaving(false);
+    }
+  }
+
+  async function handleRestoreGroup(deletedGroupId: string) {
+    if (!currentSpaceId) return;
+    try {
+      await restoreGroup(currentSpaceId, deletedGroupId);
+      const updated = await getDeletedGroups(currentSpaceId);
+      setDeletedGroups(updated);
+    } catch (err: any) {
+      alert(err?.response?.data?.message ?? "שגיאה בשחזור הקבוצה");
+    }
+  }
+
+  async function handleInitiateTransfer() {
+    if (!currentSpaceId || !transferPersonId) return;
+    setTransferSaving(true); setTransferError(null);
+    try {
+      await initiateOwnershipTransfer(currentSpaceId, groupId, transferPersonId);
+      setHasPendingTransfer(true);
+    } catch (err: any) {
+      setTransferError(err?.response?.data?.message ?? "שגיאה בהעברת הבעלות");
+    } finally { setTransferSaving(false); }
+  }
+
+  async function handleCancelTransfer() {
+    if (!currentSpaceId) return;
+    setCancelTransferSaving(true);
+    try {
+      await cancelOwnershipTransfer(currentSpaceId, groupId);
+      setHasPendingTransfer(false);
+    } catch (err: any) {
+      alert(err?.response?.data?.message ?? "שגיאה בביטול ההעברה");
+    } finally { setCancelTransferSaving(false); }
   }
 
   const isAdmin = adminGroupId === groupId;
@@ -348,16 +427,21 @@ export default function GroupDetailPage() {
                     {(m.displayName ?? m.fullName).charAt(0)}
                   </div>
                   <span className="text-sm font-medium text-slate-900">{m.displayName ?? m.fullName}</span>
+                  {m.isOwner && (
+                    <span className="text-xs text-amber-600 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full">בעלים</span>
+                  )}
                 </div>
                 <div className="flex items-center gap-2">
                   {removeErrors[m.personId] && (
                     <span className="text-xs text-red-600">{removeErrors[m.personId]}</span>
                   )}
-                  <button
-                    onClick={() => handleRemoveMember(m.personId)}
-                    className="text-xs text-red-500 hover:text-red-700 border border-red-200 hover:border-red-400 px-2.5 py-1 rounded-lg transition-colors">
-                    הסר
-                  </button>
+                  {!m.isOwner && (
+                    <button
+                      onClick={() => handleRemoveMember(m.personId)}
+                      className="text-xs text-red-500 hover:text-red-700 border border-red-200 hover:border-red-400 px-2.5 py-1 rounded-lg transition-colors">
+                      הסר
+                    </button>
+                  )}
                 </div>
               </div>
             ))}
@@ -511,9 +595,32 @@ export default function GroupDetailPage() {
   }
 
   function renderSettingsPanel() {
+    const nonOwnerMembers = members.filter(m => !m.isOwner);
     return (
-      <div className="max-w-sm space-y-5">
-        <div>
+      <div className="max-w-lg space-y-5">
+        {/* Rename section */}
+        {isAdmin && (
+          <div className="border-b border-slate-200 pb-5">
+            <h3 className="text-sm font-semibold text-slate-700 mb-3">שינוי שם קבוצה</h3>
+            <div className="flex gap-2 max-w-sm">
+              <input
+                value={newGroupName}
+                onChange={e => setNewGroupName(e.target.value)}
+                className="flex-1 border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+              <button
+                onClick={handleRenameGroup}
+                disabled={renameSaving}
+                className="bg-blue-500 hover:bg-blue-600 text-white text-sm font-medium px-4 py-2.5 rounded-xl disabled:opacity-50">
+                {renameSaving ? "שומר..." : "שמור"}
+              </button>
+            </div>
+            {renameError && <p className="text-sm text-red-600 mt-2">{renameError}</p>}
+          </div>
+        )}
+
+        {/* Solver horizon */}
+        <div className={isAdmin ? "border-b border-slate-200 pb-5" : ""}>
           <label className="block text-sm font-medium text-slate-700 mb-2">
             אופק תכנון הסולבר
           </label>
@@ -535,19 +642,114 @@ export default function GroupDetailPage() {
               ⚠️ אופק זמן ארוך מגדיל משמעותית את זמן החישוב. מעל 14 ימים — מומלץ להשתמש בזהירות.
             </p>
           )}
+          <div className="flex items-center gap-3 mt-3">
+            <button
+              onClick={handleSaveSettings}
+              disabled={savingSettings}
+              className="bg-blue-500 hover:bg-blue-600 text-white text-sm font-medium px-4 py-2.5 rounded-xl disabled:opacity-50 transition-colors">
+              {savingSettings ? "שומר..." : "שמור"}
+            </button>
+            {settingsSaved && (
+              <span className="text-sm text-emerald-600 font-medium">נשמר בהצלחה</span>
+            )}
+          </div>
+          {settingsError && <p className="text-sm text-red-600">{settingsError}</p>}
         </div>
-        <div className="flex items-center gap-3">
-          <button
-            onClick={handleSaveSettings}
-            disabled={savingSettings}
-            className="bg-blue-500 hover:bg-blue-600 text-white text-sm font-medium px-4 py-2.5 rounded-xl disabled:opacity-50 transition-colors">
-            {savingSettings ? "שומר..." : "שמור"}
-          </button>
-          {settingsSaved && (
-            <span className="text-sm text-emerald-600 font-medium">נשמר בהצלחה</span>
-          )}
-        </div>
-        {settingsError && <p className="text-sm text-red-600">{settingsError}</p>}
+
+        {/* Deleted groups section */}
+        {isAdmin && (
+          <div className="border-t border-slate-200 pt-5">
+            <h3 className="text-sm font-semibold text-slate-700 mb-3">קבוצות מחוקות</h3>
+            {deletedGroupsLoading ? (
+              <p className="text-sm text-slate-400">טוען...</p>
+            ) : deletedGroups.length === 0 ? (
+              <p className="text-sm text-slate-400">אין קבוצות מחוקות</p>
+            ) : (
+              <div className="space-y-2">
+                {deletedGroups.map(dg => (
+                  <div key={dg.id} className="flex items-center justify-between bg-white border border-slate-200 rounded-xl px-4 py-3">
+                    <div>
+                      <span className="text-sm font-medium text-slate-900">{dg.name}</span>
+                      <p className="text-xs text-slate-400 mt-0.5">{new Date(dg.deletedAt).toLocaleDateString("he-IL")}</p>
+                    </div>
+                    <button
+                      onClick={() => handleRestoreGroup(dg.id)}
+                      className="text-xs text-emerald-600 border border-emerald-200 hover:bg-emerald-50 px-3 py-1.5 rounded-lg transition-colors">
+                      שחזר
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Ownership transfer section */}
+        {isAdmin && (
+          <div className="border-t border-slate-200 pt-5">
+            <h3 className="text-sm font-semibold text-slate-700 mb-3">העברת בעלות</h3>
+            {hasPendingTransfer ? (
+              <div className="flex items-center gap-3">
+                <span className="text-sm text-amber-700 bg-amber-50 border border-amber-200 px-3 py-2 rounded-xl">ממתין לאישור</span>
+                <button
+                  onClick={handleCancelTransfer}
+                  disabled={cancelTransferSaving}
+                  className="text-sm text-slate-500 hover:text-slate-700 border border-slate-200 hover:border-slate-400 px-3 py-2 rounded-xl transition-colors disabled:opacity-50">
+                  {cancelTransferSaving ? "מבטל..." : "בטל העברה"}
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <div className="flex gap-2 max-w-sm">
+                  <select
+                    value={transferPersonId}
+                    onChange={e => setTransferPersonId(e.target.value)}
+                    className="flex-1 border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <option value="">בחר חבר</option>
+                    {nonOwnerMembers.map(m => (
+                      <option key={m.personId} value={m.personId}>
+                        {m.displayName ?? m.fullName}
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    onClick={handleInitiateTransfer}
+                    disabled={transferSaving || !transferPersonId}
+                    className="bg-blue-500 hover:bg-blue-600 text-white text-sm font-medium px-4 py-2.5 rounded-xl disabled:opacity-50">
+                    {transferSaving ? "שולח..." : "העבר"}
+                  </button>
+                </div>
+                {transferError && <p className="text-sm text-red-600">{transferError}</p>}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Delete group section */}
+        {isAdmin && (
+          <div className="border-t border-slate-200 pt-5">
+            <h3 className="text-sm font-semibold text-red-600 mb-3">מחיקת קבוצה</h3>
+            {!showDeleteConfirm ? (
+              <button onClick={() => setShowDeleteConfirm(true)}
+                className="text-sm text-red-600 border border-red-200 hover:bg-red-50 px-4 py-2.5 rounded-xl transition-colors">
+                מחק קבוצה
+              </button>
+            ) : (
+              <div className="bg-red-50 border border-red-200 rounded-xl p-4 space-y-3">
+                <p className="text-sm text-red-700">האם אתה בטוח? ניתן לשחזר תוך 30 יום</p>
+                <div className="flex gap-2">
+                  <button onClick={handleDeleteGroup} disabled={deleteSaving}
+                    className="bg-red-500 hover:bg-red-600 text-white text-sm font-medium px-4 py-2 rounded-xl disabled:opacity-50">
+                    {deleteSaving ? "מוחק..." : "כן, מחק"}
+                  </button>
+                  <button onClick={() => setShowDeleteConfirm(false)}
+                    className="text-sm text-slate-500 hover:text-slate-700 px-3">ביטול</button>
+                </div>
+                {deleteError && <p className="text-sm text-red-600">{deleteError}</p>}
+              </div>
+            )}
+          </div>
+        )}
       </div>
     );
   }
@@ -573,14 +775,20 @@ export default function GroupDetailPage() {
         <div className="max-w-4xl space-y-6">
           {/* Header */}
           <div className="flex items-center justify-between">
-            <div>
-              <div className="flex items-center gap-2 mb-1">
-                <Link href="/groups" className="text-sm text-slate-400 hover:text-slate-600">
-                  ← קבוצות
-                </Link>
+            <div className="flex items-center gap-4">
+              <div
+                className="w-12 h-12 rounded-2xl flex items-center justify-center text-white text-xl font-bold flex-shrink-0"
+                style={{ background: getAvatarColor(group.name) }}
+              >
+                {getAvatarLetter(group.name)}
               </div>
-              <h1 className="text-2xl font-bold text-slate-900">{group.name}</h1>
-              <p className="text-sm text-slate-500 mt-1">{group.memberCount} חברים</p>
+              <div>
+                <div className="flex items-center gap-2 mb-1">
+                  <Link href="/groups" className="text-sm text-slate-400 hover:text-slate-600">← קבוצות</Link>
+                </div>
+                <h1 className="text-2xl font-bold text-slate-900">{group.name}</h1>
+                <p className="text-sm text-slate-500 mt-1">{group.memberCount} חברים</p>
+              </div>
             </div>
             <button
               onClick={() => isAdmin ? exitAdminMode() : enterAdminMode(groupId)}

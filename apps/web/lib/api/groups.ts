@@ -32,12 +32,20 @@ export interface GroupWithMemberCountDto {
   name: string;
   memberCount: number;
   solverHorizonDays: number;
+  ownerPersonId: string | null;
 }
 
 export interface GroupMemberDto {
   personId: string;
   fullName: string;
   displayName: string | null;
+  isOwner: boolean;
+}
+
+export interface DeletedGroupDto {
+  id: string;
+  name: string;
+  deletedAt: string;
 }
 
 export async function getGroups(spaceId: string): Promise<GroupWithMemberCountDto[]> {
@@ -60,4 +68,29 @@ export async function removeGroupMember(spaceId: string, groupId: string, person
 
 export async function updateGroupSettings(spaceId: string, groupId: string, solverHorizonDays: number): Promise<void> {
   await apiClient.patch(`/spaces/${spaceId}/groups/${groupId}/settings`, { solverHorizonDays });
+}
+
+export async function renameGroup(spaceId: string, groupId: string, name: string): Promise<void> {
+  await apiClient.patch(`/spaces/${spaceId}/groups/${groupId}/name`, { name });
+}
+
+export async function softDeleteGroup(spaceId: string, groupId: string): Promise<void> {
+  await apiClient.delete(`/spaces/${spaceId}/groups/${groupId}`);
+}
+
+export async function restoreGroup(spaceId: string, groupId: string): Promise<void> {
+  await apiClient.post(`/spaces/${spaceId}/groups/${groupId}/restore`);
+}
+
+export async function getDeletedGroups(spaceId: string): Promise<DeletedGroupDto[]> {
+  const { data } = await apiClient.get(`/spaces/${spaceId}/groups/deleted`);
+  return data as DeletedGroupDto[];
+}
+
+export async function initiateOwnershipTransfer(spaceId: string, groupId: string, proposedPersonId: string): Promise<void> {
+  await apiClient.post(`/spaces/${spaceId}/groups/${groupId}/transfer`, { proposedPersonId });
+}
+
+export async function cancelOwnershipTransfer(spaceId: string, groupId: string): Promise<void> {
+  await apiClient.delete(`/spaces/${spaceId}/groups/${groupId}/transfer`);
 }

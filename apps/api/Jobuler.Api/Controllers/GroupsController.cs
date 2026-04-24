@@ -41,7 +41,7 @@ public class GroupsController : ControllerBase
     {
         await _permissions.RequirePermissionAsync(CurrentUserId, spaceId, Permissions.PeopleManage, ct);
         var id = await _mediator.Send(
-            new CreateGroupCommand(spaceId, req.GroupTypeId, req.Name, req.Description), ct);
+            new CreateGroupCommand(spaceId, req.GroupTypeId, req.Name, req.Description, CurrentUserId), ct);
         return Created("", new { id });
     }
 
@@ -52,6 +52,63 @@ public class GroupsController : ControllerBase
         await _permissions.RequirePermissionAsync(CurrentUserId, spaceId, Permissions.PeopleManage, ct);
         await _mediator.Send(new UpdateGroupSettingsCommand(spaceId, groupId, req.SolverHorizonDays), ct);
         return NoContent();
+    }
+
+    [HttpPatch("spaces/{spaceId:guid}/groups/{groupId:guid}/name")]
+    public async Task<IActionResult> RenameGroup(Guid spaceId, Guid groupId,
+        [FromBody] RenameGroupRequest req, CancellationToken ct)
+    {
+        await _permissions.RequirePermissionAsync(CurrentUserId, spaceId, Permissions.PeopleManage, ct);
+        await _mediator.Send(new RenameGroupCommand(spaceId, groupId, CurrentUserId, req.Name), ct);
+        return NoContent();
+    }
+
+    [HttpDelete("spaces/{spaceId:guid}/groups/{groupId:guid}")]
+    public async Task<IActionResult> DeleteGroup(Guid spaceId, Guid groupId, CancellationToken ct)
+    {
+        await _permissions.RequirePermissionAsync(CurrentUserId, spaceId, Permissions.PeopleManage, ct);
+        await _mediator.Send(new SoftDeleteGroupCommand(spaceId, groupId, CurrentUserId), ct);
+        return NoContent();
+    }
+
+    [HttpPost("spaces/{spaceId:guid}/groups/{groupId:guid}/restore")]
+    public async Task<IActionResult> RestoreGroup(Guid spaceId, Guid groupId, CancellationToken ct)
+    {
+        await _permissions.RequirePermissionAsync(CurrentUserId, spaceId, Permissions.PeopleManage, ct);
+        await _mediator.Send(new RestoreGroupCommand(spaceId, groupId, CurrentUserId), ct);
+        return NoContent();
+    }
+
+    [HttpGet("spaces/{spaceId:guid}/groups/deleted")]
+    public async Task<IActionResult> GetDeletedGroups(Guid spaceId, CancellationToken ct)
+    {
+        await _permissions.RequirePermissionAsync(CurrentUserId, spaceId, Permissions.PeopleManage, ct);
+        return Ok(await _mediator.Send(new GetDeletedGroupsQuery(spaceId, CurrentUserId), ct));
+    }
+
+    [HttpPost("spaces/{spaceId:guid}/groups/{groupId:guid}/transfer")]
+    public async Task<IActionResult> InitiateTransfer(Guid spaceId, Guid groupId,
+        [FromBody] TransferOwnershipRequest req, CancellationToken ct)
+    {
+        await _permissions.RequirePermissionAsync(CurrentUserId, spaceId, Permissions.PeopleManage, ct);
+        await _mediator.Send(new InitiateOwnershipTransferCommand(spaceId, groupId, CurrentUserId, req.ProposedPersonId), ct);
+        return NoContent();
+    }
+
+    [HttpDelete("spaces/{spaceId:guid}/groups/{groupId:guid}/transfer")]
+    public async Task<IActionResult> CancelTransfer(Guid spaceId, Guid groupId, CancellationToken ct)
+    {
+        await _permissions.RequirePermissionAsync(CurrentUserId, spaceId, Permissions.PeopleManage, ct);
+        await _mediator.Send(new CancelOwnershipTransferCommand(spaceId, groupId, CurrentUserId), ct);
+        return NoContent();
+    }
+
+    [HttpGet("groups/confirm-transfer")]
+    [AllowAnonymous]
+    public async Task<IActionResult> ConfirmTransfer([FromQuery] string token, CancellationToken ct)
+    {
+        await _mediator.Send(new ConfirmOwnershipTransferCommand(token), ct);
+        return Ok(new { message = "הבעלות הועברה בהצלחה" });
     }
 
     // ── Members ───────────────────────────────────────────────────────────────
@@ -115,3 +172,5 @@ public record CreateGroupTypeRequest(string Name, string? Description);
 public record CreateGroupRequest(Guid? GroupTypeId, string Name, string? Description);
 public record AddMemberByEmailRequest(string Email);
 public record UpdateGroupSettingsRequest(int SolverHorizonDays);
+public record RenameGroupRequest(string Name);
+public record TransferOwnershipRequest(Guid ProposedPersonId);

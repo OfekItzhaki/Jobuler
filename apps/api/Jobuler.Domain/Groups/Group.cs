@@ -11,6 +11,7 @@ public class Group : AuditableEntity, ITenantScoped
     public string? Description { get; private set; }
     public bool IsActive { get; private set; } = true;
     public int SolverHorizonDays { get; private set; } = 7;
+    public DateTime? DeletedAt { get; private set; }
 
     private Group() { }
 
@@ -25,6 +26,19 @@ public class Group : AuditableEntity, ITenantScoped
         };
 
     public void Update(string name, string? description) { Name = name.Trim(); Description = description?.Trim(); Touch(); }
-    public void UpdateSettings(int solverHorizonDays) { SolverHorizonDays = Math.Clamp(solverHorizonDays, 1, 30); Touch(); }
+
+    public void Rename(string name)
+    {
+        var trimmed = name?.Trim() ?? string.Empty;
+        if (string.IsNullOrWhiteSpace(trimmed) || trimmed.Length > 100)
+            throw new InvalidOperationException("Group name must be between 1 and 100 non-blank characters.");
+        Name = trimmed;
+        Touch();
+    }
+
+    public void UpdateSettings(int solverHorizonDays) { SolverHorizonDays = Math.Clamp(solverHorizonDays, 1, 90); Touch(); }
     public void Deactivate() { IsActive = false; Touch(); }
+
+    public void SoftDelete() { DeletedAt = DateTime.UtcNow; Touch(); }
+    public void Restore() { DeletedAt = null; Touch(); }
 }

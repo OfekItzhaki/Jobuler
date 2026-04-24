@@ -34,6 +34,7 @@ public class GroupConfiguration : IEntityTypeConfiguration<Group>
         builder.Property(g => g.Description).HasColumnName("description");
         builder.Property(g => g.IsActive).HasColumnName("is_active");
         builder.Property(g => g.SolverHorizonDays).HasColumnName("solver_horizon_days").HasDefaultValue(7);
+        builder.Property(g => g.DeletedAt).HasColumnName("deleted_at");
         builder.Property(g => g.CreatedAt).HasColumnName("created_at");
         builder.Property(g => g.UpdatedAt).HasColumnName("updated_at");
         builder.HasIndex(g => new { g.SpaceId, g.Name }).IsUnique();
@@ -50,6 +51,7 @@ public class GroupMembershipConfiguration : IEntityTypeConfiguration<GroupMember
         builder.Property(m => m.SpaceId).HasColumnName("space_id");
         builder.Property(m => m.GroupId).HasColumnName("group_id");
         builder.Property(m => m.PersonId).HasColumnName("person_id");
+        builder.Property(m => m.IsOwner).HasColumnName("is_owner");
         builder.Property(m => m.JoinedAt).HasColumnName("joined_at");
         builder.HasIndex(m => new { m.GroupId, m.PersonId }).IsUnique();
     }

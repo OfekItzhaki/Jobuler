@@ -310,8 +310,8 @@ console.log("\nProperty 9: Seed UUID validity");
 const UUID_V4_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 const UUID_PATTERN = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi;
 
-// __dirname when compiled = apps/web/__tests__/dist → need 4 levels up to repo root
-const seedPath = path.resolve(__dirname, "../../../../infra/scripts/seed.sql");
+// __dirname when compiled = apps/web/__tests__/dist/__tests__ → need 5 levels up to repo root
+const seedPath = path.resolve(__dirname, "../../../../../infra/scripts/seed.sql");
 
 test("seed.sql file exists", () => {
   assert.ok(fs.existsSync(seedPath), `seed.sql not found at ${seedPath}`);
@@ -368,3 +368,47 @@ console.log(`Results: ${passed} passed, ${failed} failed`);
 if (failed > 0) {
   process.exit(1);
 }
+
+// ---------------------------------------------------------------------------
+// TASK 19.3 — Property 16: Transfer dropdown excludes the owner
+// Validates: Requirements 8.2
+// ---------------------------------------------------------------------------
+
+function getTransferDropdownOptions(members: Array<{ personId: string; isOwner: boolean; displayName: string | null; fullName: string }>): Array<{ personId: string; isOwner: boolean; displayName: string | null; fullName: string }> {
+  return members.filter(m => !m.isOwner);
+}
+
+console.log("\nProperty 16: Transfer dropdown excludes the owner");
+
+test("dropdown excludes the owner member", () => {
+  const members = [
+    { personId: "p1", isOwner: true, displayName: "Owner", fullName: "Owner Full" },
+    { personId: "p2", isOwner: false, displayName: "Member 1", fullName: "Member 1 Full" },
+    { personId: "p3", isOwner: false, displayName: "Member 2", fullName: "Member 2 Full" },
+  ];
+  const options = getTransferDropdownOptions(members);
+  assert.ok(!options.some(o => o.personId === "p1"), "owner should not be in dropdown");
+  assert.strictEqual(options.length, 2);
+});
+
+test("dropdown is empty when only owner is a member", () => {
+  const members = [
+    { personId: "p1", isOwner: true, displayName: "Owner", fullName: "Owner Full" },
+  ];
+  const options = getTransferDropdownOptions(members);
+  assert.strictEqual(options.length, 0);
+});
+
+test("dropdown includes all non-owner members for any list size", () => {
+  for (let size = 1; size <= 10; size++) {
+    const members = Array.from({ length: size }, (_, i) => ({
+      personId: `p${i}`,
+      isOwner: i === 0,
+      displayName: `Member ${i}`,
+      fullName: `Member ${i} Full`,
+    }));
+    const options = getTransferDropdownOptions(members);
+    assert.strictEqual(options.length, size - 1, `size ${size}: dropdown should have ${size - 1} options`);
+    assert.ok(!options.some(o => o.isOwner), "no owner in dropdown");
+  }
+});

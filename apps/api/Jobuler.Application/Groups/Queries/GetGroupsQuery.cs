@@ -5,8 +5,8 @@ using Microsoft.EntityFrameworkCore;
 namespace Jobuler.Application.Groups.Queries;
 
 public record GroupTypeDto(Guid Id, string Name, string? Description, bool IsActive);
-public record GroupDto(Guid Id, Guid? GroupTypeId, string? GroupTypeName, string Name, string? Description, bool IsActive, int MemberCount, int SolverHorizonDays);
-public record GroupMemberDto(Guid PersonId, string FullName, string? DisplayName);
+public record GroupDto(Guid Id, Guid? GroupTypeId, string? GroupTypeName, string Name, string? Description, bool IsActive, int MemberCount, int SolverHorizonDays, Guid? OwnerPersonId);
+public record GroupMemberDto(Guid PersonId, string FullName, string? DisplayName, bool IsOwner);
 
 public record GetGroupTypesQuery(Guid SpaceId) : IRequest<List<GroupTypeDto>>;
 
@@ -33,7 +33,7 @@ public class GetGroupsQueryHandler : IRequestHandler<GetGroupsQuery, List<GroupD
     public async Task<List<GroupDto>> Handle(GetGroupsQuery req, CancellationToken ct)
     {
         var groups = await _db.Groups.AsNoTracking()
-            .Where(g => g.SpaceId == req.SpaceId && g.IsActive)
+            .Where(g => g.SpaceId == req.SpaceId && g.IsActive && g.DeletedAt == null)
             .OrderBy(g => g.Name)
             .ToListAsync(ct);
 
@@ -53,6 +53,11 @@ public class GetGroupsQueryHandler : IRequestHandler<GetGroupsQuery, List<GroupD
             .Select(g => new { GroupId = g.Key, Count = g.Count() })
             .ToDictionaryAsync(x => x.GroupId, x => x.Count, ct);
 
+        var groupIds = groups.Select(g => g.Id).ToList();
+        var ownerPersonIds = await _db.GroupMemberships.AsNoTracking()
+            .Where(m => groupIds.Contains(m.GroupId) && m.IsOwner)
+            .ToDictionaryAsync(m => m.GroupId, m => m.PersonId, ct);
+
         return groups.Select(g => new GroupDto(
             g.Id,
             g.GroupTypeId,
@@ -61,7 +66,8 @@ public class GetGroupsQueryHandler : IRequestHandler<GetGroupsQuery, List<GroupD
             g.Description,
             g.IsActive,
             memberCounts.GetValueOrDefault(g.Id, 0),
-            g.SolverHorizonDays
+            g.SolverHorizonDays,
+            ownerPersonIds.GetValueOrDefault(g.Id)
         )).ToList();
     }
 }
@@ -77,8 +83,8 @@ public class GetGroupMembersQueryHandler : IRequestHandler<GetGroupMembersQuery,
         await _db.GroupMemberships.AsNoTracking()
             .Where(m => m.GroupId == req.GroupId && m.SpaceId == req.SpaceId)
             .Join(_db.People, m => m.PersonId, p => p.Id,
-                (m, p) => new { p.Id, p.FullName, p.DisplayName })
+                (m, p) => new { p.Id, p.FullName, p.DisplayName, m.IsOwner })
             .OrderBy(p => p.FullName)
-            .Select(p => new GroupMemberDto(p.Id, p.FullName, p.DisplayName))
+            .Select(p => new GroupMemberDto(p.Id, p.FullName, p.DisplayName, p.IsOwner))
             .ToListAsync(ct);
 }

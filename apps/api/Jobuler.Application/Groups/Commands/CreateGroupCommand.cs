@@ -23,7 +23,8 @@ public class CreateGroupTypeCommandHandler : IRequestHandler<CreateGroupTypeComm
 }
 
 public record CreateGroupCommand(
-    Guid SpaceId, Guid? GroupTypeId, string Name, string? Description) : IRequest<Guid>;
+    Guid SpaceId, Guid? GroupTypeId, string Name, string? Description,
+    Guid CreatedByUserId) : IRequest<Guid>;
 
 public class CreateGroupCommandHandler : IRequestHandler<CreateGroupCommand, Guid>
 {
@@ -32,8 +33,15 @@ public class CreateGroupCommandHandler : IRequestHandler<CreateGroupCommand, Gui
 
     public async Task<Guid> Handle(CreateGroupCommand req, CancellationToken ct)
     {
-        var group = Group.Create(req.SpaceId, req.GroupTypeId, req.Name, req.Description);
+        var person = await _db.People
+            .FirstOrDefaultAsync(p => p.SpaceId == req.SpaceId && p.LinkedUserId == req.CreatedByUserId, ct)
+            ?? throw new KeyNotFoundException("Creator person not found in this space.");
+
+        var group = Group.Create(req.SpaceId, req.GroupTypeId, req.Name, req.Description, createdByUserId: req.CreatedByUserId);
         _db.Groups.Add(group);
+
+        _db.GroupMemberships.Add(GroupMembership.Create(req.SpaceId, group.Id, person.Id, isOwner: true));
+
         await _db.SaveChangesAsync(ct);
         return group.Id;
     }

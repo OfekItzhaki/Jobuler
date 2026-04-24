@@ -9,6 +9,8 @@
 -- User: ofek           00000000-0000-0000-0000-000000000002 → b2c3d4e5-f6a7-4b8c-9d0e-f1a2b3c4d5e6
 -- User: yael           00000000-0000-0000-0000-000000000003 → c3d4e5f6-a7b8-4c9d-0e1f-a2b3c4d5e6f7
 -- User: viewer         00000000-0000-0000-0000-000000000004 → d4e5f6a7-b8c9-4d0e-1f2a-b3c4d5e6f7a8
+-- User: dana           (new) → f0a1b2c3-d4e5-4f6a-7b8c-9d0e1f2a3b4c
+-- Person: Dana         (new) → e1a2b3c4-d5e6-4f7a-8b9c-0d1e2f3a4b5c
 -- Space: Unit Alpha    10000000-0000-0000-0000-000000000001 → e5f6a7b8-c9d0-4e1f-2a3b-c4d5e6f7a8b9
 -- Role: Soldier        20000000-0000-0000-0000-000000000001 → f6a7b8c9-d0e1-4f2a-3b4c-d5e6f7a8b9c0
 -- Role: Squad Cmd      20000000-0000-0000-0000-000000000002 → a7b8c9d0-e1f2-4a3b-4c5d-e6f7a8b9c0d1
@@ -114,3 +116,31 @@ INSERT INTO task_types (id, space_id, name, burden_level, allows_overlap, create
   ('f4a5b6c7-d8e9-4f0a-1b2c-d3e4f5a6b7c8', 'e5f6a7b8-c9d0-4e1f-2a3b-c4d5e6f7a8b9', 'Patrol',    'disliked',  false, 'a1b2c3d4-e5f6-4a7b-8c9d-e0f1a2b3c4d5'),
   ('a5b6c7d8-e9f0-4a1b-2c3d-e4f5a6b7c8d9', 'e5f6a7b8-c9d0-4e1f-2a3b-c4d5e6f7a8b9', 'Reserve',   'favorable', false, 'a1b2c3d4-e5f6-4a7b-8c9d-e0f1a2b3c4d5')
 ON CONFLICT DO NOTHING;
+
+-- =============================================================================
+-- Dana: ungrouped demo user for testing add-by-email flow
+-- User UUID:   f0a1b2c3-d4e5-4f6a-7b8c-9d0e1f2a3b4c
+-- Person UUID: e1a2b3c4-d5e6-4f7a-8b9c-0d1e2f3a4b5c
+-- =============================================================================
+
+INSERT INTO users (id, email, display_name, password_hash, preferred_locale) VALUES
+  ('f0a1b2c3-d4e5-4f6a-7b8c-9d0e1f2a3b4c', 'dana@demo.local', 'Dana',
+   '$2a$12$WqeSlsFmXzSru4YK23qfeuMYIUd/4ZkHLLwx0NAehm.Vbmq1MYEEa', 'he')
+ON CONFLICT (id) DO UPDATE SET password_hash = EXCLUDED.password_hash;
+
+INSERT INTO people (id, space_id, full_name, display_name, linked_user_id) VALUES
+  ('e1a2b3c4-d5e6-4f7a-8b9c-0d1e2f3a4b5c',
+   'e5f6a7b8-c9d0-4e1f-2a3b-c4d5e6f7a8b9',
+   'Dana Demo', 'Dana',
+   'f0a1b2c3-d4e5-4f6a-7b8c-9d0e1f2a3b4c')
+ON CONFLICT DO NOTHING;
+
+INSERT INTO space_memberships (space_id, user_id) VALUES
+  ('e5f6a7b8-c9d0-4e1f-2a3b-c4d5e6f7a8b9', 'f0a1b2c3-d4e5-4f6a-7b8c-9d0e1f2a3b4c')
+ON CONFLICT DO NOTHING;
+
+INSERT INTO space_permission_grants (space_id, user_id, permission_key, granted_by_user_id) VALUES
+  ('e5f6a7b8-c9d0-4e1f-2a3b-c4d5e6f7a8b9', 'f0a1b2c3-d4e5-4f6a-7b8c-9d0e1f2a3b4c',
+   'space.view', 'a1b2c3d4-e5f6-4a7b-8c9d-e0f1a2b3c4d5')
+ON CONFLICT DO NOTHING;
+-- NOTE: No group_memberships rows for Dana — she is ungrouped by design

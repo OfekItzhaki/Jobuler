@@ -57,6 +57,9 @@ public class RemovePersonFromGroupCommandHandler : IRequestHandler<RemovePersonF
                 && m.SpaceId == req.SpaceId, ct);
         if (membership is null) return;
 
+        if (membership.IsOwner)
+            throw new InvalidOperationException("Cannot remove the group owner. Transfer ownership first.");
+
         _db.GroupMemberships.Remove(membership);
 
         // Mark any active invitations as opted_out so re-invite is required

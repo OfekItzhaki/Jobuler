@@ -45,6 +45,7 @@ public class AppDbContext : DbContext
     public DbSet<GroupMembership> GroupMemberships => Set<GroupMembership>();
     public DbSet<GroupInvitation> GroupInvitations => Set<GroupInvitation>();
     public DbSet<PersonRoleAssignment> PersonRoleAssignments => Set<PersonRoleAssignment>();
+    public DbSet<PendingOwnershipTransfer> PendingOwnershipTransfers => Set<PendingOwnershipTransfer>();
 
     // Tasks
     public DbSet<TaskType> TaskTypes => Set<TaskType>();

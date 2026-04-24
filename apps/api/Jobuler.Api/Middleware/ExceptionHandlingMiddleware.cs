@@ -41,6 +41,7 @@ public class ExceptionHandlingMiddleware
                 ve.Errors.Select(e => e.ErrorMessage).ToList()),
             UnauthorizedAccessException => (HttpStatusCode.Forbidden, ex.Message, (List<string>?)[]),
             KeyNotFoundException        => (HttpStatusCode.NotFound, ex.Message, (List<string>?)[]),
+            Jobuler.Application.Common.ConflictException => (HttpStatusCode.Conflict, ex.Message, (List<string>?)[]),
             InvalidOperationException   => (HttpStatusCode.BadRequest, ex.Message, (List<string>?)[]),
             ArgumentException           => (HttpStatusCode.BadRequest, ex.Message, (List<string>?)[]),
             _                           => (HttpStatusCode.InternalServerError, "An unexpected error occurred.", (List<string>?)[])

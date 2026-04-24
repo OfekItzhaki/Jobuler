@@ -163,7 +163,7 @@ Three coordinated changes: extend the groups API client, build the full group de
   - Include: title, phase, purpose, what was built (all 4 changed files), key decisions, how it connects, how to run/verify, what comes next, and git commit command
   - _Requirements: (workspace step-documentation rule)_
 
-- [x] 10. Final checkpoint — Ensure all tests pass
+- [ ] 10. Final checkpoint — Ensure all tests pass
   - Ensure all tests pass, ask the user if questions arise.
 
 ## Notes
