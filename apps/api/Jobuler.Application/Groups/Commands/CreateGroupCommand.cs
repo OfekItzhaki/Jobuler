@@ -1,4 +1,5 @@
 using Jobuler.Domain.Groups;
+using Jobuler.Domain.People;
 using Jobuler.Infrastructure.Persistence;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
@@ -33,9 +34,19 @@ public class CreateGroupCommandHandler : IRequestHandler<CreateGroupCommand, Gui
 
     public async Task<Guid> Handle(CreateGroupCommand req, CancellationToken ct)
     {
+        // Find or create the person linked to the creator's user account
         var person = await _db.People
-            .FirstOrDefaultAsync(p => p.SpaceId == req.SpaceId && p.LinkedUserId == req.CreatedByUserId, ct)
-            ?? throw new KeyNotFoundException("Creator person not found in this space.");
+            .FirstOrDefaultAsync(p => p.SpaceId == req.SpaceId && p.LinkedUserId == req.CreatedByUserId, ct);
+
+        if (person is null)
+        {
+            // Auto-create a person record linked to this user
+            var user = await _db.Users.AsNoTracking()
+                .FirstOrDefaultAsync(u => u.Id == req.CreatedByUserId, ct)
+                ?? throw new InvalidOperationException("User not found.");
+            person = Person.Create(req.SpaceId, user.DisplayName ?? user.Email, null, user.Id);
+            _db.People.Add(person);
+        }
 
         var group = Group.Create(req.SpaceId, req.GroupTypeId, req.Name, req.Description, createdByUserId: req.CreatedByUserId);
         _db.Groups.Add(group);
