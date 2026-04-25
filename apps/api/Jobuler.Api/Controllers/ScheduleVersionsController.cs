@@ -1,8 +1,7 @@
 using Jobuler.Application.Common;
 using Jobuler.Application.Scheduling.Commands;
 using Jobuler.Application.Scheduling.Queries;
-using Jobuler.Domain.Spaces;
-using MediatR;
+using Jobuler.Domain.Spaces;using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
@@ -78,6 +77,18 @@ public class ScheduleVersionsController : ControllerBase
         var newVersionId = await _mediator.Send(
             new RollbackVersionCommand(spaceId, versionId, CurrentUserId), ct);
         return Ok(new { newVersionId });
+    }
+
+    /// <summary>
+    /// Discard a draft version. Sets status to Discarded.
+    /// Requires schedule.publish permission.
+    /// </summary>
+    [HttpDelete("{versionId:guid}")]
+    public async Task<IActionResult> Discard(Guid spaceId, Guid versionId, CancellationToken ct)
+    {
+        await _permissions.RequirePermissionAsync(CurrentUserId, spaceId, Permissions.SchedulePublish, ct);
+        await _mediator.Send(new DiscardVersionCommand(spaceId, versionId, CurrentUserId), ct);
+        return NoContent();
     }
 }
 

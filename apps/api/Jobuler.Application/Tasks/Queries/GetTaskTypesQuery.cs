@@ -48,11 +48,19 @@ public class GetTaskSlotsQueryHandler : IRequestHandler<GetTaskSlotsQuery, List<
         if (req.From.HasValue) query = query.Where(s => s.EndsAt >= req.From.Value);
         if (req.To.HasValue)   query = query.Where(s => s.StartsAt <= req.To.Value);
 
-        return await query
-            .Join(_db.TaskTypes, s => s.TaskTypeId, t => t.Id,
-                (s, t) => new TaskSlotDto(s.Id, s.TaskTypeId, t.Name,
-                    s.StartsAt, s.EndsAt, s.RequiredHeadcount, s.Priority, s.Status.ToString()))
-            .OrderBy(s => s.StartsAt)
-            .ToListAsync(ct);
+        var slots = await query.OrderBy(s => s.StartsAt).ToListAsync(ct);
+
+        var typeIds = slots.Select(s => s.TaskTypeId).Distinct().ToList();
+        var types = await _db.TaskTypes.AsNoTracking()
+            .Where(t => typeIds.Contains(t.Id))
+            .ToDictionaryAsync(t => t.Id, t => t.Name, ct);
+
+        return slots.Select(s => new TaskSlotDto(
+            s.Id, s.TaskTypeId,
+            types.GetValueOrDefault(s.TaskTypeId, "Unknown"),
+            s.StartsAt, s.EndsAt,
+            s.RequiredHeadcount, s.Priority,
+            s.Status.ToString()))
+            .ToList();
     }
 }

@@ -19,6 +19,7 @@ public class PersonConfiguration : IEntityTypeConfiguration<Person>
         builder.Property(p => p.IsActive).HasColumnName("is_active");
         builder.Property(p => p.CreatedAt).HasColumnName("created_at");
         builder.Property(p => p.UpdatedAt).HasColumnName("updated_at");
+        builder.Property(p => p.PhoneNumber).HasColumnName("phone_number");
     }
 }
 

@@ -23,6 +23,7 @@ public class AppDbContext : DbContext
     // Identity
     public DbSet<User> Users => Set<User>();
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
+    public DbSet<PasswordResetToken> PasswordResetTokens => Set<PasswordResetToken>();
 
     // Spaces
     public DbSet<Space> Spaces => Set<Space>();
@@ -44,13 +45,16 @@ public class AppDbContext : DbContext
     public DbSet<Group> Groups => Set<Group>();
     public DbSet<GroupMembership> GroupMemberships => Set<GroupMembership>();
     public DbSet<GroupInvitation> GroupInvitations => Set<GroupInvitation>();
-    public DbSet<PersonRoleAssignment> PersonRoleAssignments => Set<PersonRoleAssignment>();
+    public DbSet<GroupMessage> GroupMessages => Set<GroupMessage>();
+    public DbSet<GroupAlert> GroupAlerts => Set<GroupAlert>();
     public DbSet<PendingOwnershipTransfer> PendingOwnershipTransfers => Set<PendingOwnershipTransfer>();
+    public DbSet<PersonRoleAssignment> PersonRoleAssignments => Set<PersonRoleAssignment>();
 
     // Tasks
     public DbSet<TaskType> TaskTypes => Set<TaskType>();
     public DbSet<TaskSlot> TaskSlots => Set<TaskSlot>();
     public DbSet<TaskTypeOverlapRule> TaskTypeOverlapRules => Set<TaskTypeOverlapRule>();
+    public DbSet<GroupTask> GroupTasks => Set<GroupTask>();
 
     // Constraints
     public DbSet<ConstraintRule> ConstraintRules => Set<ConstraintRule>();

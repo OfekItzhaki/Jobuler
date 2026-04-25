@@ -11,11 +11,12 @@ public class User : AuditableEntity
     public string PreferredLocale { get; private set; } = "he";
     public string? ProfileImageUrl { get; private set; }
     public DateTime? LastLoginAt { get; private set; }
+    public string? PhoneNumber { get; private set; }
 
     // EF Core constructor
     private User() { }
 
-    public static User Create(string email, string displayName, string passwordHash, string locale = "he")
+    public static User Create(string email, string displayName, string passwordHash, string locale = "he", string? phoneNumber = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(email);
         ArgumentException.ThrowIfNullOrWhiteSpace(displayName);
@@ -26,9 +27,14 @@ public class User : AuditableEntity
             Email = email.ToLowerInvariant().Trim(),
             DisplayName = displayName.Trim(),
             PasswordHash = passwordHash,
-            PreferredLocale = locale
+            PreferredLocale = locale,
+            PhoneNumber = phoneNumber?.Trim()
         };
     }
+
+    public void UpdatePhone(string? phoneNumber) { PhoneNumber = phoneNumber?.Trim(); Touch(); }
+
+    public void SetPasswordHash(string hash) { PasswordHash = hash; Touch(); }
 
     public void RecordLogin() => LastLoginAt = DateTime.UtcNow;
 

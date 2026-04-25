@@ -71,3 +71,30 @@ public class TaskTypeOverlapRuleConfiguration : IEntityTypeConfiguration<TaskTyp
         builder.HasIndex(r => new { r.TaskTypeAId, r.TaskTypeBId }).IsUnique();
     }
 }
+
+public class GroupTaskConfiguration : IEntityTypeConfiguration<GroupTask>
+{
+    public void Configure(EntityTypeBuilder<GroupTask> builder)
+    {
+        builder.ToTable("tasks");
+        builder.HasKey(t => t.Id);
+        builder.Property(t => t.Id).HasColumnName("id");
+        builder.Property(t => t.SpaceId).HasColumnName("space_id");
+        builder.Property(t => t.GroupId).HasColumnName("group_id");
+        builder.Property(t => t.Name).HasColumnName("name").IsRequired();
+        builder.Property(t => t.StartsAt).HasColumnName("starts_at");
+        builder.Property(t => t.EndsAt).HasColumnName("ends_at");
+        builder.Property(t => t.DurationHours).HasColumnName("duration_hours").HasColumnType("decimal(6,2)");
+        builder.Property(t => t.RequiredHeadcount).HasColumnName("required_headcount");
+        builder.Property(t => t.BurdenLevel).HasColumnName("burden_level")
+            .HasConversion(v => v.ToString().ToLower(), v => Enum.Parse<TaskBurdenLevel>(v, true));
+        builder.Property(t => t.AllowsDoubleShift).HasColumnName("allows_double_shift");
+        builder.Property(t => t.AllowsOverlap).HasColumnName("allows_overlap");
+        builder.Property(t => t.IsActive).HasColumnName("is_active");
+        builder.Property(t => t.CreatedByUserId).HasColumnName("created_by_user_id");
+        builder.Property(t => t.UpdatedByUserId).HasColumnName("updated_by_user_id");
+        builder.Property(t => t.CreatedAt).HasColumnName("created_at");
+        builder.Property(t => t.UpdatedAt).HasColumnName("updated_at");
+        builder.HasIndex(t => new { t.SpaceId, t.GroupId, t.Name }).IsUnique();
+    }
+}

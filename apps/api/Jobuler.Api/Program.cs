@@ -82,6 +82,7 @@ builder.Services.AddScoped<ISystemLogger, SystemLogger>();
 builder.Services.AddScoped<INotificationService, NotificationService>();
 builder.Services.AddScoped<IPdfRenderer, QuestPdfRenderer>();
 builder.Services.AddScoped<IEmailSender, NoOpEmailSender>();
+builder.Services.AddScoped<INotificationSender, NoOpNotificationSender>();
 
 // ─── Redis ───────────────────────────────────────────────────────────────────
 var redisConn = builder.Configuration["Redis:ConnectionString"] ?? "localhost:6379";

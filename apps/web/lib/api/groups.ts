@@ -40,6 +40,7 @@ export interface GroupMemberDto {
   fullName: string;
   displayName: string | null;
   isOwner: boolean;
+  phoneNumber: string | null;
 }
 
 export interface DeletedGroupDto {
@@ -60,6 +61,10 @@ export async function getGroupMembers(spaceId: string, groupId: string): Promise
 
 export async function addGroupMemberByEmail(spaceId: string, groupId: string, email: string): Promise<void> {
   await apiClient.post(`/spaces/${spaceId}/groups/${groupId}/members/by-email`, { email });
+}
+
+export async function addGroupMemberByPhone(spaceId: string, groupId: string, phoneNumber: string): Promise<void> {
+  await apiClient.post(`/spaces/${spaceId}/groups/${groupId}/members/by-phone`, { phoneNumber });
 }
 
 export async function removeGroupMember(spaceId: string, groupId: string, personId: string): Promise<void> {
@@ -93,4 +98,81 @@ export async function initiateOwnershipTransfer(spaceId: string, groupId: string
 
 export async function cancelOwnershipTransfer(spaceId: string, groupId: string): Promise<void> {
   await apiClient.delete(`/spaces/${spaceId}/groups/${groupId}/transfer`);
+}
+
+export interface GroupAlertDto {
+  id: string;
+  title: string;
+  body: string;
+  severity: "info" | "warning" | "critical";
+  createdAt: string;
+  createdByPersonId: string;
+  createdByDisplayName: string;
+}
+
+export async function getGroupAlerts(spaceId: string, groupId: string): Promise<GroupAlertDto[]> {
+  const { data } = await apiClient.get(`/spaces/${spaceId}/groups/${groupId}/alerts`);
+  return data as GroupAlertDto[];
+}
+
+export async function createGroupAlert(
+  spaceId: string,
+  groupId: string,
+  payload: { title: string; body: string; severity: string }
+): Promise<{ id: string }> {
+  const { data } = await apiClient.post(`/spaces/${spaceId}/groups/${groupId}/alerts`, payload);
+  return data as { id: string };
+}
+
+export async function deleteGroupAlert(
+  spaceId: string,
+  groupId: string,
+  alertId: string
+): Promise<void> {
+  await apiClient.delete(`/spaces/${spaceId}/groups/${groupId}/alerts/${alertId}`);
+}
+
+export async function updateGroupAlert(
+  spaceId: string,
+  groupId: string,
+  alertId: string,
+  payload: { title: string; body: string; severity: string }
+): Promise<void> {
+  await apiClient.put(`/spaces/${spaceId}/groups/${groupId}/alerts/${alertId}`, payload);
+}
+
+export interface GroupMessageDto {
+  id: string;
+  content: string;
+  authorUserId: string;
+  authorName: string;
+  isPinned: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export async function updateGroupMessage(
+  spaceId: string,
+  groupId: string,
+  messageId: string,
+  content: string
+): Promise<void> {
+  await apiClient.put(`/spaces/${spaceId}/groups/${groupId}/messages/${messageId}`, { content });
+}
+
+export async function deleteGroupMessage(
+  spaceId: string,
+  groupId: string,
+  messageId: string
+): Promise<void> {
+  await apiClient.delete(`/spaces/${spaceId}/groups/${groupId}/messages/${messageId}`);
+}
+
+export async function pinGroupMessage(
+  spaceId: string,
+  groupId: string,
+  messageId: string,
+  isPinned: boolean
+): Promise<void> {
+  await apiClient.patch(`/spaces/${spaceId}/groups/${groupId}/messages/${messageId}/pin`, { isPinned });
 }

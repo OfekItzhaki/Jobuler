@@ -26,7 +26,7 @@ public class TasksController : ControllerBase
     private Guid CurrentUserId =>
         Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
 
-    // ── Task Types ────────────────────────────────────────────────────────────
+    // ── Legacy Task Types ─────────────────────────────────────────────────────
 
     [HttpGet("spaces/{spaceId:guid}/task-types")]
     public async Task<IActionResult> ListTaskTypes(Guid spaceId, CancellationToken ct)
@@ -47,7 +47,7 @@ public class TasksController : ControllerBase
         return Created($"/spaces/{spaceId}/task-types/{id}", new { id });
     }
 
-    // ── Task Slots ────────────────────────────────────────────────────────────
+    // ── Legacy Task Slots ─────────────────────────────────────────────────────
 
     [HttpGet("spaces/{spaceId:guid}/task-slots")]
     public async Task<IActionResult> ListTaskSlots(
@@ -69,6 +69,47 @@ public class TasksController : ControllerBase
             req.Location, CurrentUserId), ct);
         return Created($"/spaces/{spaceId}/task-slots/{id}", new { id });
     }
+
+    // ── Group Tasks (new flat model) ──────────────────────────────────────────
+
+    [HttpGet("spaces/{spaceId:guid}/groups/{groupId:guid}/tasks")]
+    public async Task<IActionResult> ListGroupTasks(Guid spaceId, Guid groupId, CancellationToken ct)
+    {
+        var result = await _mediator.Send(new GetGroupTasksQuery(spaceId, groupId, CurrentUserId), ct);
+        return Ok(result);
+    }
+
+    [HttpPost("spaces/{spaceId:guid}/groups/{groupId:guid}/tasks")]
+    public async Task<IActionResult> CreateGroupTask(Guid spaceId, Guid groupId,
+        [FromBody] CreateGroupTaskRequest req, CancellationToken ct)
+    {
+        var id = await _mediator.Send(new CreateGroupTaskCommand(
+            spaceId, groupId, CurrentUserId,
+            req.Name, req.StartsAt, req.EndsAt,
+            req.DurationHours, req.RequiredHeadcount,
+            req.BurdenLevel, req.AllowsDoubleShift, req.AllowsOverlap), ct);
+        return Created($"/spaces/{spaceId}/groups/{groupId}/tasks/{id}", new { id });
+    }
+
+    [HttpPut("spaces/{spaceId:guid}/groups/{groupId:guid}/tasks/{taskId:guid}")]
+    public async Task<IActionResult> UpdateGroupTask(Guid spaceId, Guid groupId, Guid taskId,
+        [FromBody] UpdateGroupTaskRequest req, CancellationToken ct)
+    {
+        await _mediator.Send(new UpdateGroupTaskCommand(
+            spaceId, groupId, taskId, CurrentUserId,
+            req.Name, req.StartsAt, req.EndsAt,
+            req.DurationHours, req.RequiredHeadcount,
+            req.BurdenLevel, req.AllowsDoubleShift, req.AllowsOverlap), ct);
+        return NoContent();
+    }
+
+    [HttpDelete("spaces/{spaceId:guid}/groups/{groupId:guid}/tasks/{taskId:guid}")]
+    public async Task<IActionResult> DeleteGroupTask(Guid spaceId, Guid groupId, Guid taskId,
+        CancellationToken ct)
+    {
+        await _mediator.Send(new DeleteGroupTaskCommand(spaceId, groupId, taskId, CurrentUserId), ct);
+        return NoContent();
+    }
 }
 
 public record CreateTaskTypeRequest(
@@ -80,3 +121,23 @@ public record CreateTaskSlotRequest(
     int RequiredHeadcount, int Priority,
     List<Guid>? RequiredRoleIds, List<Guid>? RequiredQualificationIds,
     string? Location);
+
+public record CreateGroupTaskRequest(
+    string Name,
+    DateTime StartsAt,
+    DateTime EndsAt,
+    decimal DurationHours,
+    int RequiredHeadcount,
+    string BurdenLevel,
+    bool AllowsDoubleShift,
+    bool AllowsOverlap);
+
+public record UpdateGroupTaskRequest(
+    string Name,
+    DateTime StartsAt,
+    DateTime EndsAt,
+    decimal DurationHours,
+    int RequiredHeadcount,
+    string BurdenLevel,
+    bool AllowsDoubleShift,
+    bool AllowsOverlap);

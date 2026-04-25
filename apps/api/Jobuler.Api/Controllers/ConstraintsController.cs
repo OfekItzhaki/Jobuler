@@ -49,9 +49,31 @@ public class ConstraintsController : ControllerBase
             CurrentUserId), ct);
         return Created($"/spaces/{spaceId}/constraints/{id}", new { id });
     }
+
+    [HttpPut("{constraintId:guid}")]
+    public async Task<IActionResult> Update(Guid spaceId, Guid constraintId,
+        [FromBody] UpdateConstraintRequest req, CancellationToken ct)
+    {
+        await _mediator.Send(new UpdateConstraintCommand(
+            spaceId, constraintId, CurrentUserId,
+            req.RulePayloadJson, req.EffectiveFrom, req.EffectiveUntil), ct);
+        return NoContent();
+    }
+
+    [HttpDelete("{constraintId:guid}")]
+    public async Task<IActionResult> Delete(Guid spaceId, Guid constraintId, CancellationToken ct)
+    {
+        await _mediator.Send(new DeleteConstraintCommand(spaceId, constraintId, CurrentUserId), ct);
+        return NoContent();
+    }
 }
 
 public record CreateConstraintRequest(
     string ScopeType, Guid? ScopeId, string Severity,
     string RuleType, string RulePayloadJson,
     DateOnly? EffectiveFrom, DateOnly? EffectiveUntil);
+
+public record UpdateConstraintRequest(
+    string RulePayloadJson,
+    DateOnly? EffectiveFrom,
+    DateOnly? EffectiveUntil);

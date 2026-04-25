@@ -1,0 +1,53 @@
+using Jobuler.Application.Auth;
+using Jobuler.Application.Common;
+using Jobuler.Domain.Identity;
+using Jobuler.Infrastructure.Persistence;
+using MediatR;
+using Microsoft.EntityFrameworkCore;
+
+namespace Jobuler.Application.Auth.Commands;
+
+public record ForgotPasswordCommand(string Email) : IRequest;
+
+public class ForgotPasswordCommandHandler : IRequestHandler<ForgotPasswordCommand>
+{
+    private readonly AppDbContext _db;
+    private readonly INotificationSender _notifications;
+    private readonly IJwtService _jwt;
+
+    public ForgotPasswordCommandHandler(
+        AppDbContext db, INotificationSender notifications, IJwtService jwt)
+    {
+        _db = db;
+        _notifications = notifications;
+        _jwt = jwt;
+    }
+
+    public async Task Handle(ForgotPasswordCommand req, CancellationToken ct)
+    {
+        var user = await _db.Users
+            .FirstOrDefaultAsync(u => u.Email == req.Email.ToLowerInvariant().Trim() && u.IsActive, ct);
+
+        // Always return without error — never reveal whether email exists (prevents user enumeration)
+        if (user is null) return;
+
+        // Invalidate any existing active tokens for this user
+        var existing = await _db.PasswordResetTokens
+            .Where(t => t.UserId == user.Id && t.UsedAt == null && t.ExpiresAt > DateTime.UtcNow)
+            .ToListAsync(ct);
+        foreach (var t in existing)
+            t.MarkUsed();
+
+        // Generate raw token and store only its SHA-256 hash
+        var rawToken = _jwt.GenerateRefreshTokenRaw();
+        var tokenHash = _jwt.HashToken(rawToken);
+
+        var resetToken = PasswordResetToken.Create(user.Id, tokenHash);
+        _db.PasswordResetTokens.Add(resetToken);
+        await _db.SaveChangesAsync(ct);
+
+        // Deliver via INotificationSender — prefer phone number, fall back to email
+        var to = !string.IsNullOrWhiteSpace(user.PhoneNumber) ? user.PhoneNumber : user.Email;
+        await _notifications.SendPasswordResetAsync(to, rawToken, ct);
+    }
+}

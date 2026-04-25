@@ -18,7 +18,7 @@ public class RegisterCommandHandler : IRequestHandler<RegisterCommand, Guid>
             throw new InvalidOperationException("Email already registered.");
 
         var hash = BCrypt.Net.BCrypt.HashPassword(request.Password, workFactor: 12);
-        var user = User.Create(request.Email, request.DisplayName, hash, request.PreferredLocale);
+        var user = User.Create(request.Email, request.DisplayName, hash, request.PreferredLocale, request.PhoneNumber);
 
         _db.Users.Add(user);
         await _db.SaveChangesAsync(ct);

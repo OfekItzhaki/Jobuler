@@ -44,7 +44,15 @@ public class ExceptionHandlingMiddleware
             Jobuler.Application.Common.ConflictException => (HttpStatusCode.Conflict, ex.Message, (List<string>?)[]),
             InvalidOperationException   => (HttpStatusCode.BadRequest, ex.Message, (List<string>?)[]),
             ArgumentException           => (HttpStatusCode.BadRequest, ex.Message, (List<string>?)[]),
-            _                           => (HttpStatusCode.InternalServerError, "An unexpected error occurred.", (List<string>?)[])
+            // EF unique constraint violations → 409 Conflict
+            Microsoft.EntityFrameworkCore.DbUpdateException dbe when dbe.InnerException?.Message.Contains("unique") == true ||
+                dbe.InnerException?.Message.Contains("23505") == true ||
+                dbe.InnerException?.Message.Contains("duplicate key") == true
+                => (HttpStatusCode.Conflict, "A record with this name or identifier already exists.", (List<string>?)[]),
+            // Other EF exceptions → 400
+            Microsoft.EntityFrameworkCore.DbUpdateException dbe2
+                => (HttpStatusCode.BadRequest, dbe2.InnerException?.Message ?? dbe2.Message, (List<string>?)[]),
+            _   => (HttpStatusCode.InternalServerError, "An unexpected error occurred.", (List<string>?)[])
         };
 
         if (statusCode == HttpStatusCode.InternalServerError)

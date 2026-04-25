@@ -10,10 +10,11 @@ public class Person : AuditableEntity, ITenantScoped
     public string? DisplayName { get; private set; }
     public string? ProfileImageUrl { get; private set; }
     public bool IsActive { get; private set; } = true;
+    public string? PhoneNumber { get; private set; }
 
     private Person() { }
 
-    public static Person Create(Guid spaceId, string fullName, string? displayName = null, Guid? linkedUserId = null)
+    public static Person Create(Guid spaceId, string fullName, string? displayName = null, Guid? linkedUserId = null, string? phoneNumber = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(fullName);
         return new Person
@@ -21,7 +22,8 @@ public class Person : AuditableEntity, ITenantScoped
             SpaceId = spaceId,
             FullName = fullName.Trim(),
             DisplayName = displayName?.Trim(),
-            LinkedUserId = linkedUserId
+            LinkedUserId = linkedUserId,
+            PhoneNumber = phoneNumber?.Trim()
         };
     }
 

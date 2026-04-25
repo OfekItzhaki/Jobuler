@@ -68,3 +68,54 @@ export async function createTaskSlot(
   });
   return data;
 }
+
+// ── Group Tasks (new flat model) ──────────────────────────────────────────────
+
+export interface GroupTaskDto {
+  id: string;
+  name: string;
+  startsAt: string;
+  endsAt: string;
+  durationHours: number;
+  requiredHeadcount: number;
+  burdenLevel: string;
+  allowsDoubleShift: boolean;
+  allowsOverlap: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface GroupTaskPayload {
+  name: string;
+  startsAt: string;
+  endsAt: string;
+  durationHours: number;
+  requiredHeadcount: number;
+  burdenLevel: string;
+  allowsDoubleShift: boolean;
+  allowsOverlap: boolean;
+}
+
+export async function listGroupTasks(spaceId: string, groupId: string): Promise<GroupTaskDto[]> {
+  const { data } = await apiClient.get(`/spaces/${spaceId}/groups/${groupId}/tasks`);
+  return data as GroupTaskDto[];
+}
+
+export async function createGroupTask(
+  spaceId: string, groupId: string, payload: GroupTaskPayload
+): Promise<{ id: string }> {
+  const { data } = await apiClient.post(`/spaces/${spaceId}/groups/${groupId}/tasks`, payload);
+  return data as { id: string };
+}
+
+export async function updateGroupTask(
+  spaceId: string, groupId: string, taskId: string, payload: GroupTaskPayload
+): Promise<void> {
+  await apiClient.put(`/spaces/${spaceId}/groups/${groupId}/tasks/${taskId}`, payload);
+}
+
+export async function deleteGroupTask(
+  spaceId: string, groupId: string, taskId: string
+): Promise<void> {
+  await apiClient.delete(`/spaces/${spaceId}/groups/${groupId}/tasks/${taskId}`);
+}

@@ -6,4 +6,5 @@ public record RegisterCommand(
     string Email,
     string DisplayName,
     string Password,
-    string PreferredLocale = "he") : IRequest<Guid>;
+    string PreferredLocale = "he",
+    string? PhoneNumber = null) : IRequest<Guid>;

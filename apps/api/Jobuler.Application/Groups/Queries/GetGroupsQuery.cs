@@ -6,7 +6,7 @@ namespace Jobuler.Application.Groups.Queries;
 
 public record GroupTypeDto(Guid Id, string Name, string? Description, bool IsActive);
 public record GroupDto(Guid Id, Guid? GroupTypeId, string? GroupTypeName, string Name, string? Description, bool IsActive, int MemberCount, int SolverHorizonDays, Guid? OwnerPersonId);
-public record GroupMemberDto(Guid PersonId, string FullName, string? DisplayName, bool IsOwner);
+public record GroupMemberDto(Guid PersonId, string FullName, string? DisplayName, bool IsOwner, string? PhoneNumber);
 
 public record GetGroupTypesQuery(Guid SpaceId) : IRequest<List<GroupTypeDto>>;
 
@@ -79,12 +79,24 @@ public class GetGroupMembersQueryHandler : IRequestHandler<GetGroupMembersQuery,
     private readonly AppDbContext _db;
     public GetGroupMembersQueryHandler(AppDbContext db) => _db = db;
 
-    public async Task<List<GroupMemberDto>> Handle(GetGroupMembersQuery req, CancellationToken ct) =>
-        await _db.GroupMemberships.AsNoTracking()
+    public async Task<List<GroupMemberDto>> Handle(GetGroupMembersQuery req, CancellationToken ct)
+    {
+        var memberships = await _db.GroupMemberships.AsNoTracking()
             .Where(m => m.GroupId == req.GroupId && m.SpaceId == req.SpaceId)
-            .Join(_db.People, m => m.PersonId, p => p.Id,
-                (m, p) => new { p.Id, p.FullName, p.DisplayName, m.IsOwner })
-            .OrderBy(p => p.FullName)
-            .Select(p => new GroupMemberDto(p.Id, p.FullName, p.DisplayName, p.IsOwner))
             .ToListAsync(ct);
+
+        var personIds = memberships.Select(m => m.PersonId).ToList();
+        var people = await _db.People.AsNoTracking()
+            .Where(p => personIds.Contains(p.Id))
+            .ToDictionaryAsync(p => p.Id, ct);
+
+        return memberships
+            .Where(m => people.ContainsKey(m.PersonId))
+            .OrderBy(m => people[m.PersonId].FullName)
+            .Select(m => {
+                var p = people[m.PersonId];
+                return new GroupMemberDto(p.Id, p.FullName, p.DisplayName, m.IsOwner, p.PhoneNumber);
+            })
+            .ToList();
+    }
 }

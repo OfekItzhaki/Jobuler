@@ -20,6 +20,7 @@ public class UserConfiguration : IEntityTypeConfiguration<User>
         builder.Property(u => u.LastLoginAt).HasColumnName("last_login_at");
         builder.Property(u => u.CreatedAt).HasColumnName("created_at");
         builder.Property(u => u.UpdatedAt).HasColumnName("updated_at");
+        builder.Property(u => u.PhoneNumber).HasColumnName("phone_number");
         builder.HasIndex(u => u.Email).IsUnique();
     }
 }

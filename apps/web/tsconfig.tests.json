@@ -1,0 +1,25 @@
+{
+  "compilerOptions": {
+    "target": "ES2020",
+    "module": "commonjs",
+    "moduleResolution": "node",
+    "lib": ["ES2020", "dom"],
+    "outDir": "__tests__/dist",
+    "rootDir": ".",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "resolveJsonModule": true
+  },
+  "include": [
+    "__tests__/**/*.ts",
+    "lib/api/groups.ts",
+    "lib/utils/**/*.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "**/*.tsx",
+    "app/**",
+    "components/**"
+  ]
+}

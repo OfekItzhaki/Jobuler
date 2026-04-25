@@ -50,9 +50,10 @@ public class CreateGroupCommandHandler : IRequestHandler<CreateGroupCommand, Gui
 
         var group = Group.Create(req.SpaceId, req.GroupTypeId, req.Name, req.Description, createdByUserId: req.CreatedByUserId);
         _db.Groups.Add(group);
+        // Save group first so the FK constraint on group_memberships is satisfied
+        await _db.SaveChangesAsync(ct);
 
         _db.GroupMemberships.Add(GroupMembership.Create(req.SpaceId, group.Id, person.Id, isOwner: true));
-
         await _db.SaveChangesAsync(ct);
         return group.Id;
     }

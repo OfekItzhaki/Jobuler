@@ -33,3 +33,18 @@ export async function createConstraint(
   });
   return data;
 }
+
+export async function updateConstraint(
+  spaceId: string,
+  constraintId: string,
+  payload: { rulePayloadJson: string; effectiveFrom: string | null; effectiveUntil: string | null }
+): Promise<void> {
+  await apiClient.put(`/spaces/${spaceId}/constraints/${constraintId}`, payload);
+}
+
+export async function deleteConstraint(
+  spaceId: string,
+  constraintId: string
+): Promise<void> {
+  await apiClient.delete(`/spaces/${spaceId}/constraints/${constraintId}`);
+}

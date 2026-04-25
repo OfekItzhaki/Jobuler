@@ -22,7 +22,7 @@ public class AuthController : ControllerBase
     public async Task<IActionResult> Register([FromBody] RegisterRequest req, CancellationToken ct)
     {
         var userId = await _mediator.Send(
-            new RegisterCommand(req.Email, req.DisplayName, req.Password, req.PreferredLocale ?? "he"), ct);
+            new RegisterCommand(req.Email, req.DisplayName, req.Password, req.PreferredLocale ?? "he", req.PhoneNumber), ct);
         return CreatedAtAction(nameof(Register), new { userId });
     }
 
@@ -52,8 +52,30 @@ public class AuthController : ControllerBase
         await _mediator.Send(new RevokeTokenCommand(req.RefreshToken), ct);
         return NoContent();
     }
+
+    /// <summary>Request a password reset token. Always returns 200 to prevent user enumeration.</summary>
+    [HttpPost("forgot-password")]
+    [AllowAnonymous]
+    public async Task<IActionResult> ForgotPassword(
+        [FromBody] ForgotPasswordRequest req, CancellationToken ct)
+    {
+        await _mediator.Send(new ForgotPasswordCommand(req.Email), ct);
+        return Ok();
+    }
+
+    /// <summary>Reset password using a valid reset token.</summary>
+    [HttpPost("reset-password")]
+    [AllowAnonymous]
+    public async Task<IActionResult> ResetPassword(
+        [FromBody] ResetPasswordRequest req, CancellationToken ct)
+    {
+        await _mediator.Send(new ResetPasswordCommand(req.Token, req.NewPassword), ct);
+        return NoContent();
+    }
 }
 
-public record RegisterRequest(string Email, string DisplayName, string Password, string? PreferredLocale);
+public record RegisterRequest(string Email, string DisplayName, string Password, string? PreferredLocale, string? PhoneNumber);
 public record LoginRequest(string Email, string Password);
 public record RefreshRequest(string RefreshToken);
+public record ForgotPasswordRequest(string Email);
+public record ResetPasswordRequest(string Token, string NewPassword);

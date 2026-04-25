@@ -1,7 +1,7 @@
-# Step 029 — Group Ownership Model — Creator Auto-Membership, Owner Protections, Soft-Delete, Transfer
+# Step 029 — Group Ownership
 
 ## Phase
-Phase 9 — Group Ownership
+Phase 8 — Group Management
 
 ## Purpose
 
@@ -116,5 +116,5 @@ node --require ts-node/register __tests__/group-detail-tabs.test.ts
 ## Git commit
 
 ```bash
-git add -A && git commit -m "feat(phase9): group ownership, creator auto-membership, soft-delete, transfer"
+git add -A && git commit -m "feat(phase8): group ownership model, soft-delete, ownership transfer"
 ```

@@ -2,7 +2,7 @@ using Jobuler.Domain.Common;
 
 namespace Jobuler.Domain.Scheduling;
 
-public enum ScheduleVersionStatus { Draft, Published, RolledBack, Archived }
+public enum ScheduleVersionStatus { Draft, Published, RolledBack, Archived, Discarded }
 
 /// <summary>
 /// Immutable snapshot of a schedule for a space.
@@ -62,4 +62,11 @@ public class ScheduleVersion : Entity, ITenantScoped
 
     public void MarkRolledBack() => Status = ScheduleVersionStatus.RolledBack;
     public void Archive()        => Status = ScheduleVersionStatus.Archived;
+
+    public void Discard()
+    {
+        if (Status != ScheduleVersionStatus.Draft)
+            throw new InvalidOperationException("Only draft versions can be discarded.");
+        Status = ScheduleVersionStatus.Discarded;
+    }
 }

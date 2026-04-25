@@ -3,12 +3,15 @@
 import { useState } from "react";
 import { useTranslations } from "next-intl";
 import { useAuthStore } from "@/lib/store/authStore";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
+import Link from "next/link";
 
 export default function LoginPage() {
   const t = useTranslations("auth");
   const { login } = useAuthStore();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const justRegistered = searchParams.get("registered") === "1";
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -51,6 +54,24 @@ export default function LoginPage() {
             <h1 style={{ fontSize: "1.25rem", fontWeight: 600, color: "#0f172a", margin: 0 }}>{t("login")}</h1>
             <p style={{ fontSize: "0.875rem", color: "#64748b", marginTop: "0.25rem" }}>Sign in to your workspace</p>
           </div>
+
+          {justRegistered && (
+            <div style={{ background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: 10, padding: "0.625rem 0.875rem", display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "1rem" }}>
+              <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="#16a34a" strokeWidth={2} style={{ flexShrink: 0 }}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <p style={{ fontSize: "0.875rem", color: "#15803d", margin: 0 }}>החשבון נוצר בהצלחה! התחבר כדי להמשיך.</p>
+            </div>
+          )}
+
+          {searchParams.get("reset") === "1" && (
+            <div style={{ background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: 10, padding: "0.625rem 0.875rem", display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "1rem" }}>
+              <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="#16a34a" strokeWidth={2} style={{ flexShrink: 0 }}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <p style={{ fontSize: "0.875rem", color: "#15803d", margin: 0 }}>הסיסמה אופסה בהצלחה! התחבר עם הסיסמה החדשה.</p>
+            </div>
+          )}
 
           <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
             <div>
@@ -100,6 +121,12 @@ export default function LoginPage() {
               </div>
             </div>
 
+            <div style={{ textAlign: "left" }}>
+              <Link href="/forgot-password" style={{ fontSize: "0.75rem", color: "#3b82f6", textDecoration: "none" }}>
+                שכחת סיסמה?
+              </Link>
+            </div>
+
             {error && (
               <div style={{ background: "#fef2f2", border: "1px solid #fecaca", borderRadius: "10px", padding: "0.625rem 0.875rem", display: "flex", alignItems: "center", gap: "0.5rem" }}>
                 <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="#ef4444" strokeWidth={2} style={{ flexShrink: 0 }}>
@@ -117,6 +144,13 @@ export default function LoginPage() {
               {loading ? "מתחבר..." : t("loginButton")}
             </button>
           </form>
+
+          <p style={{ textAlign: "center", fontSize: "0.875rem", color: "#64748b", marginTop: "1.25rem" }}>
+            אין לך חשבון?{" "}
+            <Link href="/register" style={{ color: "#3b82f6", fontWeight: 500, textDecoration: "none" }}>
+              הירשם
+            </Link>
+          </p>
         </div>
       </div>
     </main>

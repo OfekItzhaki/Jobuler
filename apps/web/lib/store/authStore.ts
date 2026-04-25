@@ -35,6 +35,8 @@ export const useAuthStore = create<AuthState>()(
         const result = await apiLogin(email, password);
         localStorage.setItem("access_token", result.accessToken);
         localStorage.setItem("refresh_token", result.refreshToken);
+        // Clear stale space so AppShell re-resolves for the new user
+        localStorage.removeItem("jobuler-space");
         document.cookie = `access_token=${result.accessToken}; path=/; max-age=900; SameSite=Strict`;
         document.cookie = `locale=${result.preferredLocale}; path=/; max-age=31536000; SameSite=Strict`;
         set({
@@ -53,6 +55,8 @@ export const useAuthStore = create<AuthState>()(
         }
         localStorage.removeItem("access_token");
         localStorage.removeItem("refresh_token");
+        // Clear persisted space so the next user gets a fresh space resolution
+        localStorage.removeItem("jobuler-space");
         document.cookie = "access_token=; path=/; max-age=0";
         document.cookie = "locale=; path=/; max-age=0";
         set({ userId: null, displayName: null, isAuthenticated: false, adminGroupId: null });

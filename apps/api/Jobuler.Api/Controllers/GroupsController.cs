@@ -1,8 +1,7 @@
 using Jobuler.Application.Common;
 using Jobuler.Application.Groups.Commands;
 using Jobuler.Application.Groups.Queries;
-using Jobuler.Application.Scheduling.Queries;
-using Jobuler.Domain.Spaces;
+using Jobuler.Application.Scheduling.Queries;using Jobuler.Domain.Spaces;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -130,6 +129,16 @@ public class GroupsController : ControllerBase
         return Ok(result);
     }
 
+    [HttpPost("spaces/{spaceId:guid}/groups/{groupId:guid}/members/by-phone")]
+    public async Task<IActionResult> AddMemberByPhone(Guid spaceId, Guid groupId,
+        [FromBody] AddMemberByPhoneRequest req, CancellationToken ct)
+    {
+        await _permissions.RequirePermissionAsync(CurrentUserId, spaceId, Permissions.PeopleManage, ct);
+        var result = await _mediator.Send(
+            new AddPersonByPhoneCommand(spaceId, groupId, req.PhoneNumber, CurrentUserId), ct);
+        return Ok(result);
+    }
+
     [HttpDelete("spaces/{spaceId:guid}/groups/{groupId:guid}/members/{personId:guid}")]
     public async Task<IActionResult> RemoveMember(Guid spaceId, Guid groupId, Guid personId, CancellationToken ct)
     {
@@ -145,6 +154,89 @@ public class GroupsController : ControllerBase
     {
         await _permissions.RequirePermissionAsync(CurrentUserId, spaceId, Permissions.SpaceView, ct);
         return Ok(await _mediator.Send(new GetGroupScheduleQuery(spaceId, groupId), ct));
+    }
+
+    // ── Group Messages ────────────────────────────────────────────────────────
+
+    [HttpGet("spaces/{spaceId:guid}/groups/{groupId:guid}/messages")]
+    public async Task<IActionResult> GetMessages(Guid spaceId, Guid groupId, CancellationToken ct)
+    {
+        await _permissions.RequirePermissionAsync(CurrentUserId, spaceId, Permissions.SpaceView, ct);
+        return Ok(await _mediator.Send(new GetGroupMessagesQuery(spaceId, groupId), ct));
+    }
+
+    [HttpPost("spaces/{spaceId:guid}/groups/{groupId:guid}/messages")]
+    public async Task<IActionResult> CreateMessage(Guid spaceId, Guid groupId,
+        [FromBody] CreateGroupMessageRequest req, CancellationToken ct)
+    {
+        await _permissions.RequirePermissionAsync(CurrentUserId, spaceId, Permissions.PeopleManage, ct);
+        var id = await _mediator.Send(new CreateGroupMessageCommand(spaceId, groupId, CurrentUserId, req.Content, req.IsPinned), ct);
+        return Created("", new { id });
+    }
+
+    [HttpDelete("spaces/{spaceId:guid}/groups/{groupId:guid}/messages/{messageId:guid}")]
+    public async Task<IActionResult> DeleteMessage(Guid spaceId, Guid groupId, Guid messageId, CancellationToken ct)
+    {
+        await _permissions.RequirePermissionAsync(CurrentUserId, spaceId, Permissions.PeopleManage, ct);
+        await _mediator.Send(new DeleteGroupMessageCommand(spaceId, groupId, messageId, CurrentUserId), ct);
+        return NoContent();
+    }
+
+    // ── Group Alerts ──────────────────────────────────────────────────────────
+
+    [HttpPost("spaces/{spaceId:guid}/groups/{groupId:guid}/alerts")]
+    public async Task<IActionResult> CreateAlert(
+        Guid spaceId, Guid groupId,
+        [FromBody] CreateAlertRequest req, CancellationToken ct)
+    {
+        var id = await _mediator.Send(
+            new CreateGroupAlertCommand(spaceId, groupId, CurrentUserId, req.Title, req.Body, req.Severity), ct);
+        return CreatedAtAction(nameof(CreateAlert), new { id });
+    }
+
+    [HttpGet("spaces/{spaceId:guid}/groups/{groupId:guid}/alerts")]
+    public async Task<IActionResult> GetAlerts(Guid spaceId, Guid groupId, CancellationToken ct)
+    {
+        var alerts = await _mediator.Send(new GetGroupAlertsQuery(spaceId, groupId, CurrentUserId), ct);
+        return Ok(alerts);
+    }
+
+    [HttpDelete("spaces/{spaceId:guid}/groups/{groupId:guid}/alerts/{alertId:guid}")]
+    public async Task<IActionResult> DeleteAlert(
+        Guid spaceId, Guid groupId, Guid alertId, CancellationToken ct)
+    {
+        await _mediator.Send(new DeleteGroupAlertCommand(spaceId, groupId, alertId, CurrentUserId), ct);
+        return NoContent();
+    }
+
+    [HttpPut("spaces/{spaceId:guid}/groups/{groupId:guid}/alerts/{alertId:guid}")]
+    public async Task<IActionResult> UpdateAlert(
+        Guid spaceId, Guid groupId, Guid alertId,
+        [FromBody] UpdateAlertRequest req, CancellationToken ct)
+    {
+        await _mediator.Send(new UpdateGroupAlertCommand(
+            spaceId, groupId, alertId, CurrentUserId, req.Title, req.Body, req.Severity), ct);
+        return NoContent();
+    }
+
+    [HttpPut("spaces/{spaceId:guid}/groups/{groupId:guid}/messages/{messageId:guid}")]
+    public async Task<IActionResult> UpdateMessage(
+        Guid spaceId, Guid groupId, Guid messageId,
+        [FromBody] UpdateMessageRequest req, CancellationToken ct)
+    {
+        await _mediator.Send(new UpdateGroupMessageCommand(
+            spaceId, groupId, messageId, CurrentUserId, req.Content), ct);
+        return NoContent();
+    }
+
+    [HttpPatch("spaces/{spaceId:guid}/groups/{groupId:guid}/messages/{messageId:guid}/pin")]
+    public async Task<IActionResult> PinMessage(
+        Guid spaceId, Guid groupId, Guid messageId,
+        [FromBody] PinMessageRequest req, CancellationToken ct)
+    {
+        await _mediator.Send(new PinGroupMessageCommand(
+            spaceId, groupId, messageId, CurrentUserId, req.IsPinned), ct);
+        return NoContent();
     }
 
     // ── Group Types (kept for compatibility) ──────────────────────────────────
@@ -168,9 +260,15 @@ public class GroupsController : ControllerBase
 
 // ── Request records ───────────────────────────────────────────────────────────
 
+public record CreateGroupMessageRequest(string Content, bool IsPinned = false);
 public record CreateGroupTypeRequest(string Name, string? Description);
 public record CreateGroupRequest(Guid? GroupTypeId, string Name, string? Description);
 public record AddMemberByEmailRequest(string Email);
+public record AddMemberByPhoneRequest(string PhoneNumber);
 public record UpdateGroupSettingsRequest(int SolverHorizonDays);
 public record RenameGroupRequest(string Name);
 public record InitiateGroupTransferRequest(Guid ProposedPersonId);
+public record CreateAlertRequest(string Title, string Body, string Severity);
+public record UpdateAlertRequest(string Title, string Body, string Severity);
+public record UpdateMessageRequest(string Content);
+public record PinMessageRequest(bool IsPinned);
