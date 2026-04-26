@@ -16,7 +16,7 @@ public class User : AuditableEntity
     // EF Core constructor
     private User() { }
 
-    public static User Create(string email, string displayName, string passwordHash, string locale = "he", string? phoneNumber = null)
+    public static User Create(string email, string displayName, string passwordHash, string locale = "he", string? phoneNumber = null, string? profileImageUrl = null, DateOnly? birthday = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(email);
         ArgumentException.ThrowIfNullOrWhiteSpace(displayName);
@@ -28,9 +28,13 @@ public class User : AuditableEntity
             DisplayName = displayName.Trim(),
             PasswordHash = passwordHash,
             PreferredLocale = locale,
-            PhoneNumber = phoneNumber?.Trim()
+            PhoneNumber = phoneNumber?.Trim(),
+            ProfileImageUrl = profileImageUrl,
+            Birthday = birthday
         };
     }
+
+    public DateOnly? Birthday { get; private set; }
 
     public void UpdatePhone(string? phoneNumber) { PhoneNumber = phoneNumber?.Trim(); Touch(); }
 
@@ -43,6 +47,15 @@ public class User : AuditableEntity
         DisplayName = displayName.Trim();
         ProfileImageUrl = profileImageUrl;
         PreferredLocale = locale;
+        Touch();
+    }
+
+    public void UpdateProfileFull(string displayName, string? profileImageUrl, string? phoneNumber, DateOnly? birthday)
+    {
+        DisplayName = displayName.Trim();
+        ProfileImageUrl = profileImageUrl;
+        PhoneNumber = phoneNumber?.Trim();
+        Birthday = birthday;
         Touch();
     }
 

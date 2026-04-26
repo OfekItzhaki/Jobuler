@@ -41,6 +41,8 @@ export interface GroupMemberDto {
   displayName: string | null;
   isOwner: boolean;
   phoneNumber: string | null;
+  invitationStatus: string;
+  profileImageUrl: string | null;
 }
 
 export interface DeletedGroupDto {
@@ -61,6 +63,18 @@ export async function getGroupMembers(spaceId: string, groupId: string): Promise
 
 export async function addGroupMemberByEmail(spaceId: string, groupId: string, email: string): Promise<void> {
   await apiClient.post(`/spaces/${spaceId}/groups/${groupId}/members/by-email`, { email });
+}
+
+export async function addGroupMemberById(spaceId: string, groupId: string, personId: string): Promise<void> {
+  await apiClient.post(`/spaces/${spaceId}/groups/${groupId}/members`, { personId });
+}
+
+export async function updatePersonInfo(
+  spaceId: string,
+  personId: string,
+  payload: { fullName?: string; displayName?: string; phoneNumber?: string; profileImageUrl?: string; birthday?: string }
+): Promise<void> {
+  await apiClient.put(`/spaces/${spaceId}/people/${personId}/info`, payload);
 }
 
 export async function addGroupMemberByPhone(spaceId: string, groupId: string, phoneNumber: string): Promise<void> {

@@ -22,6 +22,7 @@ public class PersonConfiguration : IEntityTypeConfiguration<Person>
         builder.Property(p => p.PhoneNumber).HasColumnName("phone_number");
         builder.Property(p => p.InvitationStatus).HasColumnName("invitation_status")
             .HasDefaultValue("accepted");
+        builder.Property(p => p.Birthday).HasColumnName("birthday");
     }
 }
 

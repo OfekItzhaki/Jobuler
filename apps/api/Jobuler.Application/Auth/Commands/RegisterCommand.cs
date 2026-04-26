@@ -7,4 +7,6 @@ public record RegisterCommand(
     string DisplayName,
     string Password,
     string PreferredLocale = "he",
-    string? PhoneNumber = null) : IRequest<Guid>;
+    string? PhoneNumber = null,
+    string? ProfileImageUrl = null,
+    DateOnly? Birthday = null) : IRequest<Guid>;

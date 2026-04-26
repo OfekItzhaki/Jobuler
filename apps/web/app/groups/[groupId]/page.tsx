@@ -14,6 +14,7 @@ import {
   GroupWithMemberCountDto, GroupMemberDto, DeletedGroupDto,
   getGroupAlerts, createGroupAlert, deleteGroupAlert, updateGroupAlert, GroupAlertDto,
   updateGroupMessage, deleteGroupMessage, pinGroupMessage,
+  updatePersonInfo,
 } from "@/lib/api/groups";
 import { getSeverityBadge } from "@/lib/utils/alertSeverity";
 import { getAvatarColor, getAvatarLetter } from "@/lib/utils/groupAvatar";
@@ -198,6 +199,12 @@ export default function GroupDetailPage() {
   const [showConstraintForm, setShowConstraintForm] = useState(false);
   const [newConstraintScope, setNewConstraintScope] = useState("group");
   const [newConstraintSeverity, setNewConstraintSeverity] = useState("hard");
+
+  // Member profile modal state
+  const [selectedMember, setSelectedMember] = useState<GroupMemberDto | null>(null);
+  const [editingMemberForm, setEditingMemberForm] = useState<{fullName: string; displayName: string; phoneNumber: string; profileImageUrl: string; birthday: string} | null>(null);
+  const [memberEditSaving, setMemberEditSaving] = useState(false);
+  const [memberEditError, setMemberEditError] = useState<string | null>(null);
   const [newConstraintRuleType, setNewConstraintRuleType] = useState("min_rest_hours");
   const [newConstraintPayload, setNewConstraintPayload] = useState('{"hours": 8}');
   const [constraintSaving, setConstraintSaving] = useState(false);
@@ -565,7 +572,11 @@ export default function GroupDetailPage() {
 
   async function handleAddMember(e: React.FormEvent) {
     e.preventDefault();
-    if (!currentSpaceId || !addEmail.trim()) return;
+    if (!currentSpaceId) return;
+    if (!addEmail.trim()) {
+      setAddError("יש להזין אימייל או מספר טלפון");
+      return;
+    }
     setAddError(null);
     const input = addEmail.trim();
     const isPhone = /^[+\d][\d\s\-()\+]{6,}$/.test(input);
@@ -599,17 +610,31 @@ export default function GroupDetailPage() {
     setCreatePersonSaving(true); setCreatePersonError(null);
     try {
       const result = await createPerson(currentSpaceId, newPersonName.trim(), newPersonDisplayName.trim() || undefined);
-      // Add to group
-      await apiClient.post(`/spaces/${currentSpaceId}/groups/${groupId}/members/by-email`, { email: "" }).catch(() => {});
-      // Actually add by personId directly — use the people endpoint
-      await apiClient.post(`/spaces/${currentSpaceId}/groups/${groupId}/members`, { personId: result.id }).catch(async () => {
-        // Fallback: just refresh members
-      });
+      await apiClient.post(`/spaces/${currentSpaceId}/groups/${groupId}/members`, { personId: result.id });
       setNewPersonName(""); setNewPersonDisplayName(""); setShowCreatePersonForm(false);
       await fetchMembers();
     } catch (err: any) {
       setCreatePersonError(err?.response?.data?.message ?? "שגיאה ביצירת האדם");
     } finally { setCreatePersonSaving(false); }
+  }
+
+  async function handleSaveMemberEdit(personId: string) {
+    if (!currentSpaceId || !editingMemberForm) return;
+    setMemberEditSaving(true); setMemberEditError(null);
+    try {
+      await updatePersonInfo(currentSpaceId, personId, {
+        fullName: editingMemberForm.fullName || undefined,
+        displayName: editingMemberForm.displayName || undefined,
+        phoneNumber: editingMemberForm.phoneNumber || undefined,
+        profileImageUrl: editingMemberForm.profileImageUrl || undefined,
+        birthday: editingMemberForm.birthday || undefined,
+      });
+      await fetchMembers();
+      setSelectedMember(null);
+      setEditingMemberForm(null);
+    } catch (err: any) {
+      setMemberEditError(err?.response?.data?.message ?? "שגיאה בשמירת הפרטים");
+    } finally { setMemberEditSaving(false); }
   }
 
   async function handleInvitePerson(e: React.FormEvent) {
@@ -1072,9 +1097,14 @@ export default function GroupDetailPage() {
           {filteredReadOnly.length === 0 ? (
             <p className="text-sm text-slate-400 py-4 text-center">לא נמצאו חברים</p>
           ) : filteredReadOnly.map(m => (
-            <div key={m.personId} className="flex items-center gap-3 bg-white border border-slate-200 rounded-xl px-4 py-3">
-              <div className="w-8 h-8 rounded-full bg-blue-50 flex items-center justify-center text-blue-600 text-sm font-semibold">
-                {(m.displayName ?? m.fullName).charAt(0)}
+            <div key={m.personId} className="flex items-center gap-3 bg-white border border-slate-200 rounded-xl px-4 py-3 cursor-pointer hover:bg-slate-50 transition-colors" onClick={() => setSelectedMember(m)}>
+              <div
+                className="w-8 h-8 rounded-full flex items-center justify-center text-white text-sm font-semibold flex-shrink-0"
+                style={{ background: m.profileImageUrl ? "transparent" : "linear-gradient(135deg, #3b82f6, #6366f1)" }}
+              >
+                {m.profileImageUrl
+                  ? <img src={m.profileImageUrl} alt="" style={{ width: 32, height: 32, borderRadius: "50%", objectFit: "cover" }} />
+                  : (m.displayName ?? m.fullName).charAt(0)}
               </div>
               <span className="text-sm font-medium text-slate-900">{m.displayName ?? m.fullName}</span>
               {m.phoneNumber && (
@@ -1188,11 +1218,20 @@ export default function GroupDetailPage() {
               <div key={m.personId}>
                 <div className="flex items-center justify-between bg-white border border-slate-200 rounded-xl px-4 py-3">
                   <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-full bg-blue-50 flex items-center justify-center text-blue-600 text-sm font-semibold">
-                      {(m.displayName ?? m.fullName).charAt(0)}
+                    <div
+                      className="w-8 h-8 rounded-full flex items-center justify-center text-white text-sm font-semibold cursor-pointer flex-shrink-0"
+                      style={{ background: m.profileImageUrl ? "transparent" : "linear-gradient(135deg, #3b82f6, #6366f1)" }}
+                      onClick={() => setSelectedMember(m)}
+                    >
+                      {m.profileImageUrl
+                        ? <img src={m.profileImageUrl} alt="" style={{ width: 32, height: 32, borderRadius: "50%", objectFit: "cover" }} />
+                        : (m.displayName ?? m.fullName).charAt(0)}
                     </div>
                     <div>
-                      <span className="text-sm font-medium text-slate-900">{m.displayName ?? m.fullName}</span>
+                      <span
+                        className="text-sm font-medium text-slate-900 cursor-pointer hover:text-blue-600 transition-colors"
+                        onClick={() => setSelectedMember(m)}
+                      >{m.displayName ?? m.fullName}</span>
                       {m.phoneNumber && (
                         <span className="text-xs text-slate-400 mr-2">{m.phoneNumber}</span>
                       )}
@@ -1205,13 +1244,15 @@ export default function GroupDetailPage() {
                     {removeErrors[m.personId] && (
                       <span className="text-xs text-red-600">{removeErrors[m.personId]}</span>
                     )}
-                    {/* Invite button for pending members */}
-                    <button
-                      onClick={() => { setInvitingPersonId(m.personId); setInviteContact(""); setInviteError(null); setInviteSuccess(null); }}
-                      className="text-xs text-blue-500 hover:text-blue-700 border border-blue-200 hover:border-blue-400 px-2.5 py-1 rounded-lg transition-colors"
-                    >
-                      הזמן
-                    </button>
+                    {/* Invite button — only for pending members */}
+                    {m.invitationStatus !== "accepted" && (
+                      <button
+                        onClick={() => { setInvitingPersonId(m.personId); setInviteContact(""); setInviteError(null); setInviteSuccess(null); }}
+                        className="text-xs text-blue-500 hover:text-blue-700 border border-blue-200 hover:border-blue-400 px-2.5 py-1 rounded-lg transition-colors"
+                      >
+                        הזמן
+                      </button>
+                    )}
                     {!m.isOwner && (
                       <button
                         onClick={() => handleRemoveMember(m.personId)}
@@ -2335,6 +2376,189 @@ export default function GroupDetailPage() {
           <div>{renderTabPanel()}</div>
         </div>
       ) : null}
+
+      {/* Member profile modal */}
+      {selectedMember && (
+        <div
+          style={{
+            position: "fixed", inset: 0, zIndex: 50,
+            background: "rgba(0,0,0,0.45)",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            padding: "1rem",
+          }}
+          onClick={() => { setSelectedMember(null); setEditingMemberForm(null); setMemberEditError(null); }}
+        >
+          <div
+            style={{
+              background: "white", borderRadius: 20,
+              boxShadow: "0 20px 60px rgba(0,0,0,0.15)",
+              width: "100%", maxWidth: 420,
+              padding: "1.75rem",
+              direction: "rtl",
+              position: "relative",
+            }}
+            onClick={e => e.stopPropagation()}
+          >
+            {/* Close button */}
+            <button
+              onClick={() => { setSelectedMember(null); setEditingMemberForm(null); setMemberEditError(null); }}
+              style={{
+                position: "absolute", top: "1rem", left: "1rem",
+                background: "none", border: "none", cursor: "pointer",
+                color: "#94a3b8", padding: 4, display: "flex", alignItems: "center",
+              }}
+            >
+              <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+
+            {editingMemberForm ? (
+              /* Edit mode */
+              <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+                <h2 style={{ fontSize: "1rem", fontWeight: 600, color: "#0f172a", margin: 0 }}>עריכת פרטי חבר</h2>
+
+                {[
+                  { label: "שם מלא", key: "fullName", type: "text" },
+                  { label: "שם תצוגה", key: "displayName", type: "text" },
+                  { label: "מספר טלפון", key: "phoneNumber", type: "tel" },
+                  { label: "תמונת פרופיל (URL)", key: "profileImageUrl", type: "url" },
+                  { label: "תאריך לידה", key: "birthday", type: "date" },
+                ].map(field => (
+                  <div key={field.key}>
+                    <label style={{ display: "block", fontSize: "0.75rem", fontWeight: 600, color: "#94a3b8", marginBottom: "0.25rem" }}>
+                      {field.label}
+                    </label>
+                    <input
+                      type={field.type}
+                      value={(editingMemberForm as any)[field.key]}
+                      onChange={e => setEditingMemberForm(f => f ? { ...f, [field.key]: e.target.value } : f)}
+                      style={{
+                        width: "100%", border: "1px solid #e2e8f0", borderRadius: 10,
+                        padding: "0.625rem 0.875rem", fontSize: "0.875rem",
+                        color: "#0f172a", outline: "none", boxSizing: "border-box",
+                      }}
+                    />
+                  </div>
+                ))}
+
+                {memberEditError && (
+                  <p style={{ fontSize: "0.875rem", color: "#dc2626", margin: 0 }}>{memberEditError}</p>
+                )}
+
+                <div style={{ display: "flex", gap: "0.75rem" }}>
+                  <button
+                    onClick={() => handleSaveMemberEdit(selectedMember.personId)}
+                    disabled={memberEditSaving}
+                    style={{
+                      background: memberEditSaving ? "#93c5fd" : "#3b82f6",
+                      color: "white", border: "none", borderRadius: 10,
+                      padding: "0.625rem 1.25rem", fontSize: "0.875rem",
+                      fontWeight: 600, cursor: memberEditSaving ? "not-allowed" : "pointer",
+                    }}
+                  >
+                    {memberEditSaving ? "שומר..." : "שמור"}
+                  </button>
+                  <button
+                    onClick={() => { setEditingMemberForm(null); setMemberEditError(null); }}
+                    style={{
+                      background: "none", border: "1px solid #e2e8f0", borderRadius: 10,
+                      padding: "0.625rem 1.25rem", fontSize: "0.875rem",
+                      color: "#64748b", cursor: "pointer",
+                    }}
+                  >
+                    ביטול
+                  </button>
+                </div>
+              </div>
+            ) : (
+              /* View mode */
+              <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "1rem", textAlign: "center" }}>
+                {/* Avatar */}
+                {selectedMember.profileImageUrl ? (
+                  <img
+                    src={selectedMember.profileImageUrl}
+                    alt=""
+                    style={{ width: 80, height: 80, borderRadius: "50%", objectFit: "cover" }}
+                  />
+                ) : (
+                  <div style={{
+                    width: 80, height: 80, borderRadius: "50%",
+                    background: "linear-gradient(135deg, #3b82f6, #6366f1)",
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    color: "white", fontSize: "1.75rem", fontWeight: 700,
+                  }}>
+                    {(selectedMember.displayName ?? selectedMember.fullName).charAt(0)}
+                  </div>
+                )}
+
+                {/* Name */}
+                <div>
+                  <h2 style={{ fontSize: "1.125rem", fontWeight: 700, color: "#0f172a", margin: "0 0 0.25rem" }}>
+                    {selectedMember.fullName}
+                  </h2>
+                  {selectedMember.displayName && selectedMember.displayName !== selectedMember.fullName && (
+                    <p style={{ fontSize: "0.875rem", color: "#64748b", margin: 0 }}>{selectedMember.displayName}</p>
+                  )}
+                </div>
+
+                {/* Status badge */}
+                <span style={{
+                  display: "inline-flex", alignItems: "center", gap: "0.375rem",
+                  padding: "0.25rem 0.75rem", borderRadius: 999, fontSize: "0.8125rem", fontWeight: 600,
+                  ...(selectedMember.invitationStatus === "accepted"
+                    ? { background: "#f0fdf4", color: "#16a34a", border: "1px solid #bbf7d0" }
+                    : { background: "#fffbeb", color: "#d97706", border: "1px solid #fde68a" }),
+                }}>
+                  {selectedMember.invitationStatus === "accepted" ? "מאושר ✓" : "ממתין לאישור"}
+                </span>
+
+                {/* Phone */}
+                {selectedMember.phoneNumber && (
+                  <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", color: "#475569", fontSize: "0.875rem" }}>
+                    <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+                    </svg>
+                    {selectedMember.phoneNumber}
+                  </div>
+                )}
+
+                {/* Owner badge */}
+                {selectedMember.isOwner && (
+                  <span style={{
+                    display: "inline-flex", padding: "0.25rem 0.75rem", borderRadius: 999,
+                    fontSize: "0.8125rem", fontWeight: 600,
+                    background: "#fffbeb", color: "#d97706", border: "1px solid #fde68a",
+                  }}>
+                    בעלים
+                  </span>
+                )}
+
+                {/* Admin edit button */}
+                {isAdmin && !selectedMember.isOwner && (
+                  <button
+                    onClick={() => setEditingMemberForm({
+                      fullName: selectedMember.fullName,
+                      displayName: selectedMember.displayName ?? "",
+                      phoneNumber: selectedMember.phoneNumber ?? "",
+                      profileImageUrl: selectedMember.profileImageUrl ?? "",
+                      birthday: "",
+                    })}
+                    style={{
+                      background: "#3b82f6", color: "white", border: "none",
+                      borderRadius: 10, padding: "0.625rem 1.5rem",
+                      fontSize: "0.875rem", fontWeight: 600, cursor: "pointer",
+                      marginTop: "0.5rem",
+                    }}
+                  >
+                    ערוך
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </AppShell>
   );
 }

@@ -119,6 +119,15 @@ public class GroupsController : ControllerBase
         return Ok(await _mediator.Send(new GetGroupMembersQuery(spaceId, groupId), ct));
     }
 
+    [HttpPost("spaces/{spaceId:guid}/groups/{groupId:guid}/members")]
+    public async Task<IActionResult> AddMemberById(Guid spaceId, Guid groupId,
+        [FromBody] AddMemberByIdRequest req, CancellationToken ct)
+    {
+        await _permissions.RequirePermissionAsync(CurrentUserId, spaceId, Permissions.PeopleManage, ct);
+        await _mediator.Send(new AddPersonToGroupByIdCommand(spaceId, groupId, req.PersonId, CurrentUserId), ct);
+        return Ok(new { personId = req.PersonId });
+    }
+
     [HttpPost("spaces/{spaceId:guid}/groups/{groupId:guid}/members/by-email")]
     public async Task<IActionResult> AddMemberByEmail(Guid spaceId, Guid groupId,
         [FromBody] AddMemberByEmailRequest req, CancellationToken ct)
@@ -260,6 +269,7 @@ public class GroupsController : ControllerBase
 
 // ── Request records ───────────────────────────────────────────────────────────
 
+public record AddMemberByIdRequest(Guid PersonId);
 public record CreateGroupMessageRequest(string Content, bool IsPinned = false);
 public record CreateGroupTypeRequest(string Name, string? Description);
 public record CreateGroupRequest(Guid? GroupTypeId, string Name, string? Description);

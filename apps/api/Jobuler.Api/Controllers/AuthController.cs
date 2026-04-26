@@ -1,9 +1,13 @@
 using FluentValidation;
 using Jobuler.Application.Auth.Commands;
+using Jobuler.Application.Auth.Queries;
+using Jobuler.Infrastructure.Persistence;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
+using Microsoft.EntityFrameworkCore;
+using System.Security.Claims;
 
 namespace Jobuler.Api.Controllers;
 
@@ -16,14 +20,49 @@ public class AuthController : ControllerBase
 
     public AuthController(IMediator mediator) => _mediator = mediator;
 
+    private Guid CurrentUserId =>
+        Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+
     /// <summary>Register a new user account.</summary>
     [HttpPost("register")]
     [AllowAnonymous]
     public async Task<IActionResult> Register([FromBody] RegisterRequest req, CancellationToken ct)
     {
         var userId = await _mediator.Send(
-            new RegisterCommand(req.Email, req.DisplayName, req.Password, req.PreferredLocale ?? "he", req.PhoneNumber), ct);
+            new RegisterCommand(req.Email, req.DisplayName, req.Password, req.PreferredLocale ?? "he",
+                req.PhoneNumber, req.ProfileImageUrl, req.Birthday), ct);
         return CreatedAtAction(nameof(Register), new { userId });
+    }
+
+    /// <summary>Get current user's profile.</summary>
+    [HttpGet("me")]
+    [Authorize]
+    public async Task<IActionResult> GetMe([FromServices] AppDbContext db, CancellationToken ct)
+    {
+        var user = await db.Users.AsNoTracking()
+            .FirstOrDefaultAsync(u => u.Id == CurrentUserId, ct);
+        if (user is null) return NotFound();
+        return Ok(new {
+            id = user.Id,
+            email = user.Email,
+            displayName = user.DisplayName,
+            phoneNumber = user.PhoneNumber,
+            profileImageUrl = user.ProfileImageUrl,
+            birthday = user.Birthday,
+            createdAt = user.CreatedAt
+        });
+    }
+
+    /// <summary>Update current user's profile.</summary>
+    [HttpPut("me")]
+    [Authorize]
+    public async Task<IActionResult> UpdateMe([FromBody] UpdateMeRequest req, [FromServices] AppDbContext db, CancellationToken ct)
+    {
+        var user = await db.Users.FirstOrDefaultAsync(u => u.Id == CurrentUserId, ct);
+        if (user is null) return NotFound();
+        user.UpdateProfileFull(req.DisplayName, req.ProfileImageUrl, req.PhoneNumber, req.Birthday);
+        await db.SaveChangesAsync(ct);
+        return NoContent();
     }
 
     /// <summary>Login and receive access + refresh tokens.</summary>
@@ -74,8 +113,9 @@ public class AuthController : ControllerBase
     }
 }
 
-public record RegisterRequest(string Email, string DisplayName, string Password, string? PreferredLocale, string? PhoneNumber);
+public record RegisterRequest(string Email, string DisplayName, string Password, string? PreferredLocale, string? PhoneNumber, string? ProfileImageUrl = null, DateOnly? Birthday = null);
 public record LoginRequest(string Email, string Password);
 public record RefreshRequest(string RefreshToken);
 public record ForgotPasswordRequest(string Email);
 public record ResetPasswordRequest(string Token, string NewPassword);
+public record UpdateMeRequest(string DisplayName, string? PhoneNumber, string? ProfileImageUrl, DateOnly? Birthday);

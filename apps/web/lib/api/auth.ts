@@ -19,13 +19,41 @@ export async function register(
   displayName: string,
   password: string,
   preferredLocale = "he",
-  phoneNumber?: string
+  phoneNumber?: string,
+  profileImageUrl?: string,
+  birthday?: string
 ): Promise<{ userId: string }> {
   const { data } = await apiClient.post("/auth/register", {
     email, displayName, password, preferredLocale,
     ...(phoneNumber ? { phoneNumber } : {}),
+    ...(profileImageUrl ? { profileImageUrl } : {}),
+    ...(birthday ? { birthday } : {}),
   });
   return data;
+}
+
+export interface MeDto {
+  userId: string;
+  email: string;
+  displayName: string;
+  phoneNumber: string | null;
+  profileImageUrl: string | null;
+  birthday: string | null;
+  createdAt: string;
+}
+
+export async function getMe(): Promise<MeDto> {
+  const { data } = await apiClient.get<MeDto>("/auth/me");
+  return data;
+}
+
+export async function updateMe(payload: {
+  displayName?: string;
+  phoneNumber?: string;
+  profileImageUrl?: string;
+  birthday?: string;
+}): Promise<void> {
+  await apiClient.put("/auth/me", payload);
 }
 
 export async function logout(refreshToken: string): Promise<void> {

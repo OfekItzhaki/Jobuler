@@ -21,6 +21,7 @@ public class UserConfiguration : IEntityTypeConfiguration<User>
         builder.Property(u => u.CreatedAt).HasColumnName("created_at");
         builder.Property(u => u.UpdatedAt).HasColumnName("updated_at");
         builder.Property(u => u.PhoneNumber).HasColumnName("phone_number");
+        builder.Property(u => u.Birthday).HasColumnName("birthday");
         builder.HasIndex(u => u.Email).IsUnique();
     }
 }

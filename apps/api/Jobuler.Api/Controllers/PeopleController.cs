@@ -73,6 +73,16 @@ public class PeopleController : ControllerBase
         return NoContent();
     }
 
+    [HttpPut("{personId:guid}/info")]
+    public async Task<IActionResult> UpdateInfo(Guid spaceId, Guid personId,
+        [FromBody] UpdatePersonInfoRequest req, CancellationToken ct)
+    {
+        await _mediator.Send(new Jobuler.Application.People.Commands.UpdatePersonInfoCommand(
+            spaceId, personId, CurrentUserId,
+            req.FullName, req.DisplayName, req.PhoneNumber, req.ProfileImageUrl, req.Birthday), ct);
+        return NoContent();
+    }
+
     [HttpPost("{personId:guid}/qualifications")]
     public async Task<IActionResult> AddQualification(Guid spaceId, Guid personId,
         [FromBody] AddQualificationRequest req, CancellationToken ct)
@@ -153,6 +163,7 @@ public class InvitationsController : ControllerBase
 
 public record CreatePersonRequest(string FullName, string? DisplayName, Guid? LinkedUserId);
 public record UpdatePersonRequest(string FullName, string? DisplayName, string? ProfileImageUrl);
+public record UpdatePersonInfoRequest(string FullName, string? DisplayName, string? PhoneNumber, string? ProfileImageUrl, DateOnly? Birthday);
 public record AssignRoleRequest(Guid RoleId);
 public record AddQualificationRequest(string Qualification, DateOnly? IssuedAt, DateOnly? ExpiresAt);
 public record InvitePersonRequest(string Contact, string Channel);

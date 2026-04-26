@@ -13,6 +13,8 @@ export default function RegisterPage() {
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [phoneNumber, setPhoneNumber] = useState("");
+  const [birthday, setBirthday] = useState("");
+  const [profileImageUrl, setProfileImageUrl] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -32,7 +34,7 @@ export default function RegisterPage() {
 
     setLoading(true);
     try {
-      await register(email, displayName, password, "he", phoneNumber || undefined);
+      await register(email, displayName, password, "he", phoneNumber || undefined, profileImageUrl || undefined, birthday || undefined);
       router.push("/login?registered=1");
     } catch (err: any) {
       const msg = err?.response?.data?.error ?? err?.response?.data?.message;
@@ -129,6 +131,33 @@ export default function RegisterPage() {
               <p style={{ fontSize: "0.75rem", color: "#94a3b8", marginTop: "0.25rem" }}>
                 יוצג לחברי הקבוצות שלך כדי שיוכלו ליצור איתך קשר
               </p>
+            </div>
+
+            {/* Birthday (optional) */}
+            <div>
+              <label style={{ display: "block", fontSize: "0.875rem", fontWeight: 500, color: "#374151", marginBottom: "0.375rem" }}>
+                תאריך לידה <span style={{ color: "#94a3b8", fontWeight: 400 }}>(אופציונלי)</span>
+              </label>
+              <input
+                type="date"
+                value={birthday}
+                onChange={e => setBirthday(e.target.value)}
+                style={{ width: "100%", border: "1px solid #e2e8f0", borderRadius: 10, padding: "0.625rem 0.875rem", fontSize: "0.875rem", color: "#0f172a", outline: "none", boxSizing: "border-box" }}
+              />
+            </div>
+
+            {/* Profile image URL (optional) */}
+            <div>
+              <label style={{ display: "block", fontSize: "0.875rem", fontWeight: 500, color: "#374151", marginBottom: "0.375rem" }}>
+                תמונת פרופיל <span style={{ color: "#94a3b8", fontWeight: 400 }}>(URL, אופציונלי)</span>
+              </label>
+              <input
+                type="url"
+                value={profileImageUrl}
+                onChange={e => setProfileImageUrl(e.target.value)}
+                placeholder="https://example.com/photo.jpg"
+                style={{ width: "100%", border: "1px solid #e2e8f0", borderRadius: 10, padding: "0.625rem 0.875rem", fontSize: "0.875rem", color: "#0f172a", outline: "none", boxSizing: "border-box" }}
+              />
             </div>
 
             {/* Password */}
