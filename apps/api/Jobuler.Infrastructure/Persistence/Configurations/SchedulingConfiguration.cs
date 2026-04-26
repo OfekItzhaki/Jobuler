@@ -1,6 +1,7 @@
 using Jobuler.Domain.Scheduling;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
+using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 namespace Jobuler.Infrastructure.Persistence.Configurations;
 
@@ -38,8 +39,14 @@ public class ScheduleVersionConfiguration : IEntityTypeConfiguration<ScheduleVer
         builder.Property(v => v.Id).HasColumnName("id");
         builder.Property(v => v.SpaceId).HasColumnName("space_id");
         builder.Property(v => v.VersionNumber).HasColumnName("version_number");
-        builder.Property(v => v.Status).HasColumnName("status")
-            .HasConversion(v => v.ToString().ToLower(), v => Enum.Parse<ScheduleVersionStatus>(v, true));
+        var statusConverter = new ValueConverter<ScheduleVersionStatus, string>(
+            v => v == ScheduleVersionStatus.RolledBack ? "rolled_back"
+               : v == ScheduleVersionStatus.Discarded  ? "discarded"
+               : v.ToString().ToLower(),
+            v => v == "rolled_back" ? ScheduleVersionStatus.RolledBack
+               : v == "discarded"  ? ScheduleVersionStatus.Discarded
+               : Enum.Parse<ScheduleVersionStatus>(v, true));
+        builder.Property(v => v.Status).HasColumnName("status").HasConversion(statusConverter);
         builder.Property(v => v.BaselineVersionId).HasColumnName("baseline_version_id");
         builder.Property(v => v.SourceRunId).HasColumnName("source_run_id");
         builder.Property(v => v.RollbackSourceVersionId).HasColumnName("rollback_source_version_id");

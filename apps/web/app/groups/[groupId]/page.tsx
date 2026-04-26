@@ -1290,7 +1290,8 @@ export default function GroupDetailPage() {
             <button
               onClick={() => {
                 setEditingTask(null);
-                setTaskForm({ name: "", startsAt: "", endsAt: "", durationHours: 1, requiredHeadcount: 1, burdenLevel: "neutral", allowsDoubleShift: false, allowsOverlap: false });
+                const today = new Date().toISOString().split("T")[0];
+                setTaskForm({ name: "", startsAt: `${today}T00:00`, endsAt: `${today}T23:59`, durationHours: 24, requiredHeadcount: 1, burdenLevel: "neutral", allowsDoubleShift: false, allowsOverlap: false });
                 setTaskError(null);
                 setShowTaskForm(v => !v);
               }}
