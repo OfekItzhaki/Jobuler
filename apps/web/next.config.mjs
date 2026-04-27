@@ -15,11 +15,12 @@ const securityHeaders = [
     key: "Content-Security-Policy",
     value: [
       "default-src 'self'",
-      "script-src 'self' 'unsafe-eval' 'unsafe-inline'", // unsafe-eval needed for Next.js dev
+      "script-src 'self' 'unsafe-eval' 'unsafe-inline'",
       "style-src 'self' 'unsafe-inline'",
-      "img-src 'self' data: blob: http://localhost:5000",
+      // Allow images from: self, data URIs, blobs, local API, production API, and any HTTPS source for external profile images
+      "img-src 'self' data: blob: http://localhost:5000 https://api.jobuler.app https:",
       "font-src 'self'",
-      "connect-src 'self' http://localhost:5000 ws://localhost:3000",
+      "connect-src 'self' http://localhost:5000 https://api.jobuler.app ws://localhost:3000 wss:",
       "frame-ancestors 'none'",
     ].join("; "),
   },

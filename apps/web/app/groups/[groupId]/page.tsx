@@ -8,7 +8,7 @@ import Modal from "@/components/Modal";
 import ImageUpload from "@/components/ImageUpload";
 import DraftScheduleModal from "@/components/DraftScheduleModal";
 import ScheduleTab from "./tabs/ScheduleTab";
-import { ActiveTab, ADMIN_ONLY_TABS, ScheduleAssignment, burdenLabels, burdenColors } from "./types";
+import { ActiveTab, ADMIN_ONLY_TABS, ScheduleAssignment, burdenLabels, burdenColors, SEVERITY_STYLES, SEVERITY_DOTS } from "./types";
 import { useSpaceStore } from "@/lib/store/spaceStore";
 import { useAuthStore } from "@/lib/store/authStore";
 import { useRouter } from "next/navigation";
