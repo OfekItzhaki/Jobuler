@@ -1,0 +1,11 @@
+#!/usr/bin/env sh
+
+# Run lint-staged for frontend TypeScript/TSX files
+npx lint-staged --config apps/web/package.json
+
+# Run dotnet build only if any .cs files are staged
+STAGED_CS=$(git diff --cached --name-only | grep '\.cs$' || true)
+if [ -n "$STAGED_CS" ]; then
+  echo "C# files changed — running dotnet build..."
+  dotnet build apps/api/Jobuler.sln --no-restore -v quiet
+fi
