@@ -22,6 +22,9 @@ obj/
 appsettings.Development.json
 appsettings.Local.json
 
+# Uploaded files — stored locally, not committed
+apps/api/Jobuler.Api/wwwroot/uploads/
+
 # Python
 __pycache__/
 *.py[cod]
