@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import AppShell from "@/components/shell/AppShell";
+import Modal from "@/components/Modal";
 import { getMe, updateMe, MeDto } from "@/lib/api/auth";
 import ImageUpload from "@/components/ImageUpload";
 
@@ -76,7 +77,7 @@ export default function ProfilePage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const [editing, setEditing] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
   const [form, setForm] = useState({ displayName: "", phoneNumber: "", profileImageUrl: "", birthday: "" });
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -96,6 +97,18 @@ export default function ProfilePage() {
       .finally(() => setLoading(false));
   }, []);
 
+  function openEdit() {
+    if (!me) return;
+    setForm({
+      displayName: me.displayName ?? "",
+      phoneNumber: me.phoneNumber ?? "",
+      profileImageUrl: me.profileImageUrl ?? "",
+      birthday: me.birthday ? me.birthday.split("T")[0] : "",
+    });
+    setSaveError(null);
+    setEditOpen(true);
+  }
+
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
     setSaving(true);
@@ -114,7 +127,7 @@ export default function ProfilePage() {
         profileImageUrl: form.profileImageUrl || null,
         birthday: form.birthday || null,
       } : prev);
-      setEditing(false);
+      setEditOpen(false);
     } catch (err: any) {
       setSaveError(err?.response?.data?.message ?? "שגיאה בשמירת הפרופיל");
     } finally {
@@ -166,105 +179,25 @@ export default function ProfilePage() {
       <div style={{ maxWidth: 720, direction: "rtl" }}>
         {/* Hero section */}
         <div style={{ ...cardStyle, marginBottom: "1.5rem" }}>
-          {editing ? (
-            <form onSubmit={handleSave} style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
-              <h2 style={{ fontSize: "1rem", fontWeight: 600, color: "#0f172a", margin: 0 }}>עריכת פרופיל</h2>
-
-              <div>
-                <label style={labelStyle}>שם תצוגה</label>
-                <input
-                  type="text"
-                  value={form.displayName}
-                  onChange={e => setForm(f => ({ ...f, displayName: e.target.value }))}
-                  style={inputStyle}
-                  placeholder="שם תצוגה"
-                />
-              </div>
-
-              <div>
-                <label style={labelStyle}>מספר טלפון</label>
-                <input
-                  type="tel"
-                  value={form.phoneNumber}
-                  onChange={e => setForm(f => ({ ...f, phoneNumber: e.target.value }))}
-                  style={{ ...inputStyle, direction: "ltr", textAlign: "left" }}
-                  placeholder="050-0000000"
-                />
-              </div>
-
-              <div>
-                <label style={labelStyle}>תמונת פרופיל</label>
-                <ImageUpload
-                  value={form.profileImageUrl || null}
-                  onChange={url => setForm(f => ({ ...f, profileImageUrl: url }))}
-                  shape="circle"
-                  size={80}
-                  label="העלה תמונה"
-                  disabled={saving}
-                />
-              </div>
-
-              <div>
-                <label style={labelStyle}>תאריך לידה</label>
-                <input
-                  type="date"
-                  value={form.birthday}
-                  onChange={e => setForm(f => ({ ...f, birthday: e.target.value }))}
-                  style={inputStyle}
-                />
-              </div>
-
-              {saveError && (
-                <p style={{ fontSize: "0.875rem", color: "#dc2626", margin: 0 }}>{saveError}</p>
-              )}
-
-              <div style={{ display: "flex", gap: "0.75rem" }}>
-                <button
-                  type="submit"
-                  disabled={saving}
-                  style={{
-                    background: saving ? "#93c5fd" : "#3b82f6",
-                    color: "white", border: "none", borderRadius: 10,
-                    padding: "0.625rem 1.25rem", fontSize: "0.875rem",
-                    fontWeight: 600, cursor: saving ? "not-allowed" : "pointer",
-                  }}
-                >
-                  {saving ? "שומר..." : "שמור"}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => { setEditing(false); setSaveError(null); }}
-                  style={{
-                    background: "none", border: "1px solid #e2e8f0", borderRadius: 10,
-                    padding: "0.625rem 1.25rem", fontSize: "0.875rem",
-                    color: "#64748b", cursor: "pointer",
-                  }}
-                >
-                  ביטול
-                </button>
-              </div>
-            </form>
-          ) : (
-            <div style={{ display: "flex", alignItems: "center", gap: "1.5rem" }}>
-              {avatarContent}
-              <div style={{ flex: 1 }}>
-                <h1 style={{ fontSize: "1.5rem", fontWeight: 700, color: "#0f172a", margin: "0 0 0.25rem" }}>
-                  {me.displayName}
-                </h1>
-                <p style={{ fontSize: "0.875rem", color: "#64748b", margin: 0 }}>{me.email}</p>
-              </div>
-              <button
-                onClick={() => setEditing(true)}
-                style={{
-                  background: "none", border: "1px solid #e2e8f0", borderRadius: 10,
-                  padding: "0.5rem 1rem", fontSize: "0.875rem", fontWeight: 500,
-                  color: "#374151", cursor: "pointer", flexShrink: 0,
-                }}
-              >
-                עריכה
-              </button>
+          <div style={{ display: "flex", alignItems: "center", gap: "1.5rem" }}>
+            {avatarContent}
+            <div style={{ flex: 1 }}>
+              <h1 style={{ fontSize: "1.5rem", fontWeight: 700, color: "#0f172a", margin: "0 0 0.25rem" }}>
+                {me.displayName}
+              </h1>
+              <p style={{ fontSize: "0.875rem", color: "#64748b", margin: 0 }}>{me.email}</p>
             </div>
-          )}
+            <button
+              onClick={openEdit}
+              style={{
+                background: "none", border: "1px solid #e2e8f0", borderRadius: 10,
+                padding: "0.5rem 1rem", fontSize: "0.875rem", fontWeight: 500,
+                color: "#374151", cursor: "pointer", flexShrink: 0,
+              }}
+            >
+              עריכה
+            </button>
+          </div>
         </div>
 
         {/* Info cards grid */}
@@ -305,6 +238,85 @@ export default function ProfilePage() {
           </div>
         </div>
       </div>
+
+      {/* Edit Profile Modal */}
+      <Modal open={editOpen} onClose={() => { setEditOpen(false); setSaveError(null); }} title="עריכת פרופיל" maxWidth={480}>
+        <form onSubmit={handleSave} style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+          <div>
+            <label style={labelStyle}>שם תצוגה</label>
+            <input
+              type="text"
+              value={form.displayName}
+              onChange={e => setForm(f => ({ ...f, displayName: e.target.value }))}
+              style={inputStyle}
+              placeholder="שם תצוגה"
+            />
+          </div>
+
+          <div>
+            <label style={labelStyle}>מספר טלפון</label>
+            <input
+              type="tel"
+              value={form.phoneNumber}
+              onChange={e => setForm(f => ({ ...f, phoneNumber: e.target.value }))}
+              style={{ ...inputStyle, direction: "ltr", textAlign: "left" }}
+              placeholder="050-0000000"
+            />
+          </div>
+
+          <div>
+            <label style={labelStyle}>תמונת פרופיל</label>
+            <ImageUpload
+              value={form.profileImageUrl || null}
+              onChange={url => setForm(f => ({ ...f, profileImageUrl: url }))}
+              shape="circle"
+              size={80}
+              label="העלה תמונה"
+              disabled={saving}
+            />
+          </div>
+
+          <div>
+            <label style={labelStyle}>תאריך לידה</label>
+            <input
+              type="date"
+              value={form.birthday}
+              onChange={e => setForm(f => ({ ...f, birthday: e.target.value }))}
+              style={inputStyle}
+            />
+          </div>
+
+          {saveError && (
+            <p style={{ fontSize: "0.875rem", color: "#dc2626", margin: 0 }}>{saveError}</p>
+          )}
+
+          <div style={{ display: "flex", gap: "0.75rem", paddingTop: "0.25rem" }}>
+            <button
+              type="submit"
+              disabled={saving}
+              style={{
+                background: saving ? "#93c5fd" : "#3b82f6",
+                color: "white", border: "none", borderRadius: 10,
+                padding: "0.625rem 1.25rem", fontSize: "0.875rem",
+                fontWeight: 600, cursor: saving ? "not-allowed" : "pointer",
+              }}
+            >
+              {saving ? "שומר..." : "שמור"}
+            </button>
+            <button
+              type="button"
+              onClick={() => { setEditOpen(false); setSaveError(null); }}
+              style={{
+                background: "none", border: "1px solid #e2e8f0", borderRadius: 10,
+                padding: "0.625rem 1.25rem", fontSize: "0.875rem",
+                color: "#64748b", cursor: "pointer",
+              }}
+            >
+              ביטול
+            </button>
+          </div>
+        </form>
+      </Modal>
     </AppShell>
   );
 }

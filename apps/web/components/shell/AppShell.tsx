@@ -77,12 +77,16 @@ export default function AppShell({ children }: AppShellProps) {
       <aside style={S.sidebar}>
         <Link href="/spaces" style={S.logo}>
           <div style={S.logoIcon}>
-            <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="white" strokeWidth={2.5}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
+            <svg width="18" height="18" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M9 12 C9 9 11 8 14 8 C17 8 19 9 19 12 C19 15 17 15 14 15 C11 15 9 16 9 19 C9 22 11 23 14 23 C17 23 19 22 19 19"
+                stroke="white" strokeWidth="2.5" strokeLinecap="round" fill="none"/>
+              <circle cx="24" cy="8" r="4" fill="white" opacity="0.85"/>
+              <line x1="24" y1="8" x2="24" y2="5" stroke="#3b82f6" strokeWidth="1.5" strokeLinecap="round"/>
+              <line x1="24" y1="8" x2="26" y2="9.5" stroke="#3b82f6" strokeWidth="1.5" strokeLinecap="round"/>
             </svg>
           </div>
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ color: "white", fontWeight: 700, fontSize: 14, lineHeight: 1.2 }}>Jobuler</div>
+            <div style={{ color: "white", fontWeight: 700, fontSize: 14, lineHeight: 1.2 }}>Shifter</div>
             {currentSpaceName && <div style={{ color: "#64748b", fontSize: 11, marginTop: 1 }}>{currentSpaceName}</div>}
           </div>
           <NotificationBell />

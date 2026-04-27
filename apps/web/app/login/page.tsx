@@ -45,7 +45,7 @@ function LoginForm() {
                 <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
               </svg>
             </div>
-            <span style={{ fontSize: "1.5rem", fontWeight: 700, color: "#0f172a" }}>Jobuler</span>
+            <span style={{ fontSize: "1.5rem", fontWeight: 700, color: "#0f172a" }}>Shifter</span>
           </div>
         </div>
 

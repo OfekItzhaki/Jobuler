@@ -857,13 +857,13 @@ export default function GroupDetailPage() {
     };
 
     const dayAssignments = (scheduleData ?? [])
-      .filter(a => a.startsAt?.startsWith(scheduleDate))
+      .filter(a => a.slotStartsAt?.startsWith(scheduleDate))
       .filter(a => !schedulePersonFilter || a.personName.toLowerCase().includes(schedulePersonFilter.toLowerCase()));
 
     const weekDates = getWeekDates();
     const weekAssignments = weekDates.reduce<Record<string, ScheduleAssignment[]>>((acc, d) => {
       acc[d] = (scheduleData ?? [])
-        .filter(a => a.startsAt?.startsWith(d))
+        .filter(a => a.slotStartsAt?.startsWith(d))
         .filter(a => !schedulePersonFilter || a.personName.toLowerCase().includes(schedulePersonFilter.toLowerCase()));
       return acc;
     }, {});
@@ -1030,9 +1030,9 @@ export default function GroupDetailPage() {
                       <td className="px-4 py-3.5 font-medium text-slate-900">{a.personName}</td>
                       <td className="px-4 py-3.5 text-slate-600">{a.taskTypeName}</td>
                       <td className="px-4 py-3.5 text-slate-500 text-xs tabular-nums">
-                        {new Date(a.startsAt).toLocaleTimeString("he-IL", { hour: "2-digit", minute: "2-digit" })}
+                        {new Date(a.slotStartsAt).toLocaleTimeString("he-IL", { hour: "2-digit", minute: "2-digit" })}
                         <span className="mx-1 text-slate-300">–</span>
-                        {new Date(a.endsAt).toLocaleTimeString("he-IL", { hour: "2-digit", minute: "2-digit" })}
+                        {new Date(a.slotEndsAt).toLocaleTimeString("he-IL", { hour: "2-digit", minute: "2-digit" })}
                       </td>
                     </tr>
                   ))}
@@ -1061,9 +1061,9 @@ export default function GroupDetailPage() {
                       {items.map((a, i) => (
                         <div key={i} className="flex items-center gap-3 bg-white border border-slate-200 rounded-xl px-4 py-2.5">
                           <div className="text-xs tabular-nums text-slate-500 w-20 shrink-0">
-                            {new Date(a.startsAt).toLocaleTimeString("he-IL", { hour: "2-digit", minute: "2-digit" })}
+                            {new Date(a.slotStartsAt).toLocaleTimeString("he-IL", { hour: "2-digit", minute: "2-digit" })}
                             <span className="mx-1 text-slate-300">–</span>
-                            {new Date(a.endsAt).toLocaleTimeString("he-IL", { hour: "2-digit", minute: "2-digit" })}
+                            {new Date(a.slotEndsAt).toLocaleTimeString("he-IL", { hour: "2-digit", minute: "2-digit" })}
                           </div>
                           <div className="flex-1 min-w-0">
                             <p className="text-sm font-medium text-slate-900 truncate">{a.personName}</p>

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import AppShell from "@/components/shell/AppShell";
+import Modal from "@/components/Modal";
 import { apiClient } from "@/lib/api/client";
 import { useSpaceStore } from "@/lib/store/spaceStore";
 
@@ -24,6 +25,9 @@ const RANGE_LABELS: Record<Range, string> = {
   year: "השנה",
 };
 
+const DAY_NAMES_HE = ["ראשון", "שני", "שלישי", "רביעי", "חמישי", "שישי", "שבת"];
+const DAY_NAMES_EN = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+
 function formatTime(iso: string) {
   return new Date(iso).toLocaleTimeString("he-IL", { hour: "2-digit", minute: "2-digit" });
 }
@@ -32,12 +36,29 @@ function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString("he-IL", { weekday: "short", day: "numeric", month: "short" });
 }
 
+/** Returns the ISO date strings for the current week (Sun–Sat) */
+function getCurrentWeekDays(): string[] {
+  const today = new Date();
+  const dayOfWeek = today.getDay(); // 0=Sun
+  const sunday = new Date(today);
+  sunday.setDate(today.getDate() - dayOfWeek);
+  return Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(sunday);
+    d.setDate(sunday.getDate() + i);
+    return d.toISOString().split("T")[0];
+  });
+}
+
 export default function MyMissionsPage() {
   const { currentSpaceId } = useSpaceStore();
   const [range, setRange] = useState<Range>("week");
   const [assignments, setAssignments] = useState<MyAssignmentDto[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+
+  // Modal state for day missions
+  const [selectedDay, setSelectedDay] = useState<string | null>(null);
+  const [modalOpen, setModalOpen] = useState(false);
 
   useEffect(() => {
     if (!currentSpaceId) { setLoading(false); return; }
@@ -48,7 +69,6 @@ export default function MyMissionsPage() {
       .finally(() => setLoading(false));
   }, [currentSpaceId, range]);
 
-  // Group by date (filtered by search)
   const filtered = assignments.filter(a =>
     !search ||
     a.taskTypeName.toLowerCase().includes(search.toLowerCase()) ||
@@ -61,6 +81,21 @@ export default function MyMissionsPage() {
     acc[day].push(a);
     return acc;
   }, {});
+
+  // Week day buttons (only shown when range === "week")
+  const weekDays = getCurrentWeekDays();
+  const todayStr = new Date().toISOString().split("T")[0];
+
+  function openDayModal(dayIso: string) {
+    setSelectedDay(dayIso);
+    setModalOpen(true);
+  }
+
+  const selectedDayMissions = selectedDay ? (byDate[selectedDay] ?? []) : [];
+  const selectedDayIndex = selectedDay ? new Date(selectedDay + "T00:00:00").getDay() : -1;
+  const selectedDayLabel = selectedDayIndex >= 0
+    ? `${DAY_NAMES_HE[selectedDayIndex]} — ${new Date(selectedDay! + "T00:00:00").toLocaleDateString("he-IL", { day: "numeric", month: "long" })}`
+    : "";
 
   return (
     <AppShell>
@@ -85,6 +120,43 @@ export default function MyMissionsPage() {
             </button>
           ))}
         </div>
+
+        {/* Week day buttons — shown only in week range */}
+        {range === "week" && (
+          <div className="flex flex-wrap gap-2">
+            {weekDays.map((dayIso, i) => {
+              const hasMissions = !!byDate[dayIso]?.length;
+              const isToday = dayIso === todayStr;
+              return (
+                <button
+                  key={dayIso}
+                  onClick={() => openDayModal(dayIso)}
+                  style={{
+                    padding: "0.5rem 1rem",
+                    borderRadius: 10,
+                    fontSize: "0.875rem",
+                    fontWeight: 600,
+                    cursor: "pointer",
+                    border: isToday ? "2px solid #3b82f6" : "1px solid #e2e8f0",
+                    background: isToday ? "#eff6ff" : hasMissions ? "#f0fdf4" : "white",
+                    color: isToday ? "#1d4ed8" : hasMissions ? "#15803d" : "#64748b",
+                    position: "relative",
+                    transition: "all 0.15s",
+                  }}
+                >
+                  {DAY_NAMES_HE[i]}
+                  {hasMissions && (
+                    <span style={{
+                      position: "absolute", top: -4, right: -4,
+                      width: 8, height: 8, borderRadius: "50%",
+                      background: "#22c55e", border: "2px solid white",
+                    }} />
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        )}
 
         {/* Search */}
         <div className="relative max-w-sm">
@@ -142,6 +214,59 @@ export default function MyMissionsPage() {
           </div>
         )}
       </div>
+
+      {/* Day missions modal */}
+      <Modal
+        open={modalOpen}
+        onClose={() => setModalOpen(false)}
+        title={selectedDayLabel}
+        maxWidth={560}
+      >
+        {selectedDayMissions.length === 0 ? (
+          <div style={{ textAlign: "center", padding: "2rem 0", color: "#94a3b8", fontSize: "0.875rem" }}>
+            אין משימות ביום זה
+          </div>
+        ) : (
+          <div style={{ overflowX: "auto" }}>
+            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.875rem" }}>
+              <thead>
+                <tr style={{ borderBottom: "2px solid #f1f5f9" }}>
+                  <th style={{ textAlign: "right", padding: "0.5rem 0.75rem", fontWeight: 600, color: "#64748b", fontSize: "0.75rem" }}>
+                    שם המשימה
+                  </th>
+                  <th style={{ textAlign: "right", padding: "0.5rem 0.75rem", fontWeight: 600, color: "#64748b", fontSize: "0.75rem" }}>
+                    שעות
+                  </th>
+                  <th style={{ textAlign: "right", padding: "0.5rem 0.75rem", fontWeight: 600, color: "#64748b", fontSize: "0.75rem" }}>
+                    קבוצה
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {selectedDayMissions.map((a, idx) => (
+                  <tr
+                    key={a.id}
+                    style={{
+                      borderBottom: idx < selectedDayMissions.length - 1 ? "1px solid #f1f5f9" : "none",
+                      background: idx % 2 === 0 ? "white" : "#f8fafc",
+                    }}
+                  >
+                    <td style={{ padding: "0.75rem", fontWeight: 500, color: "#0f172a" }}>
+                      {a.taskTypeName}
+                    </td>
+                    <td style={{ padding: "0.75rem", color: "#475569", fontVariantNumeric: "tabular-nums", direction: "ltr", textAlign: "left" }}>
+                      {formatTime(a.slotStartsAt)} – {formatTime(a.slotEndsAt)}
+                    </td>
+                    <td style={{ padding: "0.75rem", color: "#64748b" }}>
+                      {a.groupName}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </Modal>
     </AppShell>
   );
 }
