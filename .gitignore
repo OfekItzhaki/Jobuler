@@ -3,6 +3,9 @@ node_modules/
 .next/
 out/
 dist/
+
+# NSwag generated client (regenerate with: npm run generate:api)
+apps/web/lib/api/generated/client.ts
 .env
 .env.local
 .env.*.local
