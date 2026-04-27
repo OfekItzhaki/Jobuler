@@ -39,7 +39,7 @@ public class ExceptionHandlingMiddleware
                 HttpStatusCode.BadRequest,
                 "Validation failed.",
                 ve.Errors.Select(e => e.ErrorMessage).ToList()),
-            UnauthorizedAccessException => (HttpStatusCode.Forbidden, ex.Message, (List<string>?)[]),
+            UnauthorizedAccessException => (HttpStatusCode.Forbidden, "You do not have permission to perform this action.", (List<string>?)[]),
             KeyNotFoundException        => (HttpStatusCode.NotFound, ex.Message, (List<string>?)[]),
             Jobuler.Application.Common.ConflictException => (HttpStatusCode.Conflict, ex.Message, (List<string>?)[]),
             InvalidOperationException   => (HttpStatusCode.BadRequest, ex.Message, (List<string>?)[]),
@@ -49,14 +49,15 @@ public class ExceptionHandlingMiddleware
                 dbe.InnerException?.Message.Contains("23505") == true ||
                 dbe.InnerException?.Message.Contains("duplicate key") == true
                 => (HttpStatusCode.Conflict, "A record with this name or identifier already exists.", (List<string>?)[]),
-            // Other EF exceptions → 400
-            Microsoft.EntityFrameworkCore.DbUpdateException dbe2
-                => (HttpStatusCode.BadRequest, dbe2.InnerException?.Message ?? dbe2.Message, (List<string>?)[]),
+            // All other EF/DB exceptions → 500, never expose DB internals to client
+            Microsoft.EntityFrameworkCore.DbUpdateException
+                => (HttpStatusCode.InternalServerError, "A database error occurred. Please try again.", (List<string>?)[]),
             _   => (HttpStatusCode.InternalServerError, "An unexpected error occurred.", (List<string>?)[])
         };
 
+        // Always log the full exception server-side
         if (statusCode == HttpStatusCode.InternalServerError)
-            _logger.LogError(ex, "Unhandled exception");
+            _logger.LogError(ex, "Unhandled exception: {Message}", ex.Message);
         else
             _logger.LogWarning(ex, "Handled exception: {Message}", ex.Message);
 
