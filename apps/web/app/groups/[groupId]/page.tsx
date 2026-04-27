@@ -6,6 +6,7 @@ import Link from "next/link";
 import AppShell from "@/components/shell/AppShell";
 import Modal from "@/components/Modal";
 import ImageUpload from "@/components/ImageUpload";
+import DraftScheduleModal from "@/components/DraftScheduleModal";
 import { useSpaceStore } from "@/lib/store/spaceStore";
 import { useAuthStore } from "@/lib/store/authStore";
 import { useRouter } from "next/navigation";
@@ -347,23 +348,8 @@ export default function GroupDetailPage() {
   }
 
   async function openDraftModal() {
-    if (!currentSpaceId || !draftVersion) return;
+    if (!draftVersion) return;
     setShowDraftModal(true);
-    setDraftLoading(true);
-    try {
-      const r = await apiClient.get(`/spaces/${currentSpaceId}/schedule-versions/${draftVersion.id}`);
-      const detail = r.data;
-      setDraftAssignments((detail.assignments ?? []).map((a: any) => ({
-        personName: a.personName,
-        taskTypeName: a.taskTypeName,
-        startsAt: a.slotStartsAt,
-        endsAt: a.slotEndsAt,
-      })));
-    } catch {
-      setDraftAssignments([]);
-    } finally {
-      setDraftLoading(false);
-    }
   }
 
   async function fetchGroupTasks() {
@@ -2678,6 +2664,28 @@ export default function GroupDetailPage() {
             )}
           </div>
         </div>
+      )}
+
+      {/* ── Draft schedule modal ── */}
+      {showDraftModal && draftVersion && currentSpaceId && (
+        <DraftScheduleModal
+          open={showDraftModal}
+          onClose={() => setShowDraftModal(false)}
+          spaceId={currentSpaceId}
+          draftVersionId={draftVersion.id}
+          isAdmin={isAdmin}
+          onPublish={async () => {
+            await handlePublishVersion();
+          }}
+          onDiscard={async () => {
+            await handleDiscardVersion();
+          }}
+          onRunAgain={() => {
+            setShowDraftModal(false);
+            setActiveTab("settings");
+            handleTriggerSolver();
+          }}
+        />
       )}
     </AppShell>
   );
