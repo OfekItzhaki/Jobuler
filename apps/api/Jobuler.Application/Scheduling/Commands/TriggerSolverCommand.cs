@@ -24,6 +24,11 @@ public class TriggerSolverCommandHandler : IRequestHandler<TriggerSolverCommand,
 
     public async Task<Guid> Handle(TriggerSolverCommand request, CancellationToken ct)
     {
+        // Set PostgreSQL session variable so RLS policies allow queries on this space
+        await _db.Database.ExecuteSqlRawAsync(
+            "SELECT set_config('app.current_space_id', {0}, TRUE), set_config('app.current_user_id', {1}, TRUE)",
+            request.SpaceId.ToString(), request.RequestedByUserId.ToString());
+
         // Find the current published version to use as baseline
         var baseline = await _db.ScheduleVersions
             .AsNoTracking()

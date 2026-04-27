@@ -22,6 +22,11 @@ public class SolverPayloadNormalizer : ISolverPayloadNormalizer
         Guid spaceId, Guid runId, string triggerMode,
         Guid? baselineVersionId, CancellationToken ct = default)
     {
+        // Set PostgreSQL session variable so RLS policies allow queries on this space
+        await _db.Database.ExecuteSqlRawAsync(
+            "SELECT set_config('app.current_space_id', {0}, TRUE)",
+            spaceId.ToString());
+
         var today = DateOnly.FromDateTime(DateTime.UtcNow);
         var horizonStart = today;
 

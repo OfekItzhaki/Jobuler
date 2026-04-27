@@ -546,7 +546,11 @@ export default function GroupDetailPage() {
         }
       }, 3000);
     } catch (err: any) {
-      setSolverError(err?.response?.data?.message ?? "שגיאה בהפעלת הסידור");
+      const msg = err?.response?.data?.error
+        ?? err?.response?.data?.message
+        ?? err?.response?.data?.title
+        ?? `שגיאה בהפעלת הסידור (${err?.response?.status ?? "network error"})`;
+      setSolverError(msg);
     }
   }
 
