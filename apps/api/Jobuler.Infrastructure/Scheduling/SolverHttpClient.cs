@@ -16,7 +16,9 @@ public class SolverHttpClient : ISolverClient
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
         PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower,
-        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
+        // Do NOT use WhenWritingNull — Python/Pydantic requires Optional fields
+        // to be explicitly present as null, not omitted entirely.
+        DefaultIgnoreCondition = JsonIgnoreCondition.Never
     };
 
     public SolverHttpClient(HttpClient http, ILogger<SolverHttpClient> logger)
