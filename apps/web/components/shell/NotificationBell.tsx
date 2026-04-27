@@ -6,9 +6,11 @@ import {
   NotificationDto,
 } from "@/lib/api/notifications";
 import { useSpaceStore } from "@/lib/store/spaceStore";
+import { useDateFormat } from "@/lib/hooks/useDateFormat";
 
 export default function NotificationBell({ variant = "dark" }: { variant?: "light" | "dark" }) {
   const { currentSpaceId } = useSpaceStore();
+  const { fDateTime } = useDateFormat();
   const [notifications, setNotifications] = useState<NotificationDto[]>([]);
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -117,7 +119,7 @@ export default function NotificationBell({ variant = "dark" }: { variant?: "ligh
                   <p className="text-xs font-semibold text-gray-800">{n.title}</p>
                   <p className="text-xs text-gray-600 mt-0.5 leading-relaxed">{n.body}</p>
                   <p className="text-[10px] text-gray-400 mt-1.5">
-                    {new Date(n.createdAt).toLocaleString("he-IL", { dateStyle: "short", timeStyle: "short" })}
+                    {fDateTime(n.createdAt)}
                   </p>
                 </div>
                 {!n.isRead && (

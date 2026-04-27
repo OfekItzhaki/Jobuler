@@ -74,27 +74,10 @@ export default function GroupDetailPage() {
     return () => { exitAdminMode(); };
   }, []);
 
-  // Reset to schedule tab when admin mode exits and we're on an admin-only tab
-  useEffect(() => {
-    if (adminGroupId !== groupId && ADMIN_ONLY_TABS.includes(activeTab)) {
-      setActiveTab("schedule");
-    }
-  }, [adminGroupId]);
-
-  // Reset transient state when switching tabs
-  useEffect(() => {
-    setSettingsSaved(false);
-    setSolverStatus(null);
-    setSolverError(null);
-    setSettingsError(null);
-    setRenameError(null);
-  }, [activeTab]);
-
   const [group, setGroup] = useState<GroupWithMemberCountDto | null>(null);
   const [notFound, setNotFound] = useState(false);
   const [members, setMembers] = useState<GroupMemberDto[]>([]);
   const [activeTab, setActiveTab] = useState<ActiveTab>("schedule");
-  const [loading, setLoading] = useState(true);
   const [membersLoading, setMembersLoading] = useState(false);
   const [addEmail, setAddEmail] = useState("");
   const [addError, setAddError] = useState<string | null>(null);
@@ -227,6 +210,22 @@ export default function GroupDetailPage() {
   const [newConstraintPayload, setNewConstraintPayload] = useState('{"hours": 8}');
   const [constraintSaving, setConstraintSaving] = useState(false);
   const [constraintError, setConstraintError] = useState<string | null>(null);
+
+  // Reset to schedule tab when admin mode exits and we're on an admin-only tab
+  useEffect(() => {
+    if (adminGroupId !== groupId && ADMIN_ONLY_TABS.includes(activeTab)) {
+      setActiveTab("schedule");
+    }
+  }, [adminGroupId]);
+
+  // Reset transient state when switching tabs
+  useEffect(() => {
+    setSettingsSaved(false);
+    setSolverStatus(null);
+    setSolverError(null);
+    setSettingsError(null);
+    setRenameError(null);
+  }, [activeTab]);
 
   // Fetch group on mount
   useEffect(() => {

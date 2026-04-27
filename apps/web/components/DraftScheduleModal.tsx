@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { apiClient } from "@/lib/api/client";
+import { useDateFormat } from "@/lib/hooks/useDateFormat";
 
 interface Assignment {
   personName: string;
@@ -31,6 +32,7 @@ export default function DraftScheduleModal({
   const [discarding, setDiscarding] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showDiscardConfirm, setShowDiscardConfirm] = useState(false);
+  const { fDateLong, fTime } = useDateFormat();
 
   useEffect(() => {
     if (!open || !draftVersionId) return;
@@ -159,9 +161,7 @@ export default function DraftScheduleModal({
                     textTransform: "uppercase", letterSpacing: "0.05em",
                     marginBottom: 8,
                   }}>
-                    {new Date(date + "T00:00:00").toLocaleDateString("he-IL", {
-                      weekday: "long", day: "numeric", month: "long"
-                    })}
+                    {fDateLong(date + "T00:00:00")}
                   </p>
                   <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                     {byDate[date].map((a, i) => (
@@ -185,9 +185,9 @@ export default function DraftScheduleModal({
                           </div>
                         </div>
                         <p style={{ fontSize: 12, color: "#64748b", margin: 0 }}>
-                          {new Date(a.startsAt).toLocaleTimeString("he-IL", { hour: "2-digit", minute: "2-digit" })}
+                          {fTime(a.startsAt)}
                           {" – "}
-                          {new Date(a.endsAt).toLocaleTimeString("he-IL", { hour: "2-digit", minute: "2-digit" })}
+                          {fTime(a.endsAt)}
                         </p>
                       </div>
                     ))}
