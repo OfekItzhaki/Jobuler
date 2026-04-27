@@ -7,7 +7,7 @@ import {
 } from "@/lib/api/notifications";
 import { useSpaceStore } from "@/lib/store/spaceStore";
 
-export default function NotificationBell() {
+export default function NotificationBell({ variant = "dark" }: { variant?: "light" | "dark" }) {
   const { currentSpaceId } = useSpaceStore();
   const [notifications, setNotifications] = useState<NotificationDto[]>([]);
   const [open, setOpen] = useState(false);
@@ -60,8 +60,8 @@ export default function NotificationBell() {
   return (
     <div ref={ref} className="relative">
       <button
-        onClick={() => setOpen(!open)}
-        className="relative p-2 rounded-lg hover:bg-gray-100 text-gray-600"
+        onClick={(e) => { e.preventDefault(); setOpen(!open); }}
+        className={`relative p-1.5 rounded-lg ${variant === "dark" ? "hover:bg-white/10 text-slate-400 hover:text-white" : "hover:bg-gray-100 text-gray-600"}`}
         aria-label="Notifications"
       >
         <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none"
@@ -77,7 +77,7 @@ export default function NotificationBell() {
       </button>
 
       {open && (
-        <div className="absolute right-0 mt-2 w-80 bg-white border border-gray-200 rounded-xl shadow-lg z-50">
+        <div className="absolute left-0 mt-2 w-80 bg-white border border-gray-200 rounded-xl shadow-lg z-50" style={{ top: "100%" }}>
           <div className="flex items-center justify-between px-4 py-3 border-b">
             <span className="text-sm font-semibold">התראות</span>
             {unreadCount > 0 && (

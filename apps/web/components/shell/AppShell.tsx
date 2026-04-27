@@ -26,10 +26,10 @@ const S = {
   bottom: { padding: "12px", borderTop: "1px solid rgba(255,255,255,0.08)" },
   userInfo: { padding: "8px 12px", marginBottom: 4 },
   logoutBtn: { display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "9px 12px", borderRadius: 8, background: "none", border: "none", cursor: "pointer", color: "#64748b", fontSize: 14, textAlign: "left" as const },
-  topbar: (admin: boolean) => ({ height: 56, display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 24px", borderBottom: `1px solid ${admin ? "#fde68a" : "#e2e8f0"}`, background: admin ? "#fffbeb" : "white", position: "sticky" as const, top: 0, zIndex: 20 }),
+  topbar: (admin: boolean) => ({ height: 56, display: "flex", alignItems: "center", justifyContent: "flex-end", padding: "0 24px", borderBottom: `1px solid ${admin ? "#fde68a" : "#e2e8f0"}`, background: admin ? "#fffbeb" : "white", position: "sticky" as const, top: 0, zIndex: 20 }),
 
-  main: { marginLeft: 256, display: "flex", flexDirection: "column" as const, minHeight: "100vh" },
-  content: { flex: 1, padding: 32, background: "#f8fafc" },
+  main: { marginLeft: 256, display: "flex", flexDirection: "column" as const, minHeight: "100vh", width: "calc(100vw - 256px)" },
+  content: { flex: 1, padding: 32, background: "#f8fafc", width: "100%" },
 };
 
 function NavItem({ href, label, icon, admin }: { href: string; label: string; icon: React.ReactNode; admin?: boolean }) {
@@ -81,10 +81,11 @@ export default function AppShell({ children }: AppShellProps) {
               <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
             </svg>
           </div>
-          <div>
+          <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ color: "white", fontWeight: 700, fontSize: 14, lineHeight: 1.2 }}>Jobuler</div>
             {currentSpaceName && <div style={{ color: "#64748b", fontSize: 11, marginTop: 1 }}>{currentSpaceName}</div>}
           </div>
+          <NotificationBell />
         </Link>
 
         <nav style={S.nav}>
@@ -121,16 +122,9 @@ export default function AppShell({ children }: AppShellProps) {
       {/* Main */}
       <div style={S.main}>
         <header style={S.topbar(adminGroupId !== null)}>
-          {/* Left side — notification bell */}
-          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <NotificationBell />
-          </div>
-          {/* Right side — space name */}
-          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-            {currentSpaceName && (
-              <span style={{ fontSize: 12, color: "#94a3b8" }}>{currentSpaceName}</span>
-            )}
-          </div>
+          {adminGroupId !== null && (
+            <span style={{ fontSize: 12, color: "#d97706", fontWeight: 600 }}>מצב מנהל פעיל</span>
+          )}
         </header>
         <main style={S.content}>{children}</main>
       </div>
