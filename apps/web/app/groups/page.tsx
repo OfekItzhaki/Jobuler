@@ -6,6 +6,7 @@ import { apiClient } from "@/lib/api/client";
 import { useSpaceStore } from "@/lib/store/spaceStore";
 import { useRouter } from "next/navigation";
 import { getAvatarColor, getAvatarLetter } from "@/lib/utils/groupAvatar";
+import { getDeletedGroups, restoreGroup, DeletedGroupDto } from "@/lib/api/groups";
 
 interface GroupDto { id: string; name: string; memberCount: number; solverHorizonDays: number; ownerPersonId: string | null; }
 
@@ -19,12 +20,25 @@ export default function GroupsPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const [deletedGroups, setDeletedGroups] = useState<DeletedGroupDto[]>([]);
+  const [deletedLoading, setDeletedLoading] = useState(false);
+  const [showDeleted, setShowDeleted] = useState(false);
+
   useEffect(() => {
     if (!currentSpaceId) { setLoading(false); return; }
     apiClient.get(`/spaces/${currentSpaceId}/groups`)
       .then(r => setGroups(r.data))
       .finally(() => setLoading(false));
   }, [currentSpaceId]);
+
+  useEffect(() => {
+    if (!currentSpaceId || !showDeleted) return;
+    setDeletedLoading(true);
+    getDeletedGroups(currentSpaceId)
+      .then(setDeletedGroups)
+      .catch(() => {})
+      .finally(() => setDeletedLoading(false));
+  }, [currentSpaceId, showDeleted]);
 
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
@@ -35,9 +49,20 @@ export default function GroupsPage() {
       const { data } = await apiClient.get(`/spaces/${currentSpaceId}/groups`);
       setGroups(data);
       setNewGroupName("");
-    } catch (err: any) {
-      setError(err?.response?.data?.error || "שגיאה ביצירת קבוצה");
+    } catch (err: unknown) {
+      setError((err as { response?: { data?: { error?: string } } })?.response?.data?.error || "שגיאה ביצירת קבוצה");
     } finally { setSaving(false); }
+  }
+
+  async function handleRestore(id: string) {
+    if (!currentSpaceId) return;
+    try {
+      await restoreGroup(currentSpaceId, id);
+      setDeletedGroups(prev => prev.filter(g => g.id !== id));
+      // Refresh active groups list
+      const { data } = await apiClient.get(`/spaces/${currentSpaceId}/groups`);
+      setGroups(data);
+    } catch {}
   }
 
   return (
@@ -50,16 +75,16 @@ export default function GroupsPage() {
           </div>
         </div>
 
-        {/* Create group — any logged-in user can create a group */}
+        {/* Create group */}
         <form onSubmit={handleCreate} className="flex gap-2 max-w-sm">
-            <input value={newGroupName} onChange={e => setNewGroupName(e.target.value)}
-              placeholder="שם קבוצה חדשה"
-              className="flex-1 border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
-            <button type="submit" disabled={saving}
-              className="bg-blue-500 hover:bg-blue-600 text-white text-sm font-medium px-4 py-2.5 rounded-xl disabled:opacity-50 whitespace-nowrap">
-              {saving ? "..." : "+ קבוצה חדשה"}
-            </button>
-          </form>
+          <input value={newGroupName} onChange={e => setNewGroupName(e.target.value)}
+            placeholder="שם קבוצה חדשה"
+            className="flex-1 border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+          <button type="submit" disabled={saving}
+            className="bg-blue-500 hover:bg-blue-600 text-white text-sm font-medium px-4 py-2.5 rounded-xl disabled:opacity-50 whitespace-nowrap">
+            {saving ? "..." : "+ קבוצה חדשה"}
+          </button>
+        </form>
 
         {error && <p className="text-sm text-red-600">{error}</p>}
 
@@ -94,6 +119,46 @@ export default function GroupsPage() {
             ))}
           </div>
         )}
+
+        {/* Deleted groups — collapsible */}
+        <div className="border-t border-slate-100 pt-4">
+          <button
+            onClick={() => setShowDeleted(v => !v)}
+            className="flex items-center gap-2 text-sm text-slate-500 hover:text-slate-700 transition-colors"
+          >
+            <svg
+              width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
+              className={`transition-transform ${showDeleted ? "rotate-90" : ""}`}
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+            </svg>
+            קבוצות מחוקות
+          </button>
+
+          {showDeleted && (
+            <div className="mt-3">
+              {deletedLoading ? (
+                <p className="text-sm text-slate-400">טוען...</p>
+              ) : deletedGroups.length === 0 ? (
+                <p className="text-sm text-slate-400">אין קבוצות מחוקות</p>
+              ) : (
+                <div className="space-y-2">
+                  {deletedGroups.map(g => (
+                    <div key={g.id} className="flex items-center justify-between bg-white border border-slate-200 rounded-xl px-4 py-3">
+                      <span className="text-sm text-slate-700">{g.name}</span>
+                      <button
+                        onClick={() => handleRestore(g.id)}
+                        className="text-xs text-blue-600 border border-blue-200 hover:bg-blue-50 px-3 py-1.5 rounded-lg transition-colors"
+                      >
+                        שחזר
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
       </div>
     </AppShell>
   );

@@ -29,7 +29,7 @@ import {
 import { getAvatarColor, getAvatarLetter } from "@/lib/utils/groupAvatar";
 import { listGroupTasks, createGroupTask, updateGroupTask, deleteGroupTask, GroupTaskDto } from "@/lib/api/tasks";
 import { getConstraints, createConstraint, updateConstraint, deleteConstraint, ConstraintDto } from "@/lib/api/constraints";
-import { createPerson, invitePerson } from "@/lib/api/people";
+import { createPerson, invitePerson, searchPeople } from "@/lib/api/people";
 import { addGroupMemberById } from "@/lib/api/groups";
 import { apiClient } from "@/lib/api/client";
 import type { TaskForm } from "./tabs/TasksTab";
@@ -59,7 +59,7 @@ const TAB_LABELS: Record<ActiveTab, string> = {
   stats: "סטטיסטיקות",
 };
 
-const ALL_TABS: ActiveTab[] = ["schedule", "members", "alerts", "messages", "tasks", "constraints", "settings", "stats"];
+const ALL_TABS: ActiveTab[] = ["schedule", "members", "alerts", "messages", "tasks", "constraints", "stats", "settings"];
 
 // ── Main component ───────────────────────────────────────────────────────────
 export default function GroupDetailPage() {
@@ -386,27 +386,42 @@ export default function GroupDetailPage() {
     setAddMemberSaving(true);
     setAddMemberError(null);
     try {
-      // Create the person first
-      const person = await createPerson(currentSpaceId, addMemberName.trim());
-      // Add them to the group by ID
-      await addGroupMemberById(currentSpaceId, groupId, person.id);
+      let personId: string;
+      try {
+        // Try to create a new person
+        const person = await createPerson(currentSpaceId, addMemberName.trim());
+        personId = person.id;
+      } catch (createErr: unknown) {
+        const status = (createErr as { response?: { status?: number } })?.response?.status;
+        if (status === 409) {
+          // Person already exists in this space — search for them and re-add
+          const results = await searchPeople(currentSpaceId, addMemberName.trim());
+          const match = results.find(p =>
+            p.fullName.toLowerCase() === addMemberName.trim().toLowerCase()
+          );
+          if (!match) {
+            setAddMemberError("כבר קיים אדם בשם זה. נסה שם מדויק יותר.");
+            return;
+          }
+          personId = match.id;
+        } else {
+          throw createErr;
+        }
+      }
+      // Add to group by ID (idempotent on the backend)
+      await addGroupMemberById(currentSpaceId, groupId, personId);
       // If phone or email provided, send invitation
       if (addMemberPhone.trim()) {
-        try { await invitePerson(currentSpaceId, person.id, addMemberPhone.trim(), "whatsapp"); } catch { /* non-fatal */ }
+        try { await invitePerson(currentSpaceId, personId, addMemberPhone.trim(), "whatsapp"); } catch { /* non-fatal */ }
       } else if (addMemberEmail.trim()) {
-        try { await invitePerson(currentSpaceId, person.id, addMemberEmail.trim(), "email"); } catch { /* non-fatal */ }
+        try { await invitePerson(currentSpaceId, personId, addMemberEmail.trim(), "email"); } catch { /* non-fatal */ }
       }
       setAddMemberName(""); setAddMemberPhone(""); setAddMemberEmail("");
       setShowAddMember(false);
       const updated = await getGroupMembers(currentSpaceId, groupId);
       setMembers(updated);
-    } catch (err: unknown) {
-      const status = (err as { response?: { status?: number } })?.response?.status;
-      if (status === 409) {
-        setAddMemberError("כבר קיים אדם בשם זה במרחב. שנה את השם או השתמש בשם אחר.");
-      } else {
-        setAddMemberError("שגיאה בהוספת חבר");
-      }
+    } catch {
+      setAddMemberError("שגיאה בהוספת חבר");
     } finally {
       setAddMemberSaving(false);
     }
@@ -1023,8 +1038,6 @@ export default function GroupDetailPage() {
               solverStatus={solverStatus}
               solverError={solverError}
               draftVersion={draftVersion}
-              deletedGroups={deletedGroups}
-              deletedGroupsLoading={deletedGroupsLoading}
               members={members}
               transferPersonId={transferPersonId}
               transferSaving={transferSaving}
@@ -1040,7 +1053,6 @@ export default function GroupDetailPage() {
               onSaveSettings={handleSaveSettings}
               onTriggerSolver={handleTriggerSolver}
               onOpenDraftModal={() => setShowDraftModal(true)}
-              onRestoreGroup={handleRestoreGroup}
               onTransferPersonChange={setTransferPersonId}
               onInitiateTransfer={handleInitiateTransfer}
               onCancelTransfer={handleCancelTransfer}

@@ -1,7 +1,6 @@
 "use client";
 
 import type { GroupMemberDto } from "@/lib/api/groups";
-import type { DeletedGroupDto } from "@/lib/api/groups";
 
 interface DraftVersion { id: string; status: string; }
 
@@ -19,8 +18,6 @@ interface Props {
   solverStatus: string | null;
   solverError: string | null;
   draftVersion: DraftVersion | null;
-  deletedGroups: DeletedGroupDto[];
-  deletedGroupsLoading: boolean;
   members: GroupMemberDto[];
   transferPersonId: string;
   transferSaving: boolean;
@@ -36,7 +33,7 @@ interface Props {
   onSaveSettings: () => void;
   onTriggerSolver: () => void;
   onOpenDraftModal: () => void;
-  onRestoreGroup: (id: string) => void;
+  onRestoreGroup?: never;
   onTransferPersonChange: (v: string) => void;
   onInitiateTransfer: () => void;
   onCancelTransfer: () => void;
@@ -48,11 +45,11 @@ export default function SettingsTab({
   isAdmin, newGroupName, renameSaving, renameError,
   solverHorizon, savingSettings, settingsError, settingsSaved,
   solverPolling, solverStatus, solverError, draftVersion,
-  deletedGroups, deletedGroupsLoading, members,
+  members,
   transferPersonId, transferSaving, transferError, hasPendingTransfer, cancelTransferSaving,
   showDeleteConfirm, deleteSaving, deleteError,
   onGroupNameChange, onRenameGroup, onSolverHorizonChange, onSaveSettings,
-  onTriggerSolver, onOpenDraftModal, onRestoreGroup,
+  onTriggerSolver, onOpenDraftModal,
   onTransferPersonChange, onInitiateTransfer, onCancelTransfer,
   onShowDeleteConfirm, onDeleteGroup,
 }: Props) {
@@ -164,24 +161,6 @@ export default function SettingsTab({
         )}
         {transferError && <p className="text-sm text-red-600 mt-2">{transferError}</p>}
       </Section>
-
-      {/* Restore deleted groups */}
-      {deletedGroups.length > 0 && (
-        <Section title="קבוצות מחוקות">
-          {deletedGroupsLoading ? (
-            <p className="text-sm text-slate-400">טוען...</p>
-          ) : (
-            <div className="space-y-2">
-              {deletedGroups.map(g => (
-                <div key={g.id} className="flex items-center justify-between bg-white border border-slate-200 rounded-xl px-4 py-3">
-                  <span className="text-sm text-slate-700">{g.name}</span>
-                  <button onClick={() => onRestoreGroup(g.id)} className="text-xs text-blue-600 border border-blue-200 hover:bg-blue-50 px-3 py-1.5 rounded-lg transition-colors">שחזר</button>
-                </div>
-              ))}
-            </div>
-          )}
-        </Section>
-      )}
 
       {/* Delete group */}
       <Section title="מחיקת קבוצה">

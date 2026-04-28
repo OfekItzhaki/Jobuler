@@ -66,10 +66,13 @@ export default function MembersTab({
         {filtered.map(m => (
           <div key={m.personId} className="flex items-center gap-3 bg-white border border-slate-200 rounded-xl px-4 py-3 hover:border-slate-300 transition-colors">
             <div className="w-9 h-9 rounded-full bg-blue-500 flex items-center justify-center text-white text-sm font-bold flex-shrink-0">
-              {(m.displayName ?? m.fullName).charAt(0).toUpperCase()}
+              {m.fullName.charAt(0).toUpperCase()}
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-slate-900 truncate">{m.displayName ?? m.fullName}</p>
+              <p className="text-sm font-medium text-slate-900 truncate">{m.fullName}</p>
+              {m.displayName && m.displayName !== m.fullName && (
+                <p className="text-xs text-slate-400 truncate">{m.displayName}</p>
+              )}
               {m.phoneNumber && <p className="text-xs text-slate-400 tabular-nums" dir="ltr">{m.phoneNumber}</p>}
             </div>
             <div className="flex items-center gap-2 flex-shrink-0">
