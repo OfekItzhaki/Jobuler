@@ -17,6 +17,7 @@ import StatsTab from "./tabs/StatsTab";
 import { ActiveTab, ADMIN_ONLY_TABS, ScheduleAssignment } from "./types";
 import { useSpaceStore } from "@/lib/store/spaceStore";
 import { useAuthStore } from "@/lib/store/authStore";
+import { useRefetchNotifications } from "@/lib/query/hooks/useNotifications";
 import {
   getGroups, getGroupMembers, addGroupMemberByEmail, removeGroupMember,
   updateGroupSettings, renameGroup, softDeleteGroup, restoreGroup,
@@ -68,6 +69,7 @@ export default function GroupDetailPage() {
   const groupId = params?.groupId as string;
   const { currentSpaceId } = useSpaceStore();
   const { userId, isAdminForGroup, adminGroupId, enterAdminMode, exitAdminMode } = useAuthStore();
+  const refetchNotifications = useRefetchNotifications(currentSpaceId);
 
   // ── Group / header state ─────────────────────────────────────────────────
   const [group, setGroup] = useState<GroupWithMemberCountDto | null>(null);
@@ -717,6 +719,8 @@ export default function GroupDetailPage() {
           if (statusRes.data.status === "Completed" || statusRes.data.status === "Failed" || statusRes.data.status === "TimedOut") {
             if (pollingRef.current) clearInterval(pollingRef.current);
             setSolverPolling(false);
+            // Immediately refresh notifications so the bell updates without waiting for the 5s poll
+            refetchNotifications();
             if (statusRes.data.status === "Completed") {
               const [schedRes, draftRes] = await Promise.all([
                 apiClient.get<{ version: { id: string; status: string }; assignments: ScheduleAssignment[] }>(

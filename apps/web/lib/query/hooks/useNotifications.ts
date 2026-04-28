@@ -7,8 +7,15 @@ export function useNotifications(spaceId: string | null) {
     queryKey: queryKeys.notifications(spaceId ?? ""),
     queryFn: () => getNotifications(spaceId!),
     enabled: !!spaceId,
-    refetchInterval: 30_000,
+    refetchInterval: 5_000,   // poll every 5s so solver results appear quickly
+    refetchIntervalInBackground: false,
   });
+}
+
+/** Call this after any action that may produce a new notification (solver trigger, etc.) */
+export function useRefetchNotifications(spaceId: string | null) {
+  const qc = useQueryClient();
+  return () => qc.invalidateQueries({ queryKey: queryKeys.notifications(spaceId ?? "") });
 }
 
 export function useDismissNotification(spaceId: string | null) {
