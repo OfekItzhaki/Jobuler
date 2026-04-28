@@ -14,14 +14,13 @@ interface Props {
   onSearchChange: (v: string) => void;
   onSelectMember: (m: GroupMemberDto) => void;
   onRemoveMember: (id: string) => void;
-  onOpenAddByEmail: () => void;
-  onOpenCreatePerson: () => void;
+  onOpenAddMember: () => void;
   onOpenInvite: (id: string) => void;
 }
 
 export default function MembersTab({
   isAdmin, members, membersLoading, membersError, membersSearch, removeErrors,
-  onSearchChange, onSelectMember, onRemoveMember, onOpenAddByEmail, onOpenCreatePerson, onOpenInvite,
+  onSearchChange, onSelectMember, onRemoveMember, onOpenAddMember, onOpenInvite,
 }: Props) {
   const filtered = members.filter(m =>
     !membersSearch ||
@@ -45,14 +44,9 @@ export default function MembersTab({
           </svg>
         </div>
         {isAdmin && (
-          <div className="flex gap-2">
-            <button onClick={onOpenAddByEmail} className="flex items-center gap-1.5 text-sm font-medium text-blue-600 border border-blue-200 bg-blue-50 hover:bg-blue-100 px-3 py-2 rounded-xl transition-colors">
-              + הוסף לפי אימייל
-            </button>
-            <button onClick={onOpenCreatePerson} className="flex items-center gap-1.5 text-sm font-medium text-slate-600 border border-slate-200 bg-white hover:bg-slate-50 px-3 py-2 rounded-xl transition-colors">
-              + צור אדם חדש
-            </button>
-          </div>
+          <button onClick={onOpenAddMember} className="flex items-center gap-1.5 text-sm font-medium text-blue-600 border border-blue-200 bg-blue-50 hover:bg-blue-100 px-3 py-2 rounded-xl transition-colors">
+            + הוסף חבר
+          </button>
         )}
       </div>
 
@@ -95,7 +89,7 @@ export default function MembersTab({
   );
 }
 
-// ── Member profile modal (exported for use in page.tsx) ──────────────────────
+// ── Member profile modal ──────────────────────────────────────────────────────
 interface MemberProfileModalProps {
   member: GroupMemberDto;
   isAdmin: boolean;
@@ -111,7 +105,7 @@ interface MemberProfileModalProps {
 
 export function MemberProfileModal({ member, isAdmin, editForm, saving, error, onClose, onStartEdit, onCancelEdit, onChangeForm, onSave }: MemberProfileModalProps) {
   return (
-    <Modal title={member.displayName ?? member.fullName} open onClose={onClose} maxWidth={480}>
+    <Modal title="פרטי חבר" open onClose={onClose} maxWidth={480}>
       {editForm ? (
         <div className="space-y-4">
           <div>

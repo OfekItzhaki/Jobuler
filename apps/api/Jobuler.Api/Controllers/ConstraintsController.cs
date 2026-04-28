@@ -56,7 +56,7 @@ public class ConstraintsController : ControllerBase
     {
         await _mediator.Send(new UpdateConstraintCommand(
             spaceId, constraintId, CurrentUserId,
-            req.RulePayloadJson, req.EffectiveFrom, req.EffectiveUntil), ct);
+            req.RulePayloadJson, req.Severity, req.EffectiveFrom, req.EffectiveUntil), ct);
         return NoContent();
     }
 
@@ -75,5 +75,6 @@ public record CreateConstraintRequest(
 
 public record UpdateConstraintRequest(
     string RulePayloadJson,
+    string? Severity,
     DateOnly? EffectiveFrom,
     DateOnly? EffectiveUntil);

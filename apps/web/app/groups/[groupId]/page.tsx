@@ -13,6 +13,7 @@ import MessagesTab from "./tabs/MessagesTab";
 import TasksTab from "./tabs/TasksTab";
 import ConstraintsTab from "./tabs/ConstraintsTab";
 import SettingsTab from "./tabs/SettingsTab";
+import StatsTab from "./tabs/StatsTab";
 import { ActiveTab, ADMIN_ONLY_TABS, ScheduleAssignment } from "./types";
 import { useSpaceStore } from "@/lib/store/spaceStore";
 import { useAuthStore } from "@/lib/store/authStore";
@@ -29,10 +30,12 @@ import { getAvatarColor, getAvatarLetter } from "@/lib/utils/groupAvatar";
 import { listGroupTasks, createGroupTask, updateGroupTask, deleteGroupTask, GroupTaskDto } from "@/lib/api/tasks";
 import { getConstraints, createConstraint, updateConstraint, deleteConstraint, ConstraintDto } from "@/lib/api/constraints";
 import { createPerson, invitePerson } from "@/lib/api/people";
+import { addGroupMemberById } from "@/lib/api/groups";
 import { apiClient } from "@/lib/api/client";
+import type { TaskForm } from "./tabs/TasksTab";
 
 // ── Task form default ────────────────────────────────────────────────────────
-const DEFAULT_TASK_FORM = {
+const DEFAULT_TASK_FORM: TaskForm = {
   name: "",
   startsAt: "",
   endsAt: "",
@@ -41,6 +44,7 @@ const DEFAULT_TASK_FORM = {
   burdenLevel: "neutral",
   allowsDoubleShift: false,
   allowsOverlap: false,
+  concurrentTaskIds: [],
 };
 
 // ── Tab labels ───────────────────────────────────────────────────────────────
@@ -52,9 +56,10 @@ const TAB_LABELS: Record<ActiveTab, string> = {
   tasks: "משימות",
   constraints: "אילוצים",
   settings: "הגדרות",
+  stats: "סטטיסטיקות",
 };
 
-const ALL_TABS: ActiveTab[] = ["schedule", "members", "alerts", "messages", "tasks", "constraints", "settings"];
+const ALL_TABS: ActiveTab[] = ["schedule", "members", "alerts", "messages", "tasks", "constraints", "settings", "stats"];
 
 // ── Main component ───────────────────────────────────────────────────────────
 export default function GroupDetailPage() {
@@ -75,6 +80,7 @@ export default function GroupDetailPage() {
   const [scheduleLoading, setScheduleLoading] = useState(false);
   const [scheduleError, setScheduleError] = useState<string | null>(null);
   const [draftVersion, setDraftVersion] = useState<{ id: string; status: string } | null>(null);
+  const [lastRunSummary, setLastRunSummary] = useState<string | null>(null);
   const [showDraftModal, setShowDraftModal] = useState(false);
   const [publishSaving, setPublishSaving] = useState(false);
   const [discardSaving, setDiscardSaving] = useState(false);
@@ -94,17 +100,13 @@ export default function GroupDetailPage() {
   const [memberEditSaving, setMemberEditSaving] = useState(false);
   const [memberEditError, setMemberEditError] = useState<string | null>(null);
 
-  // ── Add member modals ────────────────────────────────────────────────────
-  const [showAddByEmail, setShowAddByEmail] = useState(false);
-  const [addEmailInput, setAddEmailInput] = useState("");
-  const [addEmailSaving, setAddEmailSaving] = useState(false);
-  const [addEmailError, setAddEmailError] = useState<string | null>(null);
-  const [showCreatePerson, setShowCreatePerson] = useState(false);
-  const [createPersonName, setCreatePersonName] = useState("");
-  const [createPersonPhone, setCreatePersonPhone] = useState("");
-  const [createPersonSaving, setCreatePersonSaving] = useState(false);
-  const [createPersonError, setCreatePersonError] = useState<string | null>(null);
-  const [inviteError, setInviteError] = useState<string | null>(null);
+  // ── Add member modal ─────────────────────────────────────────────────────
+  const [showAddMember, setShowAddMember] = useState(false);
+  const [addMemberName, setAddMemberName] = useState("");
+  const [addMemberPhone, setAddMemberPhone] = useState("");
+  const [addMemberEmail, setAddMemberEmail] = useState("");
+  const [addMemberSaving, setAddMemberSaving] = useState(false);
+  const [addMemberError, setAddMemberError] = useState<string | null>(null);
 
   // ── Alerts state ─────────────────────────────────────────────────────────
   const [alerts, setAlerts] = useState<GroupAlertDto[]>([]);
@@ -142,7 +144,7 @@ export default function GroupDetailPage() {
   const [groupTasksLoading, setGroupTasksLoading] = useState(false);
   const [showTaskForm, setShowTaskForm] = useState(false);
   const [editingTask, setEditingTask] = useState<GroupTaskDto | null>(null);
-  const [taskForm, setTaskForm] = useState(DEFAULT_TASK_FORM);
+  const [taskForm, setTaskForm] = useState<TaskForm>(DEFAULT_TASK_FORM);
   const [taskSaving, setTaskSaving] = useState(false);
   const [taskError, setTaskError] = useState<string | null>(null);
 
@@ -160,6 +162,7 @@ export default function GroupDetailPage() {
   const [editConstraintPayload, setEditConstraintPayload] = useState("");
   const [editConstraintFrom, setEditConstraintFrom] = useState("");
   const [editConstraintUntil, setEditConstraintUntil] = useState("");
+  const [editConstraintSeverity, setEditConstraintSeverity] = useState("hard");
   const [editConstraintSaving, setEditConstraintSaving] = useState(false);
   const [editConstraintError, setEditConstraintError] = useState<string | null>(null);
 
@@ -222,15 +225,26 @@ export default function GroupDetailPage() {
       apiClient.get<{ version: { id: string; status: string }; assignments: ScheduleAssignment[] }>(
         `/spaces/${currentSpaceId}/schedule-versions/current`
       ).catch(() => null),
-      apiClient.get<Array<{ id: string; status: string }>>(
+      apiClient.get<Array<{ id: string; status: string; summaryJson?: string | null }>>(
         `/spaces/${currentSpaceId}/schedule-versions?status=draft`
-      ).catch(() => ({ data: [] as Array<{ id: string; status: string }> })),
-    ]).then(([currentRes, draftRes]) => {
-      // Filter assignments to only those belonging to this group's members
+      ).catch(() => ({ data: [] as Array<{ id: string; status: string; summaryJson?: string | null }> })),
+      // Also fetch the most recent discarded version to show infeasibility reason
+      apiClient.get<Array<{ id: string; status: string; summaryJson?: string | null }>>(
+        `/spaces/${currentSpaceId}/schedule-versions?status=discarded`
+      ).catch(() => ({ data: [] as Array<{ id: string; status: string; summaryJson?: string | null }> })),
+    ]).then(([currentRes, draftRes, discardedRes]) => {
       const allAssignments = currentRes?.data?.assignments ?? [];
       setScheduleData(allAssignments);
       const drafts = Array.isArray(draftRes?.data) ? draftRes.data : [];
       setDraftVersion(drafts.length > 0 ? drafts[0] : null);
+      // Show infeasibility reason from most recent discarded version (if no draft)
+      if (drafts.length === 0) {
+        const discarded = Array.isArray(discardedRes?.data) ? discardedRes.data : [];
+        const latest = discarded[0];
+        setLastRunSummary(latest?.summaryJson ?? null);
+      } else {
+        setLastRunSummary(null);
+      }
     })
     .catch(() => setScheduleError("שגיאה בטעינת הסידור"))
     .finally(() => setScheduleLoading(false));
@@ -306,7 +320,12 @@ export default function GroupDetailPage() {
   }, [currentSpaceId, groupId, activeTab]);
 
   // ── Cleanup polling on unmount ───────────────────────────────────────────
-  useEffect(() => () => { if (pollingRef.current) clearInterval(pollingRef.current); }, []);
+  useEffect(() => {
+    return () => {
+      exitAdminMode();
+      if (pollingRef.current) clearInterval(pollingRef.current);
+    };
+  }, []);
 
   // ── Schedule handlers ────────────────────────────────────────────────────
   async function handlePublish() {
@@ -361,41 +380,35 @@ export default function GroupDetailPage() {
     }
   }
 
-  async function handleAddByEmail(e: React.FormEvent) {
+  async function handleAddMember(e: React.FormEvent) {
     e.preventDefault();
-    if (!currentSpaceId) return;
-    setAddEmailSaving(true);
-    setAddEmailError(null);
+    if (!currentSpaceId || !addMemberName.trim()) return;
+    setAddMemberSaving(true);
+    setAddMemberError(null);
     try {
-      await addGroupMemberByEmail(currentSpaceId, groupId, addEmailInput);
-      setAddEmailInput("");
-      setShowAddByEmail(false);
+      // Create the person first
+      const person = await createPerson(currentSpaceId, addMemberName.trim());
+      // Add them to the group by ID
+      await addGroupMemberById(currentSpaceId, groupId, person.id);
+      // If phone or email provided, send invitation
+      if (addMemberPhone.trim()) {
+        try { await invitePerson(currentSpaceId, person.id, addMemberPhone.trim(), "whatsapp"); } catch { /* non-fatal */ }
+      } else if (addMemberEmail.trim()) {
+        try { await invitePerson(currentSpaceId, person.id, addMemberEmail.trim(), "email"); } catch { /* non-fatal */ }
+      }
+      setAddMemberName(""); setAddMemberPhone(""); setAddMemberEmail("");
+      setShowAddMember(false);
       const updated = await getGroupMembers(currentSpaceId, groupId);
       setMembers(updated);
-    } catch {
-      setAddEmailError("שגיאה בהוספת חבר");
+    } catch (err: unknown) {
+      const status = (err as { response?: { status?: number } })?.response?.status;
+      if (status === 409) {
+        setAddMemberError("כבר קיים אדם בשם זה במרחב. שנה את השם או השתמש בשם אחר.");
+      } else {
+        setAddMemberError("שגיאה בהוספת חבר");
+      }
     } finally {
-      setAddEmailSaving(false);
-    }
-  }
-
-  async function handleCreatePerson(e: React.FormEvent) {
-    e.preventDefault();
-    if (!currentSpaceId) return;
-    setCreatePersonSaving(true);
-    setCreatePersonError(null);
-    try {
-      const person = await createPerson(currentSpaceId, createPersonName);
-      await addGroupMemberByEmail(currentSpaceId, groupId, person.id);
-      setCreatePersonName("");
-      setCreatePersonPhone("");
-      setShowCreatePerson(false);
-      const updated = await getGroupMembers(currentSpaceId, groupId);
-      setMembers(updated);
-    } catch {
-      setCreatePersonError("שגיאה ביצירת אדם");
-    } finally {
-      setCreatePersonSaving(false);
+      setAddMemberSaving(false);
     }
   }
 
@@ -403,12 +416,10 @@ export default function GroupDetailPage() {
     if (!currentSpaceId) return;
     const member = members.find(m => m.personId === personId);
     const contact = member?.phoneNumber ?? "";
-    if (!contact) { setInviteError("אין מספר טלפון לשליחת הזמנה"); return; }
+    if (!contact) return;
     try {
       await invitePerson(currentSpaceId, personId, contact, "whatsapp");
-    } catch {
-      setInviteError("שגיאה בשליחת הזמנה");
-    }
+    } catch { /* non-fatal */ }
   }
 
   async function handleSaveMemberEdit(personId: string) {
@@ -542,12 +553,24 @@ export default function GroupDetailPage() {
     setTaskSaving(true);
     setTaskError(null);
     try {
+      // Default startsAt to today if empty
+      const now = new Date();
+      const startsAt = taskForm.startsAt || now.toISOString().slice(0, 16);
+      const payload = {
+        name: taskForm.name,
+        startsAt,
+        endsAt: taskForm.endsAt || "",
+        shiftDurationMinutes: taskForm.shiftDurationMinutes,
+        requiredHeadcount: taskForm.requiredHeadcount,
+        burdenLevel: taskForm.burdenLevel,
+        allowsDoubleShift: taskForm.allowsDoubleShift,
+        allowsOverlap: taskForm.allowsOverlap,
+      };
       if (editingTask) {
-        await updateGroupTask(currentSpaceId, groupId, editingTask.id, taskForm);
-        setGroupTasks(prev => prev.map(t => t.id === editingTask.id ? { ...t, ...taskForm } : t));
+        await updateGroupTask(currentSpaceId, groupId, editingTask.id, payload);
+        setGroupTasks(prev => prev.map(t => t.id === editingTask.id ? { ...t, ...payload } : t));
       } else {
-        await createGroupTask(currentSpaceId, groupId, taskForm);
-        // Reload to get full DTO with id
+        await createGroupTask(currentSpaceId, groupId, payload);
         const updated = await listGroupTasks(currentSpaceId, groupId);
         setGroupTasks(updated);
       }
@@ -613,11 +636,12 @@ export default function GroupDetailPage() {
     setEditConstraintError(null);
     try {
       await updateConstraint(currentSpaceId, id, {
+        severity: editConstraintSeverity,
         rulePayloadJson: editConstraintPayload,
         effectiveFrom: editConstraintFrom || null,
         effectiveUntil: editConstraintUntil || null,
       });
-      setConstraints(prev => prev.map(c => c.id === id ? { ...c, rulePayloadJson: editConstraintPayload, effectiveFrom: editConstraintFrom || null, effectiveUntil: editConstraintUntil || null } : c));
+      setConstraints(prev => prev.map(c => c.id === id ? { ...c, severity: editConstraintSeverity, rulePayloadJson: editConstraintPayload, effectiveFrom: editConstraintFrom || null, effectiveUntil: editConstraintUntil || null } : c));
       setEditingConstraintId(null);
     } catch {
       setEditConstraintError("שגיאה בעדכון אילוץ");
@@ -675,7 +699,7 @@ export default function GroupDetailPage() {
             `/spaces/${currentSpaceId}/schedule-runs/${runId}`
           );
           setSolverStatus(statusRes.data.status);
-          if (statusRes.data.status === "Completed" || statusRes.data.status === "Failed") {
+          if (statusRes.data.status === "Completed" || statusRes.data.status === "Failed" || statusRes.data.status === "TimedOut") {
             if (pollingRef.current) clearInterval(pollingRef.current);
             setSolverPolling(false);
             if (statusRes.data.status === "Completed") {
@@ -842,6 +866,7 @@ export default function GroupDetailPage() {
               scheduleLoading={scheduleLoading}
               scheduleError={scheduleError}
               draftVersion={draftVersion}
+              lastRunSummary={lastRunSummary}
               isAdmin={isAdmin}
               publishSaving={publishSaving}
               discardSaving={discardSaving}
@@ -863,8 +888,7 @@ export default function GroupDetailPage() {
               onSearchChange={setMembersSearch}
               onSelectMember={m => { setSelectedMember(m); setMemberEditForm(null); }}
               onRemoveMember={handleRemoveMember}
-              onOpenAddByEmail={() => setShowAddByEmail(true)}
-              onOpenCreatePerson={() => setShowCreatePerson(true)}
+              onOpenAddMember={() => setShowAddMember(true)}
               onOpenInvite={handleInvite}
             />
           )}
@@ -943,7 +967,7 @@ export default function GroupDetailPage() {
               onCloseForm={() => { setShowTaskForm(false); setEditingTask(null); }}
               onFormChange={setTaskForm}
               onFormSubmit={handleTaskSubmit}
-              onEditTask={t => { setEditingTask(t); setTaskForm({ name: t.name, startsAt: t.startsAt?.slice(0, 16) ?? "", endsAt: t.endsAt?.slice(0, 16) ?? "", shiftDurationMinutes: t.shiftDurationMinutes, requiredHeadcount: t.requiredHeadcount, burdenLevel: t.burdenLevel, allowsDoubleShift: t.allowsDoubleShift, allowsOverlap: t.allowsOverlap }); setShowTaskForm(true); }}
+              onEditTask={t => { setEditingTask(t); setTaskForm({ name: t.name, startsAt: t.startsAt?.slice(0, 16) ?? "", endsAt: t.endsAt?.slice(0, 16) ?? "", shiftDurationMinutes: t.shiftDurationMinutes, requiredHeadcount: t.requiredHeadcount, burdenLevel: t.burdenLevel, allowsDoubleShift: t.allowsDoubleShift, allowsOverlap: t.allowsOverlap, concurrentTaskIds: [] }); setShowTaskForm(true); }}
               onDeleteTask={handleDeleteTask}
             />
           )}
@@ -964,6 +988,7 @@ export default function GroupDetailPage() {
               editConstraintPayload={editConstraintPayload}
               editConstraintFrom={editConstraintFrom}
               editConstraintUntil={editConstraintUntil}
+              editConstraintSeverity={editConstraintSeverity}
               editConstraintSaving={editConstraintSaving}
               editConstraintError={editConstraintError}
               onOpenCreate={() => setShowConstraintForm(true)}
@@ -973,11 +998,12 @@ export default function GroupDetailPage() {
               onPayloadChange={setNewConstraintPayload}
               onCreateSubmit={handleCreateConstraint}
               onDeleteConstraint={handleDeleteConstraint}
-              onStartEdit={c => { setEditingConstraintId(c.id); setEditConstraintPayload(c.rulePayloadJson); setEditConstraintFrom(c.effectiveFrom?.slice(0, 10) ?? ""); setEditConstraintUntil(c.effectiveUntil?.slice(0, 10) ?? ""); }}
+              onStartEdit={c => { setEditingConstraintId(c.id); setEditConstraintPayload(c.rulePayloadJson); setEditConstraintFrom(c.effectiveFrom?.slice(0, 10) ?? ""); setEditConstraintUntil(c.effectiveUntil?.slice(0, 10) ?? ""); setEditConstraintSeverity(typeof c.severity === "number" ? (c.severity === 0 ? "hard" : "soft") : String(c.severity).toLowerCase()); }}
               onCloseEdit={() => setEditingConstraintId(null)}
               onEditPayloadChange={setEditConstraintPayload}
               onEditFromChange={setEditConstraintFrom}
               onEditUntilChange={setEditConstraintUntil}
+              onEditSeverityChange={setEditConstraintSeverity}
               onUpdateConstraint={handleUpdateConstraint}
             />
           )}
@@ -1022,6 +1048,10 @@ export default function GroupDetailPage() {
               onDeleteGroup={handleDeleteGroup}
             />
           )}
+
+          {activeTab === "stats" && currentSpaceId && (
+            <StatsTab groupId={groupId} spaceId={currentSpaceId} members={members} />
+          )}
         </div>
       </div>
 
@@ -1039,47 +1069,46 @@ export default function GroupDetailPage() {
         />
       )}
 
-      {/* Add by email modal */}
-      <Modal title="הוסף חבר לפי אימייל/טלפון" open={showAddByEmail} onClose={() => setShowAddByEmail(false)}>
-        <form onSubmit={handleAddByEmail} className="space-y-4">
-          <input
-            type="text"
-            value={addEmailInput}
-            onChange={e => setAddEmailInput(e.target.value)}
-            placeholder="אימייל או מספר טלפון"
-            required
-            className="w-full border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-          />
-          {addEmailError && <p className="text-sm text-red-600">{addEmailError}</p>}
-          <button type="submit" disabled={addEmailSaving}
-            className="bg-blue-500 hover:bg-blue-600 text-white text-sm font-medium px-4 py-2.5 rounded-xl disabled:opacity-50 transition-colors">
-            {addEmailSaving ? "מוסיף..." : "הוסף"}
-          </button>
-        </form>
-      </Modal>
-
-      {/* Create person modal */}
-      <Modal title="הוסף אדם לפי שם" open={showCreatePerson} onClose={() => setShowCreatePerson(false)}>
-        <form onSubmit={handleCreatePerson} className="space-y-4">
-          <input
-            type="text"
-            value={createPersonName}
-            onChange={e => setCreatePersonName(e.target.value)}
-            placeholder="שם מלא *"
-            required
-            className="w-full border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-          />
-          <input
-            type="tel"
-            value={createPersonPhone}
-            onChange={e => setCreatePersonPhone(e.target.value)}
-            placeholder="מספר טלפון (אופציונלי)"
-            className="w-full border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-          />
-          {createPersonError && <p className="text-sm text-red-600">{createPersonError}</p>}
-          <button type="submit" disabled={createPersonSaving}
-            className="bg-blue-500 hover:bg-blue-600 text-white text-sm font-medium px-4 py-2.5 rounded-xl disabled:opacity-50 transition-colors">
-            {createPersonSaving ? "יוצר..." : "צור"}
+      {/* Add member modal */}
+      <Modal title="הוסף חבר חדש" open={showAddMember} onClose={() => { setShowAddMember(false); setAddMemberName(""); setAddMemberPhone(""); setAddMemberEmail(""); setAddMemberError(null); }}>
+        <form onSubmit={handleAddMember} className="space-y-4">
+          <div>
+            <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">שם מלא *</label>
+            <input
+              type="text"
+              value={addMemberName}
+              onChange={e => setAddMemberName(e.target.value)}
+              placeholder="שם מלא"
+              required
+              className="w-full border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">מספר טלפון <span className="text-slate-400 normal-case font-normal">(אופציונלי — לשליחת הזמנה)</span></label>
+            <input
+              type="tel"
+              value={addMemberPhone}
+              onChange={e => setAddMemberPhone(e.target.value)}
+              placeholder="+972..."
+              dir="ltr"
+              className="w-full border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">אימייל <span className="text-slate-400 normal-case font-normal">(אופציונלי — לשליחת הזמנה)</span></label>
+            <input
+              type="email"
+              value={addMemberEmail}
+              onChange={e => setAddMemberEmail(e.target.value)}
+              placeholder="example@email.com"
+              dir="ltr"
+              className="w-full border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+          {addMemberError && <p className="text-sm text-red-600">{addMemberError}</p>}
+          <button type="submit" disabled={addMemberSaving}
+            className="w-full bg-blue-500 hover:bg-blue-600 text-white text-sm font-medium px-4 py-2.5 rounded-xl disabled:opacity-50 transition-colors">
+            {addMemberSaving ? "מוסיף..." : "הוסף חבר"}
           </button>
         </form>
       </Modal>
@@ -1106,11 +1135,6 @@ export default function GroupDetailPage() {
         />
       )}
 
-      {inviteError && (
-        <div className="fixed bottom-4 right-4 bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-3 rounded-xl shadow-lg">
-          {inviteError}
-        </div>
-      )}
     </AppShell>
   );
 }

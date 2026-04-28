@@ -90,6 +90,11 @@ def solve(input: SolverInput) -> SolverOutput:
                     ))
 
     uncovered = _compute_uncovered(solver, assign, slots, num_people, feasible)
+
+    # If every slot is uncovered (no one was assigned to anything), treat as infeasible
+    if feasible and len(uncovered) == num_slots and num_slots > 0:
+        feasible = False
+        assignments = []
     stability = _compute_stability(solver, assign, input, feasible)
     fairness  = _compute_fairness(solver, assign, input, feasible)
 
@@ -112,7 +117,7 @@ def solve(input: SolverInput) -> SolverOutput:
 def _empty_result(input: SolverInput) -> SolverOutput:
     return SolverOutput(
         run_id=input.run_id,
-        feasible=True,
+        feasible=False,
         timed_out=False,
         assignments=[],
         uncovered_slot_ids=[],

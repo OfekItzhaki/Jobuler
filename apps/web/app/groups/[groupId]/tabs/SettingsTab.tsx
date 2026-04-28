@@ -125,7 +125,13 @@ export default function SettingsTab({
               </>
             ) : "הפעל סידור"}
           </button>
-          {solverStatus && <p className="text-sm text-slate-600">סטטוס: {solverStatus}</p>}
+          {solverStatus && (
+            <p className={`text-sm ${solverStatus === "Completed" ? "text-emerald-600" : solverStatus === "Failed" ? "text-red-600" : "text-slate-600"}`}>
+              {solverStatus === "Completed" ? "✓ הסידור הושלם — בדוק את לשונית הסידור"
+               : solverStatus === "Failed" ? "✗ הסידור נכשל — בדוק את ההתראות לפרטים"
+               : `סטטוס: ${solverStatus}`}
+            </p>
+          )}
           {solverError && <p className="text-sm text-red-600">{solverError}</p>}
         </div>
       </Section>

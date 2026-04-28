@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useDateFormat } from "@/lib/hooks/useDateFormat";
 import type { ScheduleAssignment } from "../types";
 
-interface DraftVersion { id: string; status: string; }
+interface DraftVersion { id: string; status: string; summaryJson?: string | null; }
 
 interface Props {
   groupId: string;
@@ -13,6 +13,7 @@ interface Props {
   scheduleLoading: boolean;
   scheduleError: string | null;
   draftVersion: DraftVersion | null;
+  lastRunSummary: string | null;
   isAdmin: boolean;
   publishSaving: boolean;
   discardSaving: boolean;
@@ -56,7 +57,7 @@ function overlapsDate(a: ScheduleAssignment, dateStr: string): boolean {
 
 export default function ScheduleTab({
   solverHorizonDays, scheduleData, scheduleLoading, scheduleError,
-  draftVersion, isAdmin, publishSaving, discardSaving, scheduleVersionError,
+  draftVersion, lastRunSummary, isAdmin, publishSaving, discardSaving, scheduleVersionError,
   onOpenDraftModal, onPublish, onDiscard,
 }: Props) {
   const today = new Date().toISOString().split("T")[0];
@@ -97,9 +98,43 @@ export default function ScheduleTab({
 
   return (
     <div className="space-y-4">
+      {/* Infeasibility banner — shown when last solver run failed to produce a valid schedule */}
+      {!draftVersion && lastRunSummary && (() => {
+        try {
+          const s = JSON.parse(lastRunSummary);
+          if (s.feasible === false) {
+            const conflicts: { description: string }[] = s.conflict_details ?? [];
+            return (
+              <div className="bg-red-50 border border-red-200 rounded-2xl p-4 space-y-2">
+                <div className="flex items-center gap-2">
+                  <svg className="w-5 h-5 text-red-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+                  </svg>
+                  <span className="text-sm font-semibold text-red-800">לא ניתן היה ליצור סידור</span>
+                </div>
+                <p className="text-sm text-red-700">הסולבר לא הצליח לבנות סידור עם האילוצים הנוכחיים.</p>
+                {conflicts.length > 0 && (
+                  <ul className="space-y-1">
+                    {conflicts.map((c, i) => (
+                      <li key={i} className="text-sm text-red-700 flex items-start gap-1.5">
+                        <span className="mt-0.5 flex-shrink-0">•</span>
+                        <span>{c.description}</span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                <p className="text-xs text-red-600 mt-1">
+                  ניתן לפתור על ידי: הוספת חברים נוספים, הרחבת אופק הזמן, או הקלת אילוצים.
+                </p>
+              </div>
+            );
+          }
+        } catch { /* ignore */ }
+        return null;
+      })()}
+
       {/* Draft banner */}
-      {draftVersion && (
-        <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4">
+      {draftVersion && (        <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4">
           <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-2">
               <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-800 border border-amber-300">טיוטה</span>

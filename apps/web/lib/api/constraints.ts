@@ -37,7 +37,7 @@ export async function createConstraint(
 export async function updateConstraint(
   spaceId: string,
   constraintId: string,
-  payload: { rulePayloadJson: string; effectiveFrom: string | null; effectiveUntil: string | null }
+  payload: { severity?: string; rulePayloadJson: string; effectiveFrom: string | null; effectiveUntil: string | null }
 ): Promise<void> {
   await apiClient.put(`/spaces/${spaceId}/constraints/${constraintId}`, payload);
 }

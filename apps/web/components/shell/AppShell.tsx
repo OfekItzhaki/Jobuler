@@ -93,19 +93,21 @@ function LanguageSwitcher() {
 
 export default function AppShell({ children }: AppShellProps) {
   const t = useTranslations();
-  const { displayName: storedDisplayName, adminGroupId, logout } = useAuthStore();
+  const { displayName: storedDisplayName, logout } = useAuthStore();
   const { currentSpaceId, currentSpaceName, setCurrentSpace } = useSpaceStore();
   const router = useRouter();
   const [resolvedName, setResolvedName] = useState<string | null>(storedDisplayName);
 
-  // Hydrate display name from API if Zustand hasn't loaded it yet
+  // Always fetch display name from API on mount to stay fresh across tab changes
   useEffect(() => {
-    if (storedDisplayName) {
-      setResolvedName(storedDisplayName);
-      return;
-    }
-    getMe().then(me => setResolvedName(me.displayName)).catch(() => {});
-  }, [storedDisplayName]);
+    getMe().then(me => {
+      if (me.displayName) setResolvedName(me.displayName);
+    }).catch(() => {
+      // Fall back to whatever Zustand has
+      if (storedDisplayName) setResolvedName(storedDisplayName);
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const displayName = resolvedName;
 
@@ -152,9 +154,6 @@ export default function AppShell({ children }: AppShellProps) {
           <NavItem href="/profile" label={t("nav.myProfile")} icon={ic("M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z")} />
           <NavItem href="/schedule/my-missions" label={t("nav.myMissions")} icon={ic("M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01")} />
           <NavItem href="/groups" label={t("nav.myGroups")} icon={ic("M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z")} />
-          {adminGroupId !== null && (
-            <NavItem href="/admin/stats" label="סטטיסטיקות" icon={ic("M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z")} admin />
-          )}
         </nav>
 
         <div style={S.bottom}>
@@ -188,10 +187,8 @@ export default function AppShell({ children }: AppShellProps) {
 
       {/* Main */}
       <div style={S.main}>
-        <header style={S.topbar(adminGroupId !== null)}>
-          {adminGroupId !== null && (
-            <span style={{ fontSize: 12, color: "#d97706", fontWeight: 600 }}>{t("admin.title")}</span>
-          )}
+        <header style={S.topbar(false)}>
+          {/* admin mode indicator is shown per-group */}
         </header>
         <main style={S.content}>{children}</main>
       </div>

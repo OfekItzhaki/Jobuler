@@ -50,9 +50,10 @@ public class ConstraintRule : AuditableEntity, ITenantScoped
             CreatedByUserId = createdByUserId
         };
 
-    public void Update(string rulePayloadJson, DateOnly? effectiveUntil, Guid updatedByUserId)
+    public void Update(string rulePayloadJson, ConstraintSeverity? severity, DateOnly? effectiveUntil, Guid updatedByUserId)
     {
         RulePayloadJson = rulePayloadJson;
+        if (severity.HasValue) Severity = severity.Value;
         EffectiveUntil = effectiveUntil;
         UpdatedByUserId = updatedByUserId;
         Touch();

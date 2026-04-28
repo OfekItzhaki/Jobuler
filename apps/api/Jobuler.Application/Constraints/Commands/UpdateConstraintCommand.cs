@@ -1,5 +1,6 @@
 using FluentValidation;
 using Jobuler.Application.Common;
+using Jobuler.Domain.Constraints;
 using Jobuler.Domain.Spaces;
 using Jobuler.Infrastructure.Persistence;
 using MediatR;
@@ -13,6 +14,7 @@ public record UpdateConstraintCommand(
     Guid ConstraintId,
     Guid RequestingUserId,
     string RulePayloadJson,
+    string? Severity,
     DateOnly? EffectiveFrom,
     DateOnly? EffectiveUntil) : IRequest;
 
@@ -54,7 +56,8 @@ public class UpdateConstraintCommandHandler : IRequestHandler<UpdateConstraintCo
             .FirstOrDefaultAsync(c => c.Id == req.ConstraintId && c.SpaceId == req.SpaceId && c.IsActive, ct)
             ?? throw new KeyNotFoundException("Constraint not found.");
 
-        rule.Update(req.RulePayloadJson, req.EffectiveUntil, req.RequestingUserId);
+        var severity = req.Severity != null && Enum.TryParse<ConstraintSeverity>(req.Severity, true, out var s) ? s : (ConstraintSeverity?)null;
+        rule.Update(req.RulePayloadJson, severity, req.EffectiveUntil, req.RequestingUserId);
         await _db.SaveChangesAsync(ct);
     }
 }

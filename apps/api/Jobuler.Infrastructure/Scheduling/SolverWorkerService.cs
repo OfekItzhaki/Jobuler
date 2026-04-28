@@ -1,6 +1,7 @@
 using Jobuler.Application.Notifications;
 using Jobuler.Application.Scheduling;
 using Jobuler.Application.Scheduling.Commands;
+using Jobuler.Application.Scheduling.Models;
 using Jobuler.Domain.Scheduling;
 using Jobuler.Infrastructure.Logging;
 using Jobuler.Infrastructure.Persistence;
@@ -84,10 +85,11 @@ public class SolverWorkerService : BackgroundService
             return;
         }
 
+        SolverInputDto? input = null;
         try
         {
             // Build solver input
-            var input = await normalizer.BuildAsync(
+            input = await normalizer.BuildAsync(
                 job.SpaceId, job.RunId, job.TriggerMode, job.BaselineVersionId, ct);
 
             // ── Pre-flight checks ─────────────────────────────────────────────
@@ -163,26 +165,30 @@ public class SolverWorkerService : BackgroundService
                 job.SpaceId, nextVersion, job.BaselineVersionId,
                 job.RunId, job.RequestedByUserId, summaryJson);
 
+            // If infeasible: discard the version immediately — no empty draft left for the admin
+            if (!output.Feasible)
+                version.Discard();
+
             db.ScheduleVersions.Add(version);
             await db.SaveChangesAsync(ct); // get version.Id
 
-            // Persist assignments
-            // Slot IDs from GroupTask shifts are composite: "<taskId>:shift:<n>"
-            // Store the base task ID as the task_slot_id for traceability
-            var assignments = output.Assignments.Select(a =>
-            {
-                var rawSlotId = a.SlotId;
-                var baseSlotId = rawSlotId.Contains(":shift:")
-                    ? rawSlotId.Split(":shift:")[0]
-                    : rawSlotId;
-                return Assignment.Create(
-                    job.SpaceId, version.Id,
-                    Guid.Parse(baseSlotId), Guid.Parse(a.PersonId),
-                    a.Source == "override" ? AssignmentSource.Override : AssignmentSource.Solver);
-            }).ToList();
+            // Persist assignments only when feasible
+            var assignments = output.Feasible
+                ? output.Assignments.Select(a =>
+                {
+                    var rawSlotId = a.SlotId;
+                    var baseSlotId = rawSlotId.Contains(":shift:")
+                        ? rawSlotId.Split(":shift:")[0]
+                        : rawSlotId;
+                    return Assignment.Create(
+                        job.SpaceId, version.Id,
+                        Guid.Parse(baseSlotId), Guid.Parse(a.PersonId),
+                        a.Source == "override" ? AssignmentSource.Override : AssignmentSource.Solver);
+                }).ToList()
+                : new List<Assignment>();
 
-            db.Assignments.AddRange(assignments);
-
+            if (assignments.Count > 0)
+                db.Assignments.AddRange(assignments);
             // Compute and store diff summary
             var baseline = job.BaselineVersionId.HasValue
                 ? await db.Assignments.AsNoTracking()
@@ -230,24 +236,33 @@ public class SolverWorkerService : BackgroundService
 
             if (output.Feasible)
             {
+                // Count unique people and unique task slots for a meaningful message
+                var uniquePeople = assignments.Select(a => a.PersonId).Distinct().Count();
+                var uniqueSlots  = assignments.Select(a => a.TaskSlotId).Distinct().Count();
+                var coverageNote = output.UncoveredSlotIds.Count > 0
+                    ? (locale == "he" ? $" {output.UncoveredSlotIds.Count} משמרות לא אויישו במלואן."
+                       : locale == "ru" ? $" {output.UncoveredSlotIds.Count} смен не укомплектованы."
+                       : $" {output.UncoveredSlotIds.Count} shift(s) not fully staffed.")
+                    : (locale == "he" ? " כל המשמרות אויישו." : locale == "ru" ? " Все смены укомплектованы." : " All shifts fully staffed.");
+
                 (notifTitle, notifBody) = locale switch {
                     "he" => (
                         output.TimedOut ? "הסידור הושלם (חלקי)" : "הסידור מוכן לעיון",
                         output.TimedOut
-                            ? $"הסידור הגיע לגבול הזמן — נוצרה טיוטה עם {assignments.Count} שיבוצים.{(output.UncoveredSlotIds.Count > 0 ? $" {output.UncoveredSlotIds.Count} משימות לא אויישו." : " כל המשימות אויישו.")} בדוק ופרסם כשמוכן."
-                            : $"נוצרה טיוטה עם {assignments.Count} שיבוצים.{(output.UncoveredSlotIds.Count > 0 ? $" {output.UncoveredSlotIds.Count} משימות לא אויישו." : " כל המשימות אויישו.")} בדוק ופרסם כשמוכן."
+                            ? $"הסידור הגיע לגבול הזמן — שובצו {uniquePeople} אנשים ל-{uniqueSlots} משמרות.{coverageNote} בדוק ופרסם כשמוכן."
+                            : $"שובצו {uniquePeople} אנשים ל-{uniqueSlots} משמרות.{coverageNote} בדוק ופרסם כשמוכן."
                     ),
                     "ru" => (
                         output.TimedOut ? "Расписание составлено (частично)" : "Расписание готово к проверке",
                         output.TimedOut
-                            ? $"Решатель достиг лимита времени — создан черновик с {assignments.Count} назначениями.{(output.UncoveredSlotIds.Count > 0 ? $" {output.UncoveredSlotIds.Count} смен не укомплектованы." : " Все смены укомплектованы.")} Проверьте и опубликуйте."
-                            : $"Создан черновик с {assignments.Count} назначениями.{(output.UncoveredSlotIds.Count > 0 ? $" {output.UncoveredSlotIds.Count} смен не укомплектованы." : " Все смены укомплектованы.")} Проверьте и опубликуйте."
+                            ? $"Решатель достиг лимита — назначено {uniquePeople} человек на {uniqueSlots} смен.{coverageNote} Проверьте и опубликуйте."
+                            : $"Назначено {uniquePeople} человек на {uniqueSlots} смен.{coverageNote} Проверьте и опубликуйте."
                     ),
                     _ => (
                         output.TimedOut ? "Schedule ready (partial)" : "Schedule ready for review",
                         output.TimedOut
-                            ? $"Solver reached time limit — draft created with {assignments.Count} assignments.{(output.UncoveredSlotIds.Count > 0 ? $" {output.UncoveredSlotIds.Count} slot(s) not fully staffed." : " All slots staffed.")} Review and publish when ready."
-                            : $"Draft created with {assignments.Count} assignments.{(output.UncoveredSlotIds.Count > 0 ? $" {output.UncoveredSlotIds.Count} slot(s) not fully staffed." : " All slots staffed.")} Review and publish when ready."
+                            ? $"Solver reached time limit — {uniquePeople} people assigned to {uniqueSlots} shifts.{coverageNote} Review and publish when ready."
+                            : $"{uniquePeople} people assigned to {uniqueSlots} shifts.{coverageNote} Review and publish when ready."
                     )
                 };
             }
