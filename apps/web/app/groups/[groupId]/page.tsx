@@ -158,6 +158,8 @@ export default function GroupDetailPage() {
   const [newConstraintRuleType, setNewConstraintRuleType] = useState("min_rest_hours");
   const [newConstraintSeverity, setNewConstraintSeverity] = useState("hard");
   const [newConstraintPayload, setNewConstraintPayload] = useState('{"hours": 8}');
+  const [newConstraintFrom, setNewConstraintFrom] = useState("");
+  const [newConstraintUntil, setNewConstraintUntil] = useState("");
   const [constraintSaving, setConstraintSaving] = useState(false);
   const [constraintError, setConstraintError] = useState<string | null>(null);
   const [editingConstraintId, setEditingConstraintId] = useState<string | null>(null);
@@ -623,13 +625,15 @@ export default function GroupDetailPage() {
         newConstraintSeverity,
         newConstraintRuleType,
         newConstraintPayload,
-        null,
-        null
+        newConstraintFrom || null,
+        newConstraintUntil || null
       );
       // Reload to get full DTO
       const updated = await getConstraints(currentSpaceId);
       setConstraints(updated.filter(c => c.scopeId === groupId));
       setShowConstraintForm(false);
+      setNewConstraintFrom("");
+      setNewConstraintUntil("");
     } catch {
       setConstraintError("שגיאה ביצירת אילוץ");
     } finally {
@@ -1001,6 +1005,8 @@ export default function GroupDetailPage() {
               newConstraintRuleType={newConstraintRuleType}
               newConstraintSeverity={newConstraintSeverity}
               newConstraintPayload={newConstraintPayload}
+              newConstraintFrom={newConstraintFrom}
+              newConstraintUntil={newConstraintUntil}
               constraintSaving={constraintSaving}
               constraintError={constraintError}
               editingConstraintId={editingConstraintId}
@@ -1011,10 +1017,12 @@ export default function GroupDetailPage() {
               editConstraintSaving={editConstraintSaving}
               editConstraintError={editConstraintError}
               onOpenCreate={() => setShowConstraintForm(true)}
-              onCloseCreate={() => setShowConstraintForm(false)}
+              onCloseCreate={() => { setShowConstraintForm(false); setNewConstraintFrom(""); setNewConstraintUntil(""); }}
               onRuleTypeChange={rt => { setNewConstraintRuleType(rt); const defaults: Record<string, string> = { min_rest_hours: '{"hours": 8}', max_kitchen_per_week: '{"max": 2, "task_type_name": "kitchen"}', no_consecutive_burden: '{"burden_level": "disliked"}', min_base_headcount: '{"min": 3, "window_hours": 24}', no_task_type_restriction: '{"task_type_id": ""}' }; setNewConstraintPayload(defaults[rt] ?? "{}"); }}
               onSeverityChange={setNewConstraintSeverity}
               onPayloadChange={setNewConstraintPayload}
+              onFromChange={setNewConstraintFrom}
+              onUntilChange={setNewConstraintUntil}
               onCreateSubmit={handleCreateConstraint}
               onDeleteConstraint={handleDeleteConstraint}
               onStartEdit={c => { setEditingConstraintId(c.id); setEditConstraintPayload(c.rulePayloadJson); setEditConstraintFrom(c.effectiveFrom?.slice(0, 10) ?? ""); setEditConstraintUntil(c.effectiveUntil?.slice(0, 10) ?? ""); setEditConstraintSeverity(typeof c.severity === "number" ? (c.severity === 0 ? "hard" : "soft") : String(c.severity).toLowerCase()); }}

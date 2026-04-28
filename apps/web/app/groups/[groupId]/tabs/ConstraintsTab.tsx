@@ -36,6 +36,8 @@ interface Props {
   newConstraintRuleType: string;
   newConstraintSeverity: string;
   newConstraintPayload: string;
+  newConstraintFrom: string;
+  newConstraintUntil: string;
   constraintSaving: boolean;
   constraintError: string | null;
   editingConstraintId: string | null;
@@ -50,6 +52,8 @@ interface Props {
   onRuleTypeChange: (v: string) => void;
   onSeverityChange: (v: string) => void;
   onPayloadChange: (v: string) => void;
+  onFromChange: (v: string) => void;
+  onUntilChange: (v: string) => void;
   onCreateSubmit: (e: React.FormEvent) => void;
   onDeleteConstraint: (id: string) => void;
   onStartEdit: (c: ConstraintDto) => void;
@@ -63,9 +67,9 @@ interface Props {
 
 export default function ConstraintsTab({
   isAdmin, constraints, constraintsLoading, constraintDeleteErrors,
-  showConstraintForm, newConstraintRuleType, newConstraintSeverity, newConstraintPayload, constraintSaving, constraintError,
+  showConstraintForm, newConstraintRuleType, newConstraintSeverity, newConstraintPayload, newConstraintFrom, newConstraintUntil, constraintSaving, constraintError,
   editingConstraintId, editConstraintPayload, editConstraintFrom, editConstraintUntil, editConstraintSeverity, editConstraintSaving, editConstraintError,
-  onOpenCreate, onCloseCreate, onRuleTypeChange, onSeverityChange, onPayloadChange, onCreateSubmit,
+  onOpenCreate, onCloseCreate, onRuleTypeChange, onSeverityChange, onPayloadChange, onFromChange, onUntilChange, onCreateSubmit,
   onDeleteConstraint, onStartEdit, onCloseEdit, onEditPayloadChange, onEditFromChange, onEditUntilChange, onEditSeverityChange, onUpdateConstraint,
 }: Props) {
   const editingConstraint = constraints.find(c => c.id === editingConstraintId) ?? null;
@@ -139,6 +143,16 @@ export default function ConstraintsTab({
             </div>
           </div>
           <ConstraintPayloadEditor ruleType={newConstraintRuleType} value={newConstraintPayload} onChange={onPayloadChange} />
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs text-slate-500 mb-1">בתוקף מ <span className="text-slate-400">(אופציונלי)</span></label>
+              <input type="date" value={newConstraintFrom} onChange={e => onFromChange(e.target.value)} className="w-full border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+            </div>
+            <div>
+              <label className="block text-xs text-slate-500 mb-1">בתוקף עד <span className="text-slate-400">(אופציונלי)</span></label>
+              <input type="date" value={newConstraintUntil} onChange={e => onUntilChange(e.target.value)} className="w-full border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+            </div>
+          </div>
           {constraintError && <p className="text-sm text-red-600">{constraintError}</p>}
           <div className="flex gap-2">
             <button type="submit" disabled={constraintSaving} className="bg-blue-500 hover:bg-blue-600 text-white text-sm font-medium px-4 py-2.5 rounded-xl disabled:opacity-50 transition-colors">
