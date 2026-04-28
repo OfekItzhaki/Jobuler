@@ -1,11 +1,12 @@
 {
   "app": {
     "name": "Shifter",
-    "tagline": "Scheduling System"
+    "tagline": "Shift Scheduling System"
   },
   "auth": {
     "login": "Login",
     "logout": "Logout",
+    "loggedInAs": "Logged in as",
     "register": "Register",
     "email": "Email",
     "password": "Password",
@@ -19,6 +20,8 @@
     "today": "Today",
     "tomorrow": "Tomorrow",
     "myMissions": "My Missions",
+    "myProfile": "My Profile",
+    "myGroups": "My Groups",
     "admin": "Admin",
     "logs": "Logs"
   },
@@ -77,6 +80,12 @@
       "Disliked": "Disliked",
       "Hated": "Hated"
     }
+  },
+  "language": {
+    "label": "Language",
+    "he": "עברית",
+    "en": "English",
+    "ru": "Русский"
   },
   "errors": {
     "unauthorized": "Unauthorized",

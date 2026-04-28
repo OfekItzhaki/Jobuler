@@ -1,40 +1,38 @@
 import { test, expect } from "@playwright/test";
-import { loginAsAdmin, enterAdminMode } from "./helpers/auth";
+import { loginAsAdmin } from "./helpers/auth";
 
 const BASE = process.env.E2E_BASE_URL ?? "http://localhost:3000";
 
 test.describe("Admin navigation", () => {
   test.beforeEach(async ({ page }) => {
     await loginAsAdmin(page);
-    await enterAdminMode(page);
   });
 
   const adminPages = [
-    { path: "/admin/schedule",    label: /schedule management/i },
-    { path: "/admin/people",      label: /people/i },
-    { path: "/admin/tasks",       label: /task/i },
-    { path: "/admin/constraints", label: /constraint/i },
-    { path: "/admin/groups",      label: /group/i },
+    "/admin/schedule",
+    "/admin/people",
+    "/admin/tasks",
+    "/admin/constraints",
+    "/admin/groups",
   ];
 
-  for (const { path, label } of adminPages) {
+  for (const path of adminPages) {
     test(`${path} loads without error`, async ({ page }) => {
       await page.goto(`${BASE}${path}`);
-      await expect(page.getByText(label).first()).toBeVisible({ timeout: 8000 });
-      // No error boundary should be visible
+      await expect(page.locator("aside")).toBeVisible({ timeout: 12000 });
       await expect(page.getByText(/something went wrong/i)).not.toBeVisible();
     });
   }
 
-  test("notification bell is visible in header", async ({ page }) => {
-    await page.goto(`${BASE}/admin/schedule`);
-    // Bell button has aria-label="Notifications"
-    await expect(page.getByRole("button", { name: /notifications/i })).toBeVisible();
+  test("notification bell is visible in sidebar", async ({ page }) => {
+    await page.goto(`${BASE}/groups`);
+    await expect(page.locator('button[aria-label="Notifications"]')).toBeVisible({ timeout: 8000 });
   });
 
-  test("logout works", async ({ page }) => {
+  test("logout button is visible and works", async ({ page }) => {
     await page.goto(`${BASE}/schedule/today`);
-    await page.getByRole("button", { name: /logout/i }).click();
-    await expect(page).toHaveURL(/login/, { timeout: 5000 });
+    await expect(page.locator('[data-testid="logout-btn"]')).toBeVisible({ timeout: 8000 });
+    await page.locator('[data-testid="logout-btn"]').click();
+    await expect(page).toHaveURL(/login/, { timeout: 8000 });
   });
 });

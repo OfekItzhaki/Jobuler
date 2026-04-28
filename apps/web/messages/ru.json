@@ -1,11 +1,12 @@
 {
   "app": {
-    "name": "Джобулер",
-    "tagline": "Система планирования смен"
+    "name": "Shifter",
+    "tagline": "Система управления сменами"
   },
   "auth": {
     "login": "Вход",
     "logout": "Выход",
+    "loggedInAs": "Вы вошли как",
     "register": "Регистрация",
     "email": "Электронная почта",
     "password": "Пароль",
@@ -18,6 +19,9 @@
     "schedule": "Расписание",
     "today": "Сегодня",
     "tomorrow": "Завтра",
+    "myMissions": "Мои задания",
+    "myProfile": "Мой профиль",
+    "myGroups": "Мои группы",
     "admin": "Администрирование",
     "logs": "Журнал"
   },
@@ -26,7 +30,12 @@
     "noAssignments": "Нет назначений",
     "person": "Человек",
     "task": "Задача",
-    "time": "Время"
+    "time": "Время",
+    "selectGroup": "Выберите группу для просмотра расписания",
+    "selectGroupLabel": "Группа",
+    "noGroup": "Группа не выбрана",
+    "live": "Онлайн",
+    "loading": "Загрузка..."
   },
   "admin": {
     "title": "Режим администратора",
@@ -35,10 +44,48 @@
     "spaces": "Пространства",
     "people": "Люди",
     "tasks": "Задачи",
+    "taskTypes": "Типы задач",
+    "taskSlots": "Слоты задач",
+    "addTaskType": "Добавить тип задачи",
+    "addTaskSlot": "Добавить слот задачи",
     "constraints": "Ограничения",
     "groups": "Группы",
+    "addGroup": "Добавить группу",
+    "addPerson": "Добавить человека",
+    "members": "Участники",
     "publish": "Опубликовать",
-    "rollback": "Откат"
+    "rollback": "Откат",
+    "save": "Сохранить",
+    "cancel": "Отмена",
+    "name": "Название",
+    "description": "Описание",
+    "burdenLevel": "Уровень нагрузки",
+    "priority": "Приоритет",
+    "overlap": "Разрешить пересечение",
+    "headcount": "Количество",
+    "startsAt": "Начало",
+    "endsAt": "Конец",
+    "location": "Местоположение",
+    "taskType": "Тип задачи",
+    "fullName": "Полное имя",
+    "displayName": "Отображаемое имя",
+    "status": "Статус",
+    "active": "Активен",
+    "inactive": "Неактивен",
+    "noData": "Нет данных",
+    "adminRequired": "Требуется режим администратора",
+    "burden": {
+      "Favorable": "Удобно",
+      "Neutral": "Нейтрально",
+      "Disliked": "Нежелательно",
+      "Hated": "Нежелательно крайне"
+    }
+  },
+  "language": {
+    "label": "Язык",
+    "he": "עברית",
+    "en": "English",
+    "ru": "Русский"
   },
   "errors": {
     "unauthorized": "Нет доступа",

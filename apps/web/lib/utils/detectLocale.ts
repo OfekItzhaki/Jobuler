@@ -11,7 +11,7 @@ export function detectBrowserLocale(): string {
 
   // Map to our app's supported locale codes
   const primary = lang.split("-")[0].toLowerCase();
-  const supported = ["he", "en", "ar", "ru", "fr", "de", "es"];
+  const supported = ["he", "en", "ru"];
 
   return supported.includes(primary) ? primary : "he";
 }

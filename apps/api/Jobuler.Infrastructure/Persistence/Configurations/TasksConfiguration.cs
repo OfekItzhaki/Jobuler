@@ -1,5 +1,6 @@
 using Jobuler.Domain.Tasks;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.ChangeTracking;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
 namespace Jobuler.Infrastructure.Persistence.Configurations;
@@ -42,11 +43,19 @@ public class TaskSlotConfiguration : IEntityTypeConfiguration<TaskSlot>
         builder.Property(s => s.RequiredRoleIds).HasColumnName("required_role_ids_json")
             .HasConversion(
                 v => System.Text.Json.JsonSerializer.Serialize(v, (System.Text.Json.JsonSerializerOptions?)null),
-                v => System.Text.Json.JsonSerializer.Deserialize<List<Guid>>(v, (System.Text.Json.JsonSerializerOptions?)null) ?? new());
+                v => System.Text.Json.JsonSerializer.Deserialize<List<Guid>>(v, (System.Text.Json.JsonSerializerOptions?)null) ?? new())
+            .Metadata.SetValueComparer(new ValueComparer<List<Guid>>(
+                (a, b) => a != null && b != null && a.SequenceEqual(b),
+                v => v.Aggregate(0, (h, e) => HashCode.Combine(h, e.GetHashCode())),
+                v => v.ToList()));
         builder.Property(s => s.RequiredQualificationIds).HasColumnName("required_qualification_ids_json")
             .HasConversion(
                 v => System.Text.Json.JsonSerializer.Serialize(v, (System.Text.Json.JsonSerializerOptions?)null),
-                v => System.Text.Json.JsonSerializer.Deserialize<List<Guid>>(v, (System.Text.Json.JsonSerializerOptions?)null) ?? new());
+                v => System.Text.Json.JsonSerializer.Deserialize<List<Guid>>(v, (System.Text.Json.JsonSerializerOptions?)null) ?? new())
+            .Metadata.SetValueComparer(new ValueComparer<List<Guid>>(
+                (a, b) => a != null && b != null && a.SequenceEqual(b),
+                v => v.Aggregate(0, (h, e) => HashCode.Combine(h, e.GetHashCode())),
+                v => v.ToList()));
         builder.Property(s => s.Status).HasColumnName("status")
             .HasConversion(v => v.ToString().ToLower(), v => Enum.Parse<TaskSlotStatus>(v, true));
         builder.Property(s => s.Location).HasColumnName("location");

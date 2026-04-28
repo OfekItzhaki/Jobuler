@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using System.Reflection;
 
 namespace Jobuler.Api.Controllers;
 
@@ -9,5 +10,17 @@ namespace Jobuler.Api.Controllers;
 public class HealthController : ControllerBase
 {
     [HttpGet]
-    public IActionResult Get() => Ok(new { status = "healthy", utc = DateTime.UtcNow });
+    public IActionResult Get()
+    {
+        var version = Assembly.GetExecutingAssembly()
+            .GetCustomAttribute<AssemblyInformationalVersionAttribute>()
+            ?.InformationalVersion ?? "1.0.0";
+
+        return Ok(new
+        {
+            status = "healthy",
+            version,
+            timestamp = DateTime.UtcNow
+        });
+    }
 }

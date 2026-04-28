@@ -1,26 +1,68 @@
 import { Page } from "@playwright/test";
 
-const BASE         = process.env.E2E_BASE_URL   ?? "http://localhost:3000";
-const ADMIN_EMAIL  = process.env.E2E_ADMIN_EMAIL ?? "admin@demo.local";
-const ADMIN_PASS   = process.env.E2E_ADMIN_PASS  ?? "Demo1234!";
+const BASE        = process.env.E2E_BASE_URL   ?? "http://localhost:3000";
+const ADMIN_EMAIL = process.env.E2E_ADMIN_EMAIL ?? "admin@demo.local";
+const ADMIN_PASS  = process.env.E2E_ADMIN_PASS  ?? "Demo1234!";
+const API_URL     = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:5000";
 
 /**
- * Log in as the demo admin and wait for the app shell to appear.
- * Call this at the start of any test that needs an authenticated session.
+ * Log in as the demo admin using structural selectors (locale-agnostic).
  */
 export async function loginAsAdmin(page: Page): Promise<void> {
   await page.goto(`${BASE}/login`);
-  await page.getByLabel(/email/i).fill(ADMIN_EMAIL);
-  await page.getByLabel(/password/i).fill(ADMIN_PASS);
-  await page.getByRole("button", { name: /sign in/i }).click();
-  // Wait for the app shell nav to appear
-  await page.waitForURL(/\/(schedule|spaces)/, { timeout: 10000 });
+  await page.locator('input[type="email"]').fill(ADMIN_EMAIL);
+  await page.locator('input[type="password"]').fill(ADMIN_PASS);
+  await page.locator('button[type="submit"]').click();
+  // Wait until we leave /login
+  await page.waitForFunction(() => !window.location.pathname.startsWith("/login"), { timeout: 20000 });
 }
 
 /**
- * Enter admin mode by clicking the "Enter Admin Mode" button.
+ * Enter admin mode by fetching the first group via the API, navigating to it,
+ * then clicking the admin mode toggle button.
+ * adminGroupId is NOT persisted in Zustand so this must go through the UI.
  */
 export async function enterAdminMode(page: Page): Promise<void> {
-  const btn = page.getByRole("button", { name: /enter admin mode/i });
-  if (await btn.isVisible()) await btn.click();
+  // Grab token + spaceId from localStorage (set during login)
+  const { token, spaceId } = await page.evaluate(() => {
+    const raw = localStorage.getItem("jobuler-space");
+    let spaceId: string | null = null;
+    try { spaceId = raw ? JSON.parse(raw).state?.currentSpaceId : null; } catch { /* ignore */ }
+    return { token: localStorage.getItem("access_token"), spaceId };
+  });
+
+  if (token && spaceId) {
+    // Fetch groups directly from the API
+    const resp = await page.request.get(`${API_URL}/spaces/${spaceId}/groups`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (resp.ok()) {
+      const groups = await resp.json() as Array<{ id: string }>;
+      if (groups.length > 0) {
+        await page.goto(`${BASE}/groups/${groups[0].id}`);
+        await page.waitForURL(/\/groups\/[^/]+$/, { timeout: 10000 });
+        // Click the admin mode button — it's the only button with data-admin-toggle
+        // or we find it by its position in the settings tab area
+        const adminBtn = page.locator("button").filter({ hasText: /admin|ניהול|администрат/i }).first();
+        if (await adminBtn.isVisible({ timeout: 5000 }).catch(() => false)) {
+          await adminBtn.click();
+        }
+        return;
+      }
+    }
+  }
+
+  // Fallback: navigate to groups page and click first group card
+  await page.goto(`${BASE}/groups`);
+  const firstGroup = page.locator("button").filter({ hasText: /חברים|members|участник/i }).first();
+  if (await firstGroup.isVisible({ timeout: 8000 }).catch(() => false)) {
+    await Promise.all([
+      page.waitForURL(/\/groups\/[^/]+$/, { timeout: 10000 }),
+      firstGroup.click(),
+    ]);
+    const adminBtn = page.locator("button").filter({ hasText: /admin|ניהול|администрат/i }).first();
+    if (await adminBtn.isVisible({ timeout: 5000 }).catch(() => false)) {
+      await adminBtn.click();
+    }
+  }
 }
