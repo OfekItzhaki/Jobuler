@@ -8,6 +8,7 @@ import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
 import NotificationBell from "@/components/shell/NotificationBell";
 import { getMySpaces } from "@/lib/api/spaces";
+import { getMe } from "@/lib/api/auth";
 
 interface AppShellProps { children: React.ReactNode; }
 
@@ -92,9 +93,21 @@ function LanguageSwitcher() {
 
 export default function AppShell({ children }: AppShellProps) {
   const t = useTranslations();
-  const { displayName, adminGroupId, logout } = useAuthStore();
+  const { displayName: storedDisplayName, adminGroupId, logout } = useAuthStore();
   const { currentSpaceId, currentSpaceName, setCurrentSpace } = useSpaceStore();
   const router = useRouter();
+  const [resolvedName, setResolvedName] = useState<string | null>(storedDisplayName);
+
+  // Hydrate display name from API if Zustand hasn't loaded it yet
+  useEffect(() => {
+    if (storedDisplayName) {
+      setResolvedName(storedDisplayName);
+      return;
+    }
+    getMe().then(me => setResolvedName(me.displayName)).catch(() => {});
+  }, [storedDisplayName]);
+
+  const displayName = resolvedName;
 
   useEffect(() => {
     getMySpaces().then(spaces => {

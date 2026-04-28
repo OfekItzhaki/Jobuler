@@ -263,10 +263,14 @@ export default function GroupDetailPage() {
     if (!currentSpaceId || !groupId || activeTab !== "messages") return;
     setMessagesLoading(true);
     setMessagesError(null);
-    apiClient.get<{ messages: { id: string; content: string; authorName: string; createdAt: string; isPinned: boolean }[] }>(
+    apiClient.get<{ id: string; content: string; authorName: string; createdAt: string; isPinned: boolean }[]>(
       `/spaces/${currentSpaceId}/groups/${groupId}/messages`
     )
-      .then(res => setMessages(res.data.messages ?? []))
+      .then(res => {
+        // API returns array directly
+        const data = Array.isArray(res.data) ? res.data : [];
+        setMessages(data);
+      })
       .catch(() => setMessagesError("שגיאה בטעינת הודעות"))
       .finally(() => setMessagesLoading(false));
   }, [currentSpaceId, groupId, activeTab]);
@@ -310,7 +314,7 @@ export default function GroupDetailPage() {
     setPublishSaving(true);
     setScheduleVersionError(null);
     try {
-      await apiClient.post(`/spaces/${currentSpaceId}/groups/${groupId}/schedule/versions/${draftVersion.id}/publish`, {});
+      await apiClient.post(`/spaces/${currentSpaceId}/schedule-versions/${draftVersion.id}/publish`, {});
       setDraftVersion(null);
       setScheduleData(null);
       // Reload schedule after publish
@@ -337,7 +341,7 @@ export default function GroupDetailPage() {
     setDiscardSaving(true);
     setScheduleVersionError(null);
     try {
-      await apiClient.delete(`/spaces/${currentSpaceId}/groups/${groupId}/schedule/versions/${draftVersion.id}`);
+      await apiClient.delete(`/spaces/${currentSpaceId}/schedule-versions/${draftVersion.id}`);
       setDraftVersion(null);
     } catch {
       setScheduleVersionError("שגיאה בביטול הטיוטה");
@@ -481,12 +485,16 @@ export default function GroupDetailPage() {
     setMessageSending(true);
     setMessageError(null);
     try {
-      const res = await apiClient.post<{ message: { id: string; content: string; authorName: string; createdAt: string; isPinned: boolean } }>(
+      await apiClient.post(
         `/spaces/${currentSpaceId}/groups/${groupId}/messages`,
         { content: newMessageContent }
       );
-      setMessages(prev => [...prev, res.data.message]);
       setNewMessageContent("");
+      // Reload messages to get the full DTO with authorName etc.
+      const res = await apiClient.get<{ id: string; content: string; authorName: string; createdAt: string; isPinned: boolean }[]>(
+        `/spaces/${currentSpaceId}/groups/${groupId}/messages`
+      );
+      setMessages(Array.isArray(res.data) ? res.data : []);
     } catch {
       setMessageError("שגיאה בשליחת הודעה");
     } finally {
@@ -657,13 +665,14 @@ export default function GroupDetailPage() {
     setSolverError(null);
     try {
       const res = await apiClient.post<{ runId: string }>(
-        `/spaces/${currentSpaceId}/groups/${groupId}/schedule/runs`, {}
+        `/spaces/${currentSpaceId}/schedule-runs/trigger`,
+        { triggerMode: "standard" }
       );
       const runId = res.data.runId;
       pollingRef.current = setInterval(async () => {
         try {
           const statusRes = await apiClient.get<{ status: string }>(
-            `/spaces/${currentSpaceId}/groups/${groupId}/schedule/runs/${runId}`
+            `/spaces/${currentSpaceId}/schedule-runs/${runId}`
           );
           setSolverStatus(statusRes.data.status);
           if (statusRes.data.status === "Completed" || statusRes.data.status === "Failed") {
@@ -1089,7 +1098,7 @@ export default function GroupDetailPage() {
             displayName: selectedMember.displayName ?? "",
             phoneNumber: selectedMember.phoneNumber ?? "",
             profileImageUrl: selectedMember.profileImageUrl ?? "",
-            birthday: "",
+            birthday: selectedMember.birthday ?? "",
           })}
           onCancelEdit={() => setMemberEditForm(null)}
           onChangeForm={setMemberEditForm}

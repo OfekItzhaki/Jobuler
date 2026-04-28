@@ -7,7 +7,6 @@ import { useSpaceStore } from "@/lib/store/spaceStore";
 import { getBurdenStats, BurdenStats } from "@/lib/api/schedule";
 import StatsLeaderboard from "./_components/StatsLeaderboard";
 import StatsPeopleTable from "./_components/StatsPeopleTable";
-import { useRouter } from "next/navigation";
 
 const card: React.CSSProperties = {
   background: "white",
@@ -34,22 +33,20 @@ function SummaryCard({ label, value, sub }: { label: string; value: string | num
 export default function StatsPage() {
   const { adminGroupId } = useAuthStore();
   const { currentSpaceId } = useSpaceStore();
-  const router = useRouter();
 
   const [stats, setStats] = useState<BurdenStats | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!adminGroupId) { router.replace("/profile"); return; }
-    if (!currentSpaceId) return;
+    if (!adminGroupId || !currentSpaceId) return;
+    setLoading(true);
+    setError(null);
     getBurdenStats(currentSpaceId)
       .then(setStats)
       .catch(() => setError("שגיאה בטעינת הסטטיסטיקות"))
       .finally(() => setLoading(false));
   }, [currentSpaceId, adminGroupId]);
-
-  if (!adminGroupId) return null;
 
   return (
     <AppShell>
@@ -61,7 +58,20 @@ export default function StatsPage() {
           </p>
         </div>
 
-        {loading && (
+        {/* Not in admin mode */}
+        {!adminGroupId && (
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "5rem 0", textAlign: "center", background: "white", borderRadius: 16, border: "1px solid #e2e8f0" }}>
+            <svg width="48" height="48" fill="none" viewBox="0 0 24 24" stroke="#cbd5e1" strokeWidth={1.5} style={{ marginBottom: 12 }}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+            </svg>
+            <p style={{ fontSize: "0.875rem", color: "#64748b", margin: 0 }}>
+              יש להיכנס למצב ניהול בקבוצה כדי לצפות בסטטיסטיקות
+            </p>
+          </div>
+        )}
+
+        {/* Loading */}
+        {adminGroupId && loading && (
           <div style={{ display: "flex", alignItems: "center", gap: 10, color: "#94a3b8", fontSize: "0.875rem", padding: "2rem 0" }}>
             <svg className="animate-spin" width="20" height="20" fill="none" viewBox="0 0 24 24">
               <circle style={{ opacity: 0.25 }} cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
@@ -73,7 +83,7 @@ export default function StatsPage() {
 
         {error && <p style={{ color: "#dc2626", fontSize: "0.875rem" }}>{error}</p>}
 
-        {stats && (
+        {stats && adminGroupId && (
           <>
             {/* Summary cards */}
             <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "1rem", marginBottom: "1.5rem" }}>

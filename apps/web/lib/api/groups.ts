@@ -43,6 +43,7 @@ export interface GroupMemberDto {
   phoneNumber: string | null;
   invitationStatus: string;
   profileImageUrl: string | null;
+  birthday: string | null;
 }
 
 export interface DeletedGroupDto {

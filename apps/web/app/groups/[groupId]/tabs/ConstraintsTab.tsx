@@ -12,6 +12,29 @@ const RULE_TYPES = [
   { value: "no_task_type_restriction", label: "הגבלת סוג משימה" },
 ];
 
+/** Convert raw JSON payload to a short human-readable summary */
+function formatPayload(ruleType: string, json: string): string {
+  try {
+    const p = JSON.parse(json);
+    switch (ruleType) {
+      case "min_rest_hours":
+        return `${p.hours ?? 8} שעות מנוחה`;
+      case "max_kitchen_per_week":
+        return `מקסימום ${p.max ?? 2} מטבח בשבוע`;
+      case "no_consecutive_burden":
+        return `ללא ${p.burden_level ?? "hated"} רצוף`;
+      case "min_base_headcount":
+        return `מינימום ${p.min ?? 3} אנשים בכל ${p.window_hours ?? 24} שעות`;
+      case "no_task_type_restriction":
+        return `הגבלה על משימה: ${p.task_type_id ?? "—"}`;
+      default:
+        return json;
+    }
+  } catch {
+    return json;
+  }
+}
+
 interface Props {
   isAdmin: boolean;
   constraints: ConstraintDto[];
@@ -128,8 +151,8 @@ export default function ConstraintsTab({
                     </span>
                     <span className="text-sm font-medium text-slate-700">{RULE_TYPES.find(r => r.value === c.ruleType)?.label ?? c.ruleType}</span>
                   </div>
-                  <p className="text-xs text-slate-400 font-mono">{c.rulePayloadJson}</p>
-                </div>
+                  <p className="text-xs text-slate-500">{formatPayload(c.ruleType, c.rulePayloadJson)}</p>
+                  <p className="text-xs text-slate-400 font-mono">{c.rulePayloadJson}</p>                </div>
                 {isAdmin && (
                   <div className="flex gap-1.5 flex-shrink-0">
                     <button onClick={() => onStartEdit(c)} className="text-xs text-slate-500 hover:text-slate-700 border border-slate-200 px-2 py-1 rounded-lg hover:bg-slate-50 transition-colors">ערוך</button>
