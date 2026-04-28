@@ -26,19 +26,17 @@ export default function GroupsPage() {
 
   useEffect(() => {
     if (!currentSpaceId) { setLoading(false); return; }
+    // Load active groups
     apiClient.get(`/spaces/${currentSpaceId}/groups`)
       .then(r => setGroups(r.data))
       .finally(() => setLoading(false));
-  }, [currentSpaceId]);
-
-  useEffect(() => {
-    if (!currentSpaceId || !showDeleted) return;
+    // Load deleted groups in parallel
     setDeletedLoading(true);
     getDeletedGroups(currentSpaceId)
       .then(setDeletedGroups)
       .catch(() => {})
       .finally(() => setDeletedLoading(false));
-  }, [currentSpaceId, showDeleted]);
+  }, [currentSpaceId]);
 
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
@@ -120,42 +118,39 @@ export default function GroupsPage() {
           </div>
         )}
 
-        {/* Deleted groups — collapsible */}
-        <div className="border-t border-slate-100 pt-4">
-          <button
-            onClick={() => setShowDeleted(v => !v)}
-            className="flex items-center gap-2 text-sm text-slate-500 hover:text-slate-700 transition-colors"
-          >
-            <svg
-              width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
-              className={`transition-transform ${showDeleted ? "rotate-90" : ""}`}
-            >
-              <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-            </svg>
-            קבוצות מחוקות
-          </button>
+        {/* Deleted groups — always visible when there are any, lazy-loaded */}
+        <div className="border-t border-slate-100 pt-6">
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-base font-semibold text-slate-700">קבוצות מחוקות</h2>
+            {!showDeleted && (
+              <button
+                onClick={() => setShowDeleted(true)}
+                className="text-sm text-blue-600 hover:underline"
+              >
+                טען
+              </button>
+            )}
+          </div>
 
-          {showDeleted && (
-            <div className="mt-3">
-              {deletedLoading ? (
-                <p className="text-sm text-slate-400">טוען...</p>
-              ) : deletedGroups.length === 0 ? (
-                <p className="text-sm text-slate-400">אין קבוצות מחוקות</p>
-              ) : (
-                <div className="space-y-2">
-                  {deletedGroups.map(g => (
-                    <div key={g.id} className="flex items-center justify-between bg-white border border-slate-200 rounded-xl px-4 py-3">
-                      <span className="text-sm text-slate-700">{g.name}</span>
-                      <button
-                        onClick={() => handleRestore(g.id)}
-                        className="text-xs text-blue-600 border border-blue-200 hover:bg-blue-50 px-3 py-1.5 rounded-lg transition-colors"
-                      >
-                        שחזר
-                      </button>
-                    </div>
-                  ))}
+          {!showDeleted ? (
+            <p className="text-sm text-slate-400">לחץ "טען" כדי לראות קבוצות מחוקות</p>
+          ) : deletedLoading ? (
+            <p className="text-sm text-slate-400">טוען...</p>
+          ) : deletedGroups.length === 0 ? (
+            <p className="text-sm text-slate-400">אין קבוצות מחוקות</p>
+          ) : (
+            <div className="space-y-2">
+              {deletedGroups.map(g => (
+                <div key={g.id} className="flex items-center justify-between bg-white border border-slate-200 rounded-xl px-4 py-3">
+                  <span className="text-sm text-slate-700">{g.name}</span>
+                  <button
+                    onClick={() => handleRestore(g.id)}
+                    className="text-xs text-blue-600 border border-blue-200 hover:bg-blue-50 px-3 py-1.5 rounded-lg transition-colors"
+                  >
+                    שחזר
+                  </button>
                 </div>
-              )}
+              ))}
             </div>
           )}
         </div>

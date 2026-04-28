@@ -1089,7 +1089,7 @@ export default function GroupDetailPage() {
           isAdmin={isAdmin}
           onPublish={async () => { await handlePublish(); setShowDraftModal(false); }}
           onDiscard={async () => { await handleDiscard(); setShowDraftModal(false); }}
-          onRunAgain={() => { setShowDraftModal(false); setActiveTab("settings"); }}
+          onRunAgain={() => { setShowDraftModal(false); setActiveTab("settings"); handleTriggerSolver(); }}
         />
       )}
 

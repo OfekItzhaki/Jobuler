@@ -149,9 +149,26 @@ export default function DraftScheduleModal({
           ) : error ? (
             <p style={{ color: "#dc2626", fontSize: 14, textAlign: "center", padding: "2rem 0" }}>{error}</p>
           ) : assignments.length === 0 ? (
-            <p style={{ color: "#94a3b8", fontSize: 14, textAlign: "center", padding: "2rem 0" }}>
-              הסידור ריק — לא נמצאו שיבוצים בטיוטה זו.
-            </p>
+            <div style={{ textAlign: "center", padding: "2rem 0" }}>
+              <p style={{ color: "#94a3b8", fontSize: 14, marginBottom: 12 }}>
+                הסידור ריק — לא נמצאו שיבוצים בטיוטה זו.
+              </p>
+              <p style={{ color: "#64748b", fontSize: 13, marginBottom: 16 }}>
+                ייתכן שהסולבר לא הצליח לבנות סידור עם האילוצים הנוכחיים.
+              </p>
+              {isAdmin && (
+                <button
+                  onClick={() => { onClose(); onRunAgain(); }}
+                  style={{
+                    background: "#3b82f6", color: "white", border: "none",
+                    borderRadius: 10, padding: "9px 20px", fontSize: 13,
+                    fontWeight: 600, cursor: "pointer",
+                  }}
+                >
+                  🔄 הרץ שוב
+                </button>
+              )}
+            </div>
           ) : (
             <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
               {sortedDates.map(date => (
