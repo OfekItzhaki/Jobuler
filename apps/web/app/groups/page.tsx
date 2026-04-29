@@ -21,17 +21,14 @@ export default function GroupsPage() {
   const [error, setError] = useState<string | null>(null);
 
   const [deletedGroups, setDeletedGroups] = useState<DeletedGroupDto[]>([]);
-  const [deletedLoading, setDeletedLoading] = useState(false);
-  const [showDeleted, setShowDeleted] = useState(false);
+  const [deletedLoading, setDeletedLoading] = useState(true);
 
   useEffect(() => {
-    if (!currentSpaceId) { setLoading(false); return; }
-    // Load active groups
+    if (!currentSpaceId) { setLoading(false); setDeletedLoading(false); return; }
+    // Load active and deleted groups in parallel
     apiClient.get(`/spaces/${currentSpaceId}/groups`)
       .then(r => setGroups(r.data))
       .finally(() => setLoading(false));
-    // Load deleted groups in parallel
-    setDeletedLoading(true);
     getDeletedGroups(currentSpaceId)
       .then(setDeletedGroups)
       .catch(() => {})
@@ -57,7 +54,6 @@ export default function GroupsPage() {
     try {
       await restoreGroup(currentSpaceId, id);
       setDeletedGroups(prev => prev.filter(g => g.id !== id));
-      // Refresh active groups list
       const { data } = await apiClient.get(`/spaces/${currentSpaceId}/groups`);
       setGroups(data);
     } catch {}
@@ -86,6 +82,7 @@ export default function GroupsPage() {
 
         {error && <p className="text-sm text-red-600">{error}</p>}
 
+        {/* Active groups */}
         {loading ? (
           <p className="text-slate-400 text-sm py-8">טוען...</p>
         ) : groups.length === 0 ? (
@@ -118,23 +115,10 @@ export default function GroupsPage() {
           </div>
         )}
 
-        {/* Deleted groups — always visible when there are any, lazy-loaded */}
+        {/* Deleted groups — always shown */}
         <div className="border-t border-slate-100 pt-6">
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="text-base font-semibold text-slate-700">קבוצות מחוקות</h2>
-            {!showDeleted && (
-              <button
-                onClick={() => setShowDeleted(true)}
-                className="text-sm text-blue-600 hover:underline"
-              >
-                טען
-              </button>
-            )}
-          </div>
-
-          {!showDeleted ? (
-            <p className="text-sm text-slate-400">לחץ "טען" כדי לראות קבוצות מחוקות</p>
-          ) : deletedLoading ? (
+          <h2 className="text-base font-semibold text-slate-700 mb-3">קבוצות מחוקות</h2>
+          {deletedLoading ? (
             <p className="text-sm text-slate-400">טוען...</p>
           ) : deletedGroups.length === 0 ? (
             <p className="text-sm text-slate-400">אין קבוצות מחוקות</p>
