@@ -169,20 +169,8 @@ public class SolverWorkerService : BackgroundService
                 job.SpaceId, nextVersion, job.BaselineVersionId,
                 job.RunId, job.RequestedByUserId, summaryJson);
 
-            // Discard the version if:
-            // - infeasible (no valid schedule found), OR
-            // - timed out with zero assignments (partial solve produced nothing useful)
-            var shouldDiscard = !output.Feasible ||
-                (output.TimedOut && output.Assignments.Count == 0);
-
-            if (shouldDiscard)
-                version.Discard();
-
-            db.ScheduleVersions.Add(version);
-            await db.SaveChangesAsync(ct); // get version.Id
-
-            // Persist assignments only when the version is kept (feasible or timed-out with results)
-            var assignments = !shouldDiscard
+            // Build assignments list first so we can decide whether to keep the draft
+            var assignments = output.Feasible
                 ? output.Assignments.Select(a =>
                 {
                     if (!Guid.TryParse(a.SlotId, out var slotGuid))
@@ -197,11 +185,29 @@ public class SolverWorkerService : BackgroundService
                 }).Where(a => a != null).Cast<Assignment>().ToList()
                 : new List<Assignment>();
 
-            _logger.LogInformation("Storing {Count} assignments for version {VersionId}", assignments.Count, version.Id);
+            _logger.LogInformation(
+                "Solver output: feasible={Feasible} timedOut={TimedOut} rawAssignments={Raw} parsedAssignments={Parsed}",
+                output.Feasible, output.TimedOut, output.Assignments.Count, assignments.Count);
+
+            // Discard the version if:
+            // - infeasible (no valid schedule found), OR
+            // - timed out with zero assignments, OR
+            // - feasible but all slot IDs failed to parse (assignments list is empty despite solver returning results)
+            var shouldDiscard = !output.Feasible ||
+                (output.TimedOut && assignments.Count == 0) ||
+                (output.Feasible && assignments.Count == 0);
+
+            if (shouldDiscard)
+            {
+                _logger.LogWarning("Discarding version: feasible={Feasible} assignments={Count}", output.Feasible, assignments.Count);
+                version.Discard();
+            }
+
+            db.ScheduleVersions.Add(version);
+            await db.SaveChangesAsync(ct); // get version.Id
 
             if (assignments.Count > 0)
                 db.Assignments.AddRange(assignments);
-            // Compute and store diff summary
             var baseline = job.BaselineVersionId.HasValue
                 ? await db.Assignments.AsNoTracking()
                     .Where(a => a.ScheduleVersionId == job.BaselineVersionId.Value)

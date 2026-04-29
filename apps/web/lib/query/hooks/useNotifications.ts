@@ -7,7 +7,7 @@ export function useNotifications(spaceId: string | null) {
     queryKey: queryKeys.notifications(spaceId ?? ""),
     queryFn: () => getNotifications(spaceId!),
     enabled: !!spaceId,
-    refetchInterval: 5_000,   // poll every 5s so solver results appear quickly
+    refetchInterval: 30_000,  // poll every 30s; solver completion triggers an immediate refetch
     refetchIntervalInBackground: false,
   });
 }

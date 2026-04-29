@@ -108,22 +108,24 @@ builder.Services.AddSingleton<IConnectionMultiplexer>(_ =>
 // ─── Scheduling services ─────────────────────────────────────────────────────
 builder.Services.AddScoped<ISolverPayloadNormalizer, SolverPayloadNormalizer>();
 
-// Use Redis queue if available, fall back to NoOp if Redis is down
-builder.Services.AddScoped<ISolverJobQueue>(sp =>
+// Use Redis queue if available, fall back to in-memory queue (no Redis required)
+builder.Services.AddSingleton<ISolverJobQueue>(sp =>
 {
+    var logger = sp.GetRequiredService<ILogger<InMemorySolverJobQueue>>();
     try
     {
         var redis = sp.GetRequiredService<IConnectionMultiplexer>();
-        // Try a quick ping to verify Redis is actually reachable
         var db = redis.GetDatabase();
         db.Ping();
+        sp.GetRequiredService<ILogger<Program>>()
+            .LogInformation("Redis available — using Redis solver queue.");
         return new RedisSolverJobQueue(redis, sp.GetRequiredService<ILogger<RedisSolverJobQueue>>());
     }
     catch
     {
         sp.GetRequiredService<ILogger<Program>>()
-            .LogWarning("Redis unavailable — using NoOp solver queue. Solver trigger will be accepted but not processed.");
-        return new NoOpSolverJobQueue(sp.GetRequiredService<ILogger<NoOpSolverJobQueue>>());
+            .LogInformation("Redis unavailable — using in-memory solver queue (single-server mode).");
+        return new InMemorySolverJobQueue(logger);
     }
 });
 

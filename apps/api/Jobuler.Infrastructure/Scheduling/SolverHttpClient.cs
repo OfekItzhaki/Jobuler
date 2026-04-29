@@ -38,6 +38,9 @@ public class SolverHttpClient : ISolverClient
         {
             var body = await response.Content.ReadAsStringAsync(ct);
             _logger.LogError("Solver returned {StatusCode}. Body: {Body}", (int)response.StatusCode, body);
+            // 504 = solver process timeout — treat as a timed-out run, not a crash
+            if ((int)response.StatusCode == 504)
+                throw new TimeoutException($"Solver process timed out: {body}");
             response.EnsureSuccessStatusCode();
         }
 

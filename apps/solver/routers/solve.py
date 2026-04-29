@@ -3,9 +3,17 @@ from models.solver_input import SolverInput
 from models.solver_output import SolverOutput
 from solver.engine import solve as run_solver
 import logging
+import concurrent.futures
+import os
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
+
+# Hard timeout for a single solve request — prevents the process from hanging forever
+SOLVE_TIMEOUT_SECONDS = int(os.getenv("SOLVE_TIMEOUT_SECONDS", "45"))
+
+# Thread pool so the solve runs in a separate thread and can be interrupted
+_executor = concurrent.futures.ThreadPoolExecutor(max_workers=4)
 
 
 @router.post("/solve", response_model=SolverOutput)
@@ -25,7 +33,8 @@ def solve(payload: SolverInput) -> SolverOutput:
         len(payload.presence_windows),
     )
     try:
-        result = run_solver(payload)
+        future = _executor.submit(run_solver, payload)
+        result = future.result(timeout=SOLVE_TIMEOUT_SECONDS)
         logger.info(
             "Solver run finished: run_id=%s feasible=%s timed_out=%s "
             "assignments=%d uncovered=%d hard_conflicts=%d",
@@ -37,6 +46,9 @@ def solve(payload: SolverInput) -> SolverOutput:
             len(result.hard_conflicts),
         )
         return result
+    except concurrent.futures.TimeoutError:
+        logger.error("Solver run timed out after %ds: run_id=%s", SOLVE_TIMEOUT_SECONDS, payload.run_id)
+        raise HTTPException(status_code=504, detail=f"Solver timed out after {SOLVE_TIMEOUT_SECONDS}s")
     except Exception as e:
         logger.exception("Solver run failed: run_id=%s", payload.run_id)
         raise HTTPException(status_code=500, detail=str(e))
