@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import AppShell from "@/components/shell/AppShell";
 import { apiClient } from "@/lib/api/client";
 import { useSpaceStore } from "@/lib/store/spaceStore";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { getAvatarColor, getAvatarLetter } from "@/lib/utils/groupAvatar";
 import { getDeletedGroups, restoreGroup, DeletedGroupDto } from "@/lib/api/groups";
 
@@ -13,6 +13,8 @@ interface GroupDto { id: string; name: string; memberCount: number; solverHorizo
 export default function GroupsPage() {
   const { currentSpaceId } = useSpaceStore();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const deletedRef = useRef<HTMLDivElement>(null);
 
   const [groups, setGroups] = useState<GroupDto[]>([]);
   const [loading, setLoading] = useState(true);
@@ -34,6 +36,13 @@ export default function GroupsPage() {
       .catch(() => {})
       .finally(() => setDeletedLoading(false));
   }, [currentSpaceId]);
+
+  // Scroll to deleted section if ?tab=deleted
+  useEffect(() => {
+    if (searchParams.get("tab") === "deleted" && deletedRef.current) {
+      setTimeout(() => deletedRef.current?.scrollIntoView({ behavior: "smooth" }), 300);
+    }
+  }, [searchParams, deletedLoading]);
 
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
@@ -116,7 +125,7 @@ export default function GroupsPage() {
         )}
 
         {/* Deleted groups — always shown */}
-        <div className="border-t border-slate-100 pt-6">
+        <div ref={deletedRef} className="border-t border-slate-100 pt-6">
           <h2 className="text-base font-semibold text-slate-700 mb-3">קבוצות מחוקות</h2>
           {deletedLoading ? (
             <p className="text-sm text-slate-400">טוען...</p>

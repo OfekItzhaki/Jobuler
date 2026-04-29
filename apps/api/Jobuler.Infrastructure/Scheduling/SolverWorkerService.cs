@@ -176,15 +176,13 @@ public class SolverWorkerService : BackgroundService
             var assignments = output.Feasible
                 ? output.Assignments.Select(a =>
                 {
-                    var rawSlotId = a.SlotId;
-                    var baseSlotId = rawSlotId.Contains(":shift:")
-                        ? rawSlotId.Split(":shift:")[0]
-                        : rawSlotId;
+                    if (!Guid.TryParse(a.SlotId, out var slotGuid))
+                        return null;
                     return Assignment.Create(
                         job.SpaceId, version.Id,
-                        Guid.Parse(baseSlotId), Guid.Parse(a.PersonId),
+                        slotGuid, Guid.Parse(a.PersonId),
                         a.Source == "override" ? AssignmentSource.Override : AssignmentSource.Solver);
-                }).ToList()
+                }).Where(a => a != null).Cast<Assignment>().ToList()
                 : new List<Assignment>();
 
             if (assignments.Count > 0)

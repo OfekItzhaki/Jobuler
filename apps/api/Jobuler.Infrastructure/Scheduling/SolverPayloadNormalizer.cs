@@ -144,12 +144,17 @@ public class SolverPayloadNormalizer : ISolverPayloadNormalizer
             while (shiftStart + shiftDuration <= windowEnd)
             {
                 var shiftEnd = shiftStart + shiftDuration;
-                // Use a deterministic ID: task.Id + shift index so assignments can be traced back
-                var slotId = $"{task.Id}:shift:{shiftIndex}";
+                // Generate a deterministic unique GUID per shift so each shift
+                // gets its own row in the assignments table.
+                // XOR the task GUID bytes with the shift index to get a stable unique ID.
+                var shiftGuid = DeriveShiftGuid(task.Id, shiftIndex);
+                // Use the shift GUID directly as the slot ID (no suffix needed)
+                // task_type_id carries the original task GUID for reverse lookup
+                var slotId = shiftGuid.ToString();
 
                 slotsDto.Add(new TaskSlotDto(
                     slotId,
-                    task.GroupId.ToString(),
+                    task.Id.ToString(),   // task_type_id = original task GUID for lookup
                     task.Name,
                     task.BurdenLevel.ToString().ToLower(),
                     shiftStart.ToString("o"),
@@ -239,6 +244,20 @@ public class SolverPayloadNormalizer : ISolverPayloadNormalizer
         {
             return new Dictionary<string, object>();
         }
+    }
+
+    /// <summary>
+    /// Derives a deterministic unique GUID for a specific shift within a task.
+    /// XORs the task GUID bytes with the shift index so each shift gets its own stable ID.
+    /// </summary>
+    private static Guid DeriveShiftGuid(Guid taskId, int shiftIndex)
+    {
+        var bytes = taskId.ToByteArray();
+        // XOR the last 4 bytes with the shift index
+        var indexBytes = BitConverter.GetBytes(shiftIndex);
+        for (int i = 0; i < 4; i++)
+            bytes[12 + i] ^= indexBytes[i];
+        return new Guid(bytes);
     }
 }
 

@@ -119,12 +119,36 @@ public class GetScheduleVersionDetailQueryHandler
             .ToDictionaryAsync(t => t.Id, t => t.Name, ct);
 
         // GroupTasks for any IDs not in task_slots
+        // Shift GUIDs are derived from task GUIDs via XOR — load all group tasks
+        // and build a reverse map: shiftGuid -> groupTask
         var missingIds = slotIds.Where(id => !taskSlots.ContainsKey(id)).ToHashSet();
-        var groupTasks = missingIds.Count > 0
+        var allGroupTasks = missingIds.Count > 0
             ? await _db.GroupTasks.AsNoTracking()
-                .Where(t => missingIds.Contains(t.Id))
-                .ToDictionaryAsync(t => t.Id, ct)
+                .Where(t => t.SpaceId == req.SpaceId)
+                .ToListAsync(ct)
             : new();
+
+        // Build reverse lookup: for each group task, try all possible shift GUIDs
+        // that could map to the missing slot IDs
+        var shiftGuidToTask = new Dictionary<Guid, (string Name, DateTime StartsAt, DateTime EndsAt)>();
+        foreach (var gt in allGroupTasks)
+        {
+            if (gt.ShiftDurationMinutes < 1) continue;
+            var shiftDuration = TimeSpan.FromMinutes(gt.ShiftDurationMinutes);
+            var shiftStart = gt.StartsAt;
+            var shiftIndex = 0;
+            while (shiftStart + shiftDuration <= gt.EndsAt)
+            {
+                var shiftEnd = shiftStart + shiftDuration;
+                var shiftGuid = ShiftGuidHelper.DeriveShiftGuid(gt.Id, shiftIndex);
+                if (missingIds.Contains(shiftGuid))
+                {
+                    shiftGuidToTask[shiftGuid] = (gt.Name, shiftStart, shiftEnd);
+                }
+                shiftStart = shiftEnd;
+                shiftIndex++;
+            }
+        }
 
         var assignments = new List<AssignmentDto>();
         foreach (var a in rawAssignments)
@@ -139,11 +163,11 @@ public class GetScheduleVersionDetailQueryHandler
                 startsAt = slot.StartsAt;
                 endsAt = slot.EndsAt;
             }
-            else if (groupTasks.TryGetValue(a.TaskSlotId, out var gt))
+            else if (shiftGuidToTask.TryGetValue(a.TaskSlotId, out var shiftInfo))
             {
-                taskName = gt.Name;
-                startsAt = gt.StartsAt;
-                endsAt = gt.EndsAt;
+                taskName = shiftInfo.Name;
+                startsAt = shiftInfo.StartsAt;
+                endsAt = shiftInfo.EndsAt;
             }
             else continue;
 
@@ -197,5 +221,21 @@ public class GetCurrentPublishedVersionQueryHandler
 
         return await _mediator.Send(
             new GetScheduleVersionDetailQuery(req.SpaceId, latest.Id), ct);
+    }
+}
+
+/// <summary>
+/// Shared helper for deriving deterministic shift GUIDs.
+/// Must match the logic in SolverPayloadNormalizer.
+/// </summary>
+internal static class ShiftGuidHelper
+{
+    internal static Guid DeriveShiftGuid(Guid taskId, int shiftIndex)
+    {
+        var bytes = taskId.ToByteArray();
+        var indexBytes = BitConverter.GetBytes(shiftIndex);
+        for (int i = 0; i < 4; i++)
+            bytes[12 + i] ^= indexBytes[i];
+        return new Guid(bytes);
     }
 }

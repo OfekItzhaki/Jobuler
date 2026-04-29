@@ -77,16 +77,18 @@ class TestBasicSolving:
         assigned = [a for a in result.assignments if a.slot_id == "s1"]
         assert len(assigned) == 2
 
-    def test_no_people_returns_feasible_with_uncovered(self):
+    def test_no_people_returns_infeasible(self):
+        """No people means no one can be assigned — infeasible."""
         slots = [make_slot("s1")]
         result = solve(make_input(slots, []))
-        assert result.feasible  # empty = trivially feasible
+        assert not result.feasible
         assert len(result.assignments) == 0
 
-    def test_no_slots_returns_feasible(self):
+    def test_no_slots_returns_infeasible(self):
+        """No slots means nothing to schedule — treated as infeasible (no work done)."""
         people = [make_person("p1")]
         result = solve(make_input([], people))
-        assert result.feasible
+        assert not result.feasible
         assert len(result.assignments) == 0
 
 
@@ -137,3 +139,101 @@ class TestFairnessMetrics:
         person_ids = {m.person_id for m in result.fairness_metrics}
         assert "p1" in person_ids
         assert "p2" in person_ids
+
+
+class TestInfeasibility:
+    def test_insufficient_people_for_headcount_is_infeasible(self):
+        """1 person cannot fill a slot requiring 2 — must be infeasible."""
+        people = [make_person("p1")]
+        slots = [make_slot("s1", headcount=2)]
+        result = solve(make_input(slots, people))
+        assert not result.feasible
+        assert len(result.assignments) == 0
+
+    def test_hard_conflicts_reported_when_infeasible(self):
+        """When infeasible, hard_conflicts should be non-empty."""
+        people = [make_person("p1")]
+        slots = [make_slot("s1", headcount=3)]
+        result = solve(make_input(slots, people))
+        assert not result.feasible
+        assert len(result.hard_conflicts) > 0
+
+    def test_enough_people_is_feasible(self):
+        """3 people for a slot requiring 2 — feasible."""
+        people = [make_person("p1"), make_person("p2"), make_person("p3")]
+        slots = [make_slot("s1", headcount=2)]
+        result = solve(make_input(slots, people))
+        assert result.feasible
+        assigned = [a for a in result.assignments if a.slot_id == "s1"]
+        assert len(assigned) == 2
+
+    def test_multiple_slots_all_covered(self):
+        """2 people, 2 non-overlapping slots requiring 1 each — both covered."""
+        people = [make_person("p1"), make_person("p2")]
+        slots = [
+            make_slot("s1", start_hour=8, end_hour=12),
+            make_slot("s2", start_hour=14, end_hour=18),
+        ]
+        result = solve(make_input(slots, people))
+        assert result.feasible
+        assert len(result.uncovered_slot_ids) == 0
+        assert len(result.assignments) == 2
+
+    def test_rest_constraint_makes_infeasible_with_one_person(self):
+        """1 person, 2 slots with only 4h gap — infeasible with 8h rest rule."""
+        from models.solver_input import HardConstraint
+        people = [make_person("p1")]
+        slots = [
+            make_slot("s1", start_hour=0, end_hour=8),
+            make_slot("s2", start_hour=12, end_hour=20),
+        ]
+        rest_constraint = HardConstraint(
+            constraint_id="c1",
+            rule_type="min_rest_hours",
+            scope_type="space",
+            scope_id=None,
+            payload={"hours": 8}
+        )
+        result = solve(make_input(slots, people, hard_constraints=[rest_constraint]))
+        assert not result.feasible
+
+
+class TestShiftSlotIds:
+    def test_shift_slot_ids_are_unique_per_shift(self):
+        """
+        When a task generates multiple shifts (e.g. s1:shift:0, s1:shift:1),
+        each shift must be assigned independently — not collapsed to the same slot.
+        """
+        people = [make_person("p1"), make_person("p2")]
+        # Two non-overlapping shifts from the same task
+        slots = [
+            TaskSlot(
+                slot_id="task-abc:shift:0",
+                task_type_id="task-abc",
+                task_type_name="Guard",
+                burden_level="neutral",
+                starts_at=datetime(2026, 4, 20, 8, 0, tzinfo=timezone.utc),
+                ends_at=datetime(2026, 4, 20, 16, 0, tzinfo=timezone.utc),
+                required_headcount=1, priority=5,
+                required_role_ids=[], required_qualification_ids=[],
+                allows_overlap=False
+            ),
+            TaskSlot(
+                slot_id="task-abc:shift:1",
+                task_type_id="task-abc",
+                task_type_name="Guard",
+                burden_level="neutral",
+                starts_at=datetime(2026, 4, 20, 16, 0, tzinfo=timezone.utc),
+                ends_at=datetime(2026, 4, 20, 23, 59, tzinfo=timezone.utc),
+                required_headcount=1, priority=5,
+                required_role_ids=[], required_qualification_ids=[],
+                allows_overlap=False
+            ),
+        ]
+        result = solve(make_input(slots, people))
+        assert result.feasible
+        # Both shifts should be assigned
+        assert len(result.assignments) == 2
+        slot_ids = {a.slot_id for a in result.assignments}
+        assert "task-abc:shift:0" in slot_ids
+        assert "task-abc:shift:1" in slot_ids
