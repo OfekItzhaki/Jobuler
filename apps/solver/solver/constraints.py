@@ -14,11 +14,24 @@ def add_headcount_constraints(
     slots: list[TaskSlot],
     num_people: int
 ):
-    """Each slot must be filled to exactly required_headcount."""
+    """
+    Each slot must be filled to AT LEAST required_headcount people.
+
+    Using >= (not ==) is critical: if a slot cannot be fully staffed due to
+    availability, rest constraints, or insufficient eligible people, the solver
+    must still be able to produce a feasible (partial) solution rather than
+    declaring the entire model INFEASIBLE.  The coverage objective in
+    objectives.py penalises any shortfall, so the solver will always try to
+    maximise staffing — but it won't fail the whole schedule just because one
+    slot is short.
+
+    Upper bound (at most num_people per slot) is implicitly enforced by the
+    bool-var domain [0,1] and the no-duplicate constraint.
+    """
     for s_idx, slot in enumerate(slots):
         model.add(
             sum(assign[(s_idx, p_idx)] for p_idx in range(num_people))
-            == slot.required_headcount
+            >= slot.required_headcount
         )
 
 
