@@ -138,6 +138,10 @@ public class SolverWorkerService : BackgroundService
             // Call solver
             var output = await client.SolveAsync(input, ct);
 
+            _logger.LogInformation(
+                "Solver output: run_id={RunId} feasible={Feasible} timedOut={TimedOut} assignments={Assignments} uncovered={Uncovered}",
+                job.RunId, output.Feasible, output.TimedOut, output.Assignments.Count, output.UncoveredSlotIds.Count);
+
             // Determine next version number for this space
             var nextVersion = await db.ScheduleVersions
                 .Where(v => v.SpaceId == job.SpaceId)
@@ -182,13 +186,18 @@ public class SolverWorkerService : BackgroundService
                 ? output.Assignments.Select(a =>
                 {
                     if (!Guid.TryParse(a.SlotId, out var slotGuid))
+                    {
+                        _logger.LogWarning("Cannot parse slot_id as GUID: '{SlotId}' — skipping assignment for person {PersonId}", a.SlotId, a.PersonId);
                         return null;
+                    }
                     return Assignment.Create(
                         job.SpaceId, version.Id,
                         slotGuid, Guid.Parse(a.PersonId),
                         a.Source == "override" ? AssignmentSource.Override : AssignmentSource.Solver);
                 }).Where(a => a != null).Cast<Assignment>().ToList()
                 : new List<Assignment>();
+
+            _logger.LogInformation("Storing {Count} assignments for version {VersionId}", assignments.Count, version.Id);
 
             if (assignments.Count > 0)
                 db.Assignments.AddRange(assignments);
