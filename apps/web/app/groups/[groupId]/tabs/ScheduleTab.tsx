@@ -98,8 +98,8 @@ export default function ScheduleTab({
 
   return (
     <div className="space-y-4">
-      {/* Infeasibility banner — shown when last solver run failed to produce a valid schedule */}
-      {!draftVersion && lastRunSummary && (() => {
+      {/* Infeasibility banner — admin only, shown when last solver run failed */}
+      {isAdmin && !draftVersion && lastRunSummary && (() => {
         try {
           const s = JSON.parse(lastRunSummary);
           if (s.feasible === false) {
@@ -133,8 +133,8 @@ export default function ScheduleTab({
         return null;
       })()}
 
-      {/* Draft banner */}
-      {draftVersion && (        <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4">
+      {/* Draft banner — admin only */}
+      {isAdmin && draftVersion && (        <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4">
           <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-2">
               <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-800 border border-amber-300">טיוטה</span>

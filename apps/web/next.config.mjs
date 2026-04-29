@@ -29,6 +29,9 @@ const securityHeaders = [
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   output: "standalone",
+  experimental: {
+    optimizeCss: true,
+  },
   async headers() {
     return [
       {
