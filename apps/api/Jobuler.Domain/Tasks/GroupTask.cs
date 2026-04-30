@@ -24,6 +24,14 @@ public class GroupTask : AuditableEntity, ITenantScoped
     public TaskBurdenLevel BurdenLevel { get; private set; } = TaskBurdenLevel.Neutral;
     public bool AllowsDoubleShift { get; private set; } = false;
     public bool AllowsOverlap { get; private set; } = false;
+    /// <summary>
+    /// Optional daily start time. When set, the solver only generates shifts
+    /// within the [DailyStartTime, DailyEndTime] window each day.
+    /// Null means 24/7 (no daily restriction).
+    /// </summary>
+    public TimeOnly? DailyStartTime { get; private set; }
+    /// <summary>Optional daily end time. Must be set together with DailyStartTime.</summary>
+    public TimeOnly? DailyEndTime { get; private set; }
     public bool IsActive { get; private set; } = true;
     public Guid? CreatedByUserId { get; private set; }
     public Guid? UpdatedByUserId { get; private set; }
@@ -41,7 +49,9 @@ public class GroupTask : AuditableEntity, ITenantScoped
         TaskBurdenLevel burdenLevel,
         bool allowsDoubleShift,
         bool allowsOverlap,
-        Guid createdByUserId) =>
+        Guid createdByUserId,
+        TimeOnly? dailyStartTime = null,
+        TimeOnly? dailyEndTime = null) =>
         new()
         {
             SpaceId = spaceId,
@@ -54,6 +64,8 @@ public class GroupTask : AuditableEntity, ITenantScoped
             BurdenLevel = burdenLevel,
             AllowsDoubleShift = allowsDoubleShift,
             AllowsOverlap = allowsOverlap,
+            DailyStartTime = dailyStartTime,
+            DailyEndTime = dailyEndTime,
             CreatedByUserId = createdByUserId
         };
 
@@ -66,7 +78,9 @@ public class GroupTask : AuditableEntity, ITenantScoped
         TaskBurdenLevel burdenLevel,
         bool allowsDoubleShift,
         bool allowsOverlap,
-        Guid updatedByUserId)
+        Guid updatedByUserId,
+        TimeOnly? dailyStartTime = null,
+        TimeOnly? dailyEndTime = null)
     {
         Name = name.Trim();
         StartsAt = startsAt;
@@ -76,6 +90,8 @@ public class GroupTask : AuditableEntity, ITenantScoped
         BurdenLevel = burdenLevel;
         AllowsDoubleShift = allowsDoubleShift;
         AllowsOverlap = allowsOverlap;
+        DailyStartTime = dailyStartTime;
+        DailyEndTime = dailyEndTime;
         UpdatedByUserId = updatedByUserId;
         Touch();
     }

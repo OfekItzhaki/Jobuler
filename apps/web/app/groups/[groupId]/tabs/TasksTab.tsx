@@ -16,6 +16,8 @@ export interface TaskForm {
   allowsDoubleShift: boolean;
   allowsOverlap: boolean;
   concurrentTaskIds: string[];
+  dailyStartTime: string;
+  dailyEndTime: string;
 }
 
 interface Props {
@@ -236,6 +238,33 @@ export default function TasksTab({
               />
               חפיפה מותרת
             </label>
+          </div>
+
+          {/* Daily time window */}
+          <div>
+            <label className="block text-xs text-slate-500 mb-1">
+              חלון שעות יומי <span className="text-slate-400">(ריק = 24/7)</span>
+            </label>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs text-slate-400 mb-1">שעת התחלה</label>
+                <input
+                  type="time"
+                  value={taskForm.dailyStartTime}
+                  onChange={e => onFormChange({ ...taskForm, dailyStartTime: e.target.value })}
+                  className="w-full border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              <div>
+                <label className="block text-xs text-slate-400 mb-1">שעת סיום</label>
+                <input
+                  type="time"
+                  value={taskForm.dailyEndTime}
+                  onChange={e => onFormChange({ ...taskForm, dailyEndTime: e.target.value })}
+                  className="w-full border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+            </div>
           </div>
 
           {taskError && <p className="text-sm text-red-600">{taskError}</p>}

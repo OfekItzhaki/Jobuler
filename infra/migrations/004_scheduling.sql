@@ -87,7 +87,7 @@ CREATE TABLE assignment_change_summaries (
     added_count         INT NOT NULL DEFAULT 0,
     removed_count       INT NOT NULL DEFAULT 0,
     changed_count       INT NOT NULL DEFAULT 0,
-    stability_score     NUMERIC(5,2),
+    stability_score     NUMERIC(18,2),
     diff_json           JSONB,  -- full diff payload for UI rendering
     computed_at         TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );

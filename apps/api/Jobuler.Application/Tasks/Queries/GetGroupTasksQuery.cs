@@ -48,6 +48,8 @@ public class GetGroupTasksQueryHandler : IRequestHandler<GetGroupTasksQuery, Lis
             t.BurdenLevel.ToString().ToLowerInvariant(),
             t.AllowsDoubleShift,
             t.AllowsOverlap,
+            t.DailyStartTime.HasValue ? t.DailyStartTime.Value.ToString("HH:mm") : null,
+            t.DailyEndTime.HasValue   ? t.DailyEndTime.Value.ToString("HH:mm")   : null,
             t.CreatedAt,
             t.UpdatedAt)).ToList();
     }

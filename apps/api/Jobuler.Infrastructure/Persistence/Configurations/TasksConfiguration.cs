@@ -99,6 +99,14 @@ public class GroupTaskConfiguration : IEntityTypeConfiguration<GroupTask>
             .HasConversion(v => v.ToString().ToLower(), v => Enum.Parse<TaskBurdenLevel>(v, true));
         builder.Property(t => t.AllowsDoubleShift).HasColumnName("allows_double_shift");
         builder.Property(t => t.AllowsOverlap).HasColumnName("allows_overlap");
+        builder.Property(t => t.DailyStartTime).HasColumnName("daily_start_time")
+            .HasConversion(
+                v => v.HasValue ? v.Value.ToTimeSpan() : (TimeSpan?)null,
+                v => v.HasValue ? TimeOnly.FromTimeSpan(v.Value) : (TimeOnly?)null);
+        builder.Property(t => t.DailyEndTime).HasColumnName("daily_end_time")
+            .HasConversion(
+                v => v.HasValue ? v.Value.ToTimeSpan() : (TimeSpan?)null,
+                v => v.HasValue ? TimeOnly.FromTimeSpan(v.Value) : (TimeOnly?)null);
         builder.Property(t => t.IsActive).HasColumnName("is_active");
         builder.Property(t => t.CreatedByUserId).HasColumnName("created_by_user_id");
         builder.Property(t => t.UpdatedByUserId).HasColumnName("updated_by_user_id");

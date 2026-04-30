@@ -29,9 +29,13 @@ public class SolverPayloadNormalizer : ISolverPayloadNormalizer
         Guid? baselineVersionId, CancellationToken ct = default)
     {
         // Set PostgreSQL session variable so RLS policies allow queries on this space
-        await _db.Database.ExecuteSqlRawAsync(
-            "SELECT set_config('app.current_space_id', {0}, TRUE)",
-            spaceId.ToString());
+        // Skip when using an in-memory provider (e.g. unit/integration tests).
+        if (_db.Database.IsRelational())
+        {
+            await _db.Database.ExecuteSqlRawAsync(
+                "SELECT set_config('app.current_space_id', {0}, TRUE)",
+                spaceId.ToString());
+        }
 
         var today = DateOnly.FromDateTime(DateTime.UtcNow);
         var horizonStart = today;
@@ -129,15 +133,11 @@ public class SolverPayloadNormalizer : ISolverPayloadNormalizer
         // ── Group tasks → shift slots ─────────────────────────────────────────
         // Each GroupTask defines a window + shift duration. Expand into individual
         // shift slots so the solver assigns people to specific time windows.
-        // IMPORTANT: Only generate shifts for the next SCHEDULING_WINDOW_DAYS days
-        // to keep the CP-SAT model tractable. Beyond that, the solver would time out.
-        const int SchedulingWindowDays = 3;
-        var schedulingCutoff = horizonStartDt.AddDays(SchedulingWindowDays);
-
+        // Use the full solver horizon (up to 7 days) so 24/7 tasks are fully covered.
         var groupTasks = await _db.GroupTasks.AsNoTracking()
             .Where(t => t.SpaceId == spaceId
                 && t.IsActive
-                && t.StartsAt <= schedulingCutoff)  // task must start before the scheduling window ends
+                && t.StartsAt <= horizonEndDt)  // task must start before the horizon ends
             .ToListAsync(ct);
 
         foreach (var task in groupTasks)
@@ -146,22 +146,50 @@ public class SolverPayloadNormalizer : ISolverPayloadNormalizer
             if (shiftDuration.TotalMinutes < 1) continue;
 
             // If the task has no meaningful end date (MinValue or past), treat it as ongoing
-            // and schedule it from today through the scheduling window
+            // and schedule it through the full horizon
             var effectiveEnd = task.EndsAt <= horizonStartDt
-                ? schedulingCutoff
+                ? horizonEndDt
                 : task.EndsAt;
 
-            // Clamp to the near scheduling window (not the full horizon)
+            // Clamp to the full solver horizon
             var windowStart = task.StartsAt < horizonStartDt ? horizonStartDt : task.StartsAt;
-            var windowEnd   = effectiveEnd > schedulingCutoff ? schedulingCutoff : effectiveEnd;
+            var windowEnd   = effectiveEnd > horizonEndDt ? horizonEndDt : effectiveEnd;
 
-            // Safety cap: never generate more than 48 shifts per task
-            const int MaxShiftsPerTask = 48;
+            // Apply daily time window if configured (e.g. task only runs 08:00–22:00 each day)
+            var dailyStart = task.DailyStartTime;
+            var dailyEnd   = task.DailyEndTime;
+
+            // Safety cap: never generate more than 336 shifts per task (7 days × 48 half-hour slots)
+            const int MaxShiftsPerTask = 336;
             var shiftStart = windowStart;
             var shiftIndex = 0;
             while (shiftStart + shiftDuration <= windowEnd && shiftIndex < MaxShiftsPerTask)
             {
                 var shiftEnd = shiftStart + shiftDuration;
+
+                // If a daily time window is set, skip shifts that fall outside it
+                if (dailyStart.HasValue && dailyEnd.HasValue)
+                {
+                    var shiftStartTime = TimeOnly.FromDateTime(shiftStart);
+                    var shiftEndTime   = TimeOnly.FromDateTime(shiftEnd);
+                    // Skip if shift starts before daily window or ends after it
+                    if (shiftStartTime < dailyStart.Value || shiftEndTime > dailyEnd.Value)
+                    {
+                        // Advance to the next day's window start if we've passed today's window
+                        if (shiftStartTime >= dailyEnd.Value)
+                        {
+                            var nextDay = shiftStart.Date.AddDays(1);
+                            shiftStart = nextDay + dailyStart.Value.ToTimeSpan();
+                        }
+                        else
+                        {
+                            shiftStart = shiftEnd;
+                        }
+                        shiftIndex++;
+                        continue;
+                    }
+                }
+
                 var shiftGuid = DeriveShiftGuid(task.Id, shiftIndex);
                 var slotId = shiftGuid.ToString();
 
@@ -176,7 +204,8 @@ public class SolverPayloadNormalizer : ISolverPayloadNormalizer
                     5,
                     [],
                     [],
-                    task.AllowsOverlap));
+                    task.AllowsOverlap,
+                    task.AllowsDoubleShift));
 
                 shiftStart = shiftEnd;
                 shiftIndex++;
@@ -203,7 +232,17 @@ public class SolverPayloadNormalizer : ISolverPayloadNormalizer
                 c.Id.ToString(), c.RuleType,
                 c.ScopeType.ToString().ToLower(),
                 c.ScopeId?.ToString(),
-                1.0, // default weight — Phase 3 extension point for per-rule weights
+                1.0,
+                DeserializePayload(c.RulePayloadJson)))
+            .ToList();
+
+        // Emergency constraints bypass all hard/soft constraints in the solver.
+        var emergencyConstraints = constraints
+            .Where(c => c.Severity == ConstraintSeverity.Emergency)
+            .Select(c => new HardConstraintDto(
+                c.Id.ToString(), c.RuleType,
+                c.ScopeType.ToString().ToLower(),
+                c.ScopeId?.ToString(),
                 DeserializePayload(c.RulePayloadJson)))
             .ToList();
 
@@ -247,7 +286,7 @@ public class SolverPayloadNormalizer : ISolverPayloadNormalizer
             locale,
             DefaultWeights,
             peopleDto, availabilityDto, presenceDto, slotsDto,
-            hardConstraints, softConstraints,
+            hardConstraints, softConstraints, emergencyConstraints,
             baselineAssignments, fairnessDto);
     }
 

@@ -39,6 +39,19 @@ public class AutoSchedulerService : BackgroundService
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
+        // Auto-scheduler is disabled by default — only runs when AutoScheduler:Enabled = true in config.
+        // This prevents it from creating unwanted drafts during development or when the space
+        // doesn't have enough people to produce a valid schedule.
+        var scope = _scopeFactory.CreateScope();
+        var config = scope.ServiceProvider.GetService<Microsoft.Extensions.Configuration.IConfiguration>();
+        var enabled = config?["AutoScheduler:Enabled"] == "true";
+
+        if (!enabled)
+        {
+            _logger.LogInformation("AutoScheduler is disabled (AutoScheduler:Enabled != true). Skipping.");
+            return;
+        }
+
         _logger.LogInformation("AutoScheduler started. Will check every {Interval}.", CheckInterval);
 
         // Wait a bit on startup to let the API fully initialize
@@ -120,6 +133,20 @@ public class AutoSchedulerService : BackgroundService
         if (hasDraft)
         {
             _logger.LogDebug("AutoScheduler: space {SpaceId} has an unreviewed draft. Skipping.", spaceId);
+            return;
+        }
+
+        // Don't auto-trigger if there was a recent failure (within the last 2 hours).
+        // This prevents the auto-scheduler from hammering a space that can't be scheduled
+        // (e.g. not enough people) and creating noise for the admin.
+        var recentFailure = await db.ScheduleRuns.AsNoTracking()
+            .AnyAsync(r => r.SpaceId == spaceId
+                && r.Status == ScheduleRunStatus.Failed
+                && r.CreatedAt >= now.AddHours(-2), ct);
+
+        if (recentFailure)
+        {
+            _logger.LogDebug("AutoScheduler: space {SpaceId} had a recent failure. Skipping auto-trigger.", spaceId);
             return;
         }
 

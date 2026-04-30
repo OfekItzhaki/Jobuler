@@ -51,6 +51,7 @@ class TaskSlot(BaseModel):
     required_role_ids: list[str]
     required_qualification_ids: list[str]
     allows_overlap: bool
+    allows_double_shift: bool = False
 
 
 class HardConstraint(BaseModel):
@@ -99,5 +100,6 @@ class SolverInput(BaseModel):
     task_slots: list[TaskSlot]
     hard_constraints: list[HardConstraint]
     soft_constraints: list[SoftConstraint]
+    emergency_constraints: list[HardConstraint] = []  # bypass all hard/soft constraints
     baseline_assignments: list[BaselineAssignment]
     fairness_counters: list[FairnessCounters]

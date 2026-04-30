@@ -20,6 +20,8 @@ public record GroupTaskDto(
     string BurdenLevel,
     bool AllowsDoubleShift,
     bool AllowsOverlap,
+    string? DailyStartTime,
+    string? DailyEndTime,
     DateTime CreatedAt,
     DateTime UpdatedAt);
 
@@ -36,7 +38,9 @@ public record CreateGroupTaskCommand(
     int RequiredHeadcount,
     string BurdenLevel,
     bool AllowsDoubleShift,
-    bool AllowsOverlap) : IRequest<Guid>;
+    bool AllowsOverlap,
+    TimeOnly? DailyStartTime = null,
+    TimeOnly? DailyEndTime = null) : IRequest<Guid>;
 
 public class CreateGroupTaskCommandValidator : AbstractValidator<CreateGroupTaskCommand>
 {
@@ -79,7 +83,8 @@ public class CreateGroupTaskCommandHandler : IRequestHandler<CreateGroupTaskComm
             req.RequiredHeadcount,
             Enum.Parse<TaskBurdenLevel>(req.BurdenLevel, true),
             req.AllowsDoubleShift, req.AllowsOverlap,
-            req.RequestingUserId);
+            req.RequestingUserId,
+            req.DailyStartTime, req.DailyEndTime);
 
         _db.GroupTasks.Add(task);
         await _db.SaveChangesAsync(ct);
@@ -101,7 +106,9 @@ public record UpdateGroupTaskCommand(
     int RequiredHeadcount,
     string BurdenLevel,
     bool AllowsDoubleShift,
-    bool AllowsOverlap) : IRequest;
+    bool AllowsOverlap,
+    TimeOnly? DailyStartTime = null,
+    TimeOnly? DailyEndTime = null) : IRequest;
 
 public class UpdateGroupTaskCommandValidator : AbstractValidator<UpdateGroupTaskCommand>
 {
@@ -144,7 +151,8 @@ public class UpdateGroupTaskCommandHandler : IRequestHandler<UpdateGroupTaskComm
             req.ShiftDurationMinutes, req.RequiredHeadcount,
             Enum.Parse<TaskBurdenLevel>(req.BurdenLevel, true),
             req.AllowsDoubleShift, req.AllowsOverlap,
-            req.RequestingUserId);
+            req.RequestingUserId,
+            req.DailyStartTime, req.DailyEndTime);
 
         await _db.SaveChangesAsync(ct);
     }

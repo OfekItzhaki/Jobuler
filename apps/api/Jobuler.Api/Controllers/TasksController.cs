@@ -87,7 +87,8 @@ public class TasksController : ControllerBase
             spaceId, groupId, CurrentUserId,
             req.Name, req.StartsAt, req.EndsAt,
             req.ShiftDurationMinutes, req.RequiredHeadcount,
-            req.BurdenLevel, req.AllowsDoubleShift, req.AllowsOverlap), ct);
+            req.BurdenLevel, req.AllowsDoubleShift, req.AllowsOverlap,
+            ParseTime(req.DailyStartTime), ParseTime(req.DailyEndTime)), ct);
         return Created($"/spaces/{spaceId}/groups/{groupId}/tasks/{id}", new { id });
     }
 
@@ -99,9 +100,14 @@ public class TasksController : ControllerBase
             spaceId, groupId, taskId, CurrentUserId,
             req.Name, req.StartsAt, req.EndsAt,
             req.ShiftDurationMinutes, req.RequiredHeadcount,
-            req.BurdenLevel, req.AllowsDoubleShift, req.AllowsOverlap), ct);
+            req.BurdenLevel, req.AllowsDoubleShift, req.AllowsOverlap,
+            ParseTime(req.DailyStartTime), ParseTime(req.DailyEndTime)), ct);
         return NoContent();
     }
+
+    /// <summary>Parses "HH:mm" string to TimeOnly, returns null if blank.</summary>
+    private static TimeOnly? ParseTime(string? value) =>
+        string.IsNullOrWhiteSpace(value) ? null : TimeOnly.Parse(value);
 
     [HttpDelete("spaces/{spaceId:guid}/groups/{groupId:guid}/tasks/{taskId:guid}")]
     public async Task<IActionResult> DeleteGroupTask(Guid spaceId, Guid groupId, Guid taskId,
@@ -130,7 +136,9 @@ public record CreateGroupTaskRequest(
     int RequiredHeadcount,
     string BurdenLevel,
     bool AllowsDoubleShift,
-    bool AllowsOverlap);
+    bool AllowsOverlap,
+    string? DailyStartTime = null,
+    string? DailyEndTime = null);
 
 public record UpdateGroupTaskRequest(
     string Name,
@@ -140,4 +148,6 @@ public record UpdateGroupTaskRequest(
     int RequiredHeadcount,
     string BurdenLevel,
     bool AllowsDoubleShift,
-    bool AllowsOverlap);
+    bool AllowsOverlap,
+    string? DailyStartTime = null,
+    string? DailyEndTime = null);

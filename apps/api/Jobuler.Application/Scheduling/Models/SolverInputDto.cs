@@ -20,6 +20,7 @@ public record SolverInputDto(
     List<TaskSlotDto> TaskSlots,
     List<HardConstraintDto> HardConstraints,
     List<SoftConstraintDto> SoftConstraints,
+    List<HardConstraintDto> EmergencyConstraints,
     List<BaselineAssignmentDto> BaselineAssignments,
     List<FairnessCountersDto> FairnessCounters);
 
@@ -56,7 +57,8 @@ public record TaskSlotDto(
     int Priority,
     List<string> RequiredRoleIds,
     List<string> RequiredQualificationIds,
-    bool AllowsOverlap);
+    bool AllowsOverlap,
+    bool AllowsDoubleShift = false);
 
 public record HardConstraintDto(
     string ConstraintId,

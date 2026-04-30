@@ -34,6 +34,11 @@ public class SolverWorkerService : BackgroundService
     {
         _logger.LogInformation("Solver worker started.");
 
+        // On startup: clean up any runs that were left in 'running' or 'queued' state
+        // from a previous API process that died mid-execution. Their associated draft
+        // versions (if any) are discarded so the UI never shows stale empty drafts.
+        await CleanupOrphanedRunsAsync(stoppingToken);
+
         while (!stoppingToken.IsCancellationRequested)
         {
             try
@@ -45,6 +50,44 @@ public class SolverWorkerService : BackgroundService
                 _logger.LogError(ex, "Unhandled error in solver worker loop.");
                 await Task.Delay(TimeSpan.FromSeconds(5), stoppingToken);
             }
+        }
+    }
+
+    private async Task CleanupOrphanedRunsAsync(CancellationToken ct)
+    {
+        try
+        {
+            using var scope = _scopeFactory.CreateScope();
+            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+
+            // Find all runs stuck in running/queued — these were interrupted by an API restart
+            var orphanedRuns = await db.ScheduleRuns
+                .Where(r => r.Status == ScheduleRunStatus.Running || r.Status == ScheduleRunStatus.Queued)
+                .ToListAsync(ct);
+
+            if (orphanedRuns.Count == 0) return;
+
+            _logger.LogWarning("Found {Count} orphaned solver run(s) from previous process — cleaning up.", orphanedRuns.Count);
+
+            foreach (var run in orphanedRuns)
+            {
+                // Discard any draft version that was created for this run
+                var orphanedDrafts = await db.ScheduleVersions
+                    .Where(v => v.SourceRunId == run.Id && v.Status == ScheduleVersionStatus.Draft)
+                    .ToListAsync(ct);
+
+                foreach (var draft in orphanedDrafts)
+                    draft.Discard();
+
+                run.MarkFailed("Orphaned — API restarted while run was in progress.");
+            }
+
+            await db.SaveChangesAsync(ct);
+            _logger.LogInformation("Orphaned run cleanup complete. Cleaned {Count} run(s).", orphanedRuns.Count);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error during orphaned run cleanup — continuing startup.");
         }
     }
 
@@ -139,13 +182,107 @@ public class SolverWorkerService : BackgroundService
                     totalHeadcountNeeded / (double)input.TaskSlots.Count);
             }
 
+            // ── Pre-flight: capacity check ────────────────────────────────────
+            // Derive min_rest_hours from constraints (hard takes priority over soft, default 0).
+            var minRestHours = 0.0;
+            var hardRestRule = input.HardConstraints.FirstOrDefault(c => c.RuleType == "min_rest_hours");
+            var softRestRule = input.SoftConstraints.FirstOrDefault(c => c.RuleType == "min_rest_hours");
+            if (hardRestRule is not null && hardRestRule.Payload.TryGetValue("hours", out var hardHoursVal))
+                minRestHours = ToDouble(hardHoursVal);
+            else if (softRestRule is not null && softRestRule.Payload.TryGetValue("hours", out var softHoursVal))
+                minRestHours = ToDouble(softHoursVal);
+
+            // For each distinct task type, calculate the minimum people needed to cover it 24/7.
+            //
+            // Key factors per task type (all derived from actual slot/task data):
+            //   shiftHours         = slot duration in hours
+            //   allowsDoubleShift  = person can do 2 consecutive shifts without rest
+            //   allowsOverlap      = person assigned here can also count toward other tasks
+            //   requiredHeadcount  = people needed per shift
+            //
+            // If allowsDoubleShift:
+            //   effectiveShiftBlock = shiftHours * 2  (two shifts back-to-back before rest)
+            // Else:
+            //   effectiveShiftBlock = shiftHours
+            //
+            // maxShiftsPerPerson = floor(24 / (effectiveShiftBlock + minRestHours))
+            //                      × (2 if doubleShift, else 1)   [shifts, not blocks]
+            //
+            // minPeopleForTask = ceil(shiftsPerDay / maxShiftsPerPerson) × requiredHeadcount
+            //
+            // If allowsOverlap: this task's people requirement is satisfied by the shared pool,
+            // so we don't add it to the total — we only track the max across overlapping tasks.
+
+            var taskTypeGroups = input.TaskSlots
+                .GroupBy(s => s.TaskTypeId)
+                .Select(g =>
+                {
+                    var sample = g.First();
+                    var shiftHours = 0.0;
+                    if (DateTime.TryParse(sample.StartsAt, null, System.Globalization.DateTimeStyles.RoundtripKind, out var slotStart) &&
+                        DateTime.TryParse(sample.EndsAt,   null, System.Globalization.DateTimeStyles.RoundtripKind, out var slotEnd))
+                        shiftHours = (slotEnd - slotStart).TotalHours;
+
+                    if (shiftHours <= 0) return (
+                        TaskTypeName: sample.TaskTypeName,
+                        MinPeople: sample.RequiredHeadcount,
+                        AllowsOverlap: sample.AllowsOverlap);
+
+                    // Double-shift: read directly from the slot (AllowsDoubleShift passed from GroupTask)
+                    var allowsDoubleShift = sample.AllowsDoubleShift;
+
+                    var shiftsPerDay = 24.0 / shiftHours;
+                    // Effective block = how many hours a person is "occupied" per work cycle
+                    var effectiveBlock = allowsDoubleShift
+                        ? (shiftHours * 2) + minRestHours   // 2 shifts then rest
+                        : shiftHours + minRestHours;         // 1 shift then rest
+                    var shiftsPerCycle = allowsDoubleShift ? 2.0 : 1.0;
+                    var cyclesPerDay   = effectiveBlock > 0 ? Math.Floor(24.0 / effectiveBlock) : 1.0;
+                    var maxShiftsPerPerson = Math.Max(1.0, cyclesPerDay * shiftsPerCycle);
+                    var minPeople = (int)Math.Ceiling(shiftsPerDay / maxShiftsPerPerson) * sample.RequiredHeadcount;
+
+                    return (
+                        TaskTypeName: sample.TaskTypeName,
+                        MinPeople: minPeople,
+                        AllowsOverlap: sample.AllowsOverlap);
+                })
+                .ToList();
+
+            // If ALL tasks allow overlap, people are fully shared — use the max single-task requirement.
+            // If SOME tasks allow overlap, those share the pool with non-overlap tasks.
+            // Conservative approach: sum non-overlap tasks + max of overlap tasks.
+            var nonOverlapMin = taskTypeGroups.Where(t => !t.AllowsOverlap).Sum(t => t.MinPeople);
+            var overlapMax    = taskTypeGroups.Where(t => t.AllowsOverlap).Select(t => t.MinPeople).DefaultIfEmpty(0).Max();
+            var totalMinPeople = nonOverlapMin + overlapMax;
+
+            if (input.People.Count < totalMinPeople)
+            {
+                var preflightLocale = input.Locale ?? "en";
+                var taskSummary = string.Join(", ", taskTypeGroups.Select(t =>
+                    $"{t.TaskTypeName} ({t.MinPeople}{(t.AllowsOverlap ? ", shared" : "")})"));
+                var reason = preflightLocale switch {
+                    "he" => $"נדרשים לפחות {totalMinPeople} חברים כדי לכסות את כל המשימות 24/7 ({taskSummary}), אך יש רק {input.People.Count} חברים פעילים בקבוצות. הוסף חברים ונסה שוב.",
+                    "ru" => $"Для покрытия всех задач 24/7 ({taskSummary}) требуется минимум {totalMinPeople} участников, но активных только {input.People.Count}. Добавьте участников и повторите попытку.",
+                    _    => $"At least {totalMinPeople} members are needed to cover all tasks 24/7 ({taskSummary}), but only {input.People.Count} active members are in groups. Add more members and try again."
+                };
+                var preflightTitle = preflightLocale switch {
+                    "he" => "לא ניתן ליצור סידור — אין מספיק חברים",
+                    "ru" => "Невозможно составить расписание — недостаточно участников",
+                    _    => "Cannot schedule — not enough members"
+                };
+                run.MarkFailed($"Not enough people: need {totalMinPeople} ({taskSummary}), have {input.People.Count}.");
+                await db.SaveChangesAsync(ct);
+                await notifier.NotifySpaceAdminsAsync(
+                    job.SpaceId, "solver_preflight_failed", preflightTitle, reason, ct: ct);
+                return;
+            }
+
             var inputHash = ComputeHash(input);
             run.MarkRunning(inputHash);
             await db.SaveChangesAsync(ct);
 
             // Call solver
             var output = await client.SolveAsync(input, ct);
-
             _logger.LogInformation(
                 "Solver output: run_id={RunId} feasible={Feasible} timedOut={TimedOut} assignments={Assignments} uncovered={Uncovered}",
                 job.RunId, output.Feasible, output.TimedOut, output.Assignments.Count, output.UncoveredSlotIds.Count);
@@ -197,61 +334,73 @@ public class SolverWorkerService : BackgroundService
                 "Solver output: feasible={Feasible} timedOut={TimedOut} rawAssignments={Raw} parsedAssignments={Parsed}",
                 output.Feasible, output.TimedOut, output.Assignments.Count, assignments.Count);
 
-            // Discard the version if:
-            // - infeasible (no valid schedule found), OR
-            // - timed out with zero assignments, OR
-            // - feasible but all slot IDs failed to parse (assignments list is empty despite solver returning results)
-            var shouldDiscard = !output.Feasible ||
-                (output.TimedOut && assignments.Count == 0) ||
-                (output.Feasible && assignments.Count == 0);
+            // Do NOT persist a version if there's nothing useful to show the admin:
+            // - solver proved infeasible, OR
+            // - feasible but zero assignments (solver bug / all slots unparseable)
+            // In all these cases, mark the run failed/timed-out and notify the admin.
+            // A timed-out run with partial assignments IS kept — it has useful data.
+            var shouldDiscard = !output.Feasible || assignments.Count == 0;
 
-            if (shouldDiscard)
+            if (!shouldDiscard)
             {
-                _logger.LogWarning("Discarding version: feasible={Feasible} assignments={Count}", output.Feasible, assignments.Count);
-                version.Discard();
+                db.ScheduleVersions.Add(version);
+                await db.SaveChangesAsync(ct); // get version.Id
+
+                db.Assignments.AddRange(assignments);
+
+                var baseline = job.BaselineVersionId.HasValue
+                    ? await db.Assignments.AsNoTracking()
+                        .Where(a => a.ScheduleVersionId == job.BaselineVersionId.Value)
+                        .Select(a => new { a.TaskSlotId, a.PersonId })
+                        .ToListAsync(ct)
+                    : new();
+
+                var newSet      = assignments.Select(a => (a.TaskSlotId, a.PersonId)).ToHashSet();
+                var baselineSet = baseline.Select(a => (a.TaskSlotId, a.PersonId)).ToHashSet();
+
+                var added   = newSet.Except(baselineSet).Count();
+                var removed = baselineSet.Except(newSet).Count();
+                var changed = Math.Min(added, removed); // approximation
+
+                var diffSummary = AssignmentChangeSummary.Create(
+                    job.SpaceId, version.Id, job.BaselineVersionId,
+                    added, removed, changed,
+                    (decimal?)output.StabilityMetrics.TotalStabilityPenalty,
+                    JsonSerializer.Serialize(output.StabilityMetrics));
+
+                db.AssignmentChangeSummaries.Add(diffSummary);
+
+                // Mark run completed
+                if (output.TimedOut)
+                    run.MarkTimedOut(summaryJson);
+                else
+                    run.MarkCompleted(summaryJson);
+
+                await db.SaveChangesAsync(ct);
+
+                // Update fairness counters after successful solve
+                await mediator.Send(new UpdateFairnessCountersCommand(job.SpaceId, version.Id), ct);
+            }
+            else
+            {
+                // No version created — just update the run status
+                _logger.LogWarning(
+                    "Skipping version creation: feasible={Feasible} assignments={Count}",
+                    output.Feasible, assignments.Count);
+
+                if (output.TimedOut)
+                    run.MarkTimedOut(summaryJson);
+                else if (!output.Feasible)
+                    run.MarkFailed($"Solver returned infeasible. Hard conflicts: {output.HardConflicts.Count}");
+                else
+                    run.MarkFailed("Solver returned zero assignments despite reporting feasible.");
+
+                await db.SaveChangesAsync(ct);
             }
 
-            db.ScheduleVersions.Add(version);
-            await db.SaveChangesAsync(ct); // get version.Id
-
-            if (assignments.Count > 0)
-                db.Assignments.AddRange(assignments);
-            var baseline = job.BaselineVersionId.HasValue
-                ? await db.Assignments.AsNoTracking()
-                    .Where(a => a.ScheduleVersionId == job.BaselineVersionId.Value)
-                    .Select(a => new { a.TaskSlotId, a.PersonId })
-                    .ToListAsync(ct)
-                : new();
-
-            var newSet      = assignments.Select(a => (a.TaskSlotId, a.PersonId)).ToHashSet();
-            var baselineSet = baseline.Select(a => (a.TaskSlotId, a.PersonId)).ToHashSet();
-
-            var added   = newSet.Except(baselineSet).Count();
-            var removed = baselineSet.Except(newSet).Count();
-            var changed = Math.Min(added, removed); // approximation
-
-            var diffSummary = AssignmentChangeSummary.Create(
-                job.SpaceId, version.Id, job.BaselineVersionId,
-                added, removed, changed,
-                (decimal?)output.StabilityMetrics.TotalStabilityPenalty,
-                JsonSerializer.Serialize(output.StabilityMetrics));
-
-            db.AssignmentChangeSummaries.Add(diffSummary);
-
-            // Mark run completed
-            if (output.TimedOut)
-                run.MarkTimedOut(summaryJson);
-            else
-                run.MarkCompleted(summaryJson);
-
-            await db.SaveChangesAsync(ct);
-
-            // Update fairness counters after successful solve
-            await mediator.Send(new UpdateFairnessCountersCommand(job.SpaceId, version.Id), ct);
-
             // System log — solver completed
-            var sev = output.TimedOut ? "warning" : (output.Feasible ? "info" : "error");
-            var evt = output.Feasible ? "solver_completed" : "solver_infeasible";
+            var sev = output.TimedOut ? "warning" : (output.Feasible && !shouldDiscard ? "info" : "error");
+            var evt = output.Feasible && !shouldDiscard ? "solver_completed" : "solver_infeasible";
             await sysLog.LogAsync(job.SpaceId, sev, evt,
                 $"Solver run {job.RunId} finished. Feasible={output.Feasible} TimedOut={output.TimedOut} Assignments={assignments.Count}",
                 detailsJson: summaryJson, actorUserId: job.RequestedByUserId, ct: ct);
@@ -260,7 +409,7 @@ public class SolverWorkerService : BackgroundService
             var locale = input.Locale ?? "en";
             string notifTitle, notifBody;
 
-            if (output.Feasible)
+            if (!shouldDiscard)
             {
                 // Count unique people and unique task slots for a meaningful message
                 var uniquePeople = assignments.Select(a => a.PersonId).Distinct().Count();
@@ -369,4 +518,20 @@ public class SolverWorkerService : BackgroundService
             System.Text.Encoding.UTF8.GetBytes(json));
         return Convert.ToHexString(bytes).ToLowerInvariant();
     }
+
+    /// <summary>
+    /// Safely converts a constraint payload value to double.
+    /// Payload values come back as JsonElement when deserialized from JSON,
+    /// so we need to handle that case explicitly.
+    /// </summary>
+    private static double ToDouble(object value) => value switch
+    {
+        System.Text.Json.JsonElement je => je.ValueKind switch
+        {
+            System.Text.Json.JsonValueKind.Number => je.GetDouble(),
+            System.Text.Json.JsonValueKind.String => double.TryParse(je.GetString(), out var d) ? d : 0.0,
+            _ => 0.0
+        },
+        _ => Convert.ToDouble(value)
+    };
 }

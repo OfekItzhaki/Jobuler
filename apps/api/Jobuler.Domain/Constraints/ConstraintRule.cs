@@ -3,7 +3,16 @@ using Jobuler.Domain.Common;
 namespace Jobuler.Domain.Constraints;
 
 public enum ConstraintScopeType { Person, Role, Group, TaskType, Space }
-public enum ConstraintSeverity   { Hard, Soft }
+
+/// <summary>
+/// Hard   — must be satisfied; solver fails if it cannot.
+/// Soft   — enforced as much as possible; relaxed only as last resort.
+/// Emergency — overrides ALL other constraints including Hard ones.
+///             Use for urgent situations where a schedule is needed no matter what.
+///             Emergency constraints are applied AFTER all other constraints are built,
+///             and can force-assign or force-unblock specific people/slots.
+/// </summary>
+public enum ConstraintSeverity { Hard, Soft, Emergency }
 
 /// <summary>
 /// Flexible constraint rule supporting all scope levels and severities.

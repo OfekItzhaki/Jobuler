@@ -32,11 +32,13 @@ export const burdenColors: Record<string, string> = {
 export const SEVERITY_STYLES: Record<string, string> = {
   hard: "bg-red-50 text-red-700 border-red-200",
   soft: "bg-blue-50 text-blue-700 border-blue-200",
+  emergency: "bg-orange-50 text-orange-700 border-orange-300",
 };
 
 export const SEVERITY_DOTS: Record<string, string> = {
   hard: "bg-red-500",
   soft: "bg-blue-500",
+  emergency: "bg-orange-500",
 };
 
 // Re-export DTO types used across tabs

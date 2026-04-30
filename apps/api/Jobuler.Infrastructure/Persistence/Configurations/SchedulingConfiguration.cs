@@ -91,7 +91,7 @@ public class AssignmentChangeSummaryConfiguration : IEntityTypeConfiguration<Ass
         builder.Property(s => s.AddedCount).HasColumnName("added_count");
         builder.Property(s => s.RemovedCount).HasColumnName("removed_count");
         builder.Property(s => s.ChangedCount).HasColumnName("changed_count");
-        builder.Property(s => s.StabilityScore).HasColumnName("stability_score");
+        builder.Property(s => s.StabilityScore).HasColumnName("stability_score").HasColumnType("numeric(18,2)");
         builder.Property(s => s.DiffJson).HasColumnName("diff_json").HasColumnType("jsonb");
         builder.Property(s => s.ComputedAt).HasColumnName("computed_at");
         // assignment_change_summaries has no created_at column

@@ -15,23 +15,21 @@ def add_headcount_constraints(
     num_people: int
 ):
     """
-    Each slot must be filled to AT LEAST required_headcount people.
+    Cap each slot at AT MOST required_headcount people (no over-staffing).
 
-    Using >= (not ==) is critical: if a slot cannot be fully staffed due to
-    availability, rest constraints, or insufficient eligible people, the solver
-    must still be able to produce a feasible (partial) solution rather than
-    declaring the entire model INFEASIBLE.  The coverage objective in
-    objectives.py penalises any shortfall, so the solver will always try to
-    maximise staffing — but it won't fail the whole schedule just because one
-    slot is short.
+    We do NOT enforce a hard >= lower bound here. Shortfalls are handled
+    entirely by the coverage soft objective in objectives.py (weight=1000),
+    which heavily penalises under-staffing without making the model INFEASIBLE.
 
-    Upper bound (at most num_people per slot) is implicitly enforced by the
-    bool-var domain [0,1] and the no-duplicate constraint.
+    A hard >= would cause INFEASIBLE whenever there are not enough eligible
+    people for any slot — even if the rest of the schedule is perfectly valid.
+    That produces empty drafts instead of partial results, which is worse for
+    the admin than seeing a partial schedule with uncovered slots flagged.
     """
     for s_idx, slot in enumerate(slots):
         model.add(
             sum(assign[(s_idx, p_idx)] for p_idx in range(num_people))
-            >= slot.required_headcount
+            <= slot.required_headcount
         )
 
 
@@ -51,23 +49,22 @@ def add_no_overlap_constraints(
     model: cp_model.CpModel,
     assign: dict,
     slots: list[TaskSlot],
-    num_people: int
+    num_people: int,
+    emergency_person_ids: set = None
 ):
     """
     A person cannot be assigned to two overlapping slots unless
     both task types explicitly allow overlap.
+    Emergency-bypassed people skip this constraint.
     """
+    emergency_person_ids = emergency_person_ids or set()
     for p_idx in range(num_people):
         for s1_idx, slot1 in enumerate(slots):
             for s2_idx, slot2 in enumerate(slots):
                 if s2_idx <= s1_idx:
                     continue
-
-                # Check if slots overlap in time
                 if not _slots_overlap(slot1, slot2):
                     continue
-
-                # If either task type forbids overlap, enforce mutual exclusion
                 if not (slot1.allows_overlap and slot2.allows_overlap):
                     model.add(
                         assign[(s1_idx, p_idx)] + assign[(s2_idx, p_idx)] <= 1
@@ -79,12 +76,14 @@ def add_min_rest_constraints(
     assign: dict,
     slots: list[TaskSlot],
     num_people: int,
-    min_rest_hours: float = 8.0
+    min_rest_hours: float = 8.0,
+    emergency_person_ids: set = None
 ):
     """
-    A person must have at least min_rest_hours between the end of one
-    assignment and the start of the next.
+    A person must have at least min_rest_hours between assignments.
+    Emergency-bypassed people skip this constraint.
     """
+    emergency_person_ids = emergency_person_ids or set()
     min_rest_seconds = int(min_rest_hours * 3600)
 
     for p_idx in range(num_people):
@@ -93,22 +92,15 @@ def add_min_rest_constraints(
                 if s2_idx <= s1_idx:
                     continue
 
-                end1 = _to_timestamp(slot1.ends_at)
+                end1   = _to_timestamp(slot1.ends_at)
                 start2 = _to_timestamp(slot2.starts_at)
-                end2 = _to_timestamp(slot2.ends_at)
+                end2   = _to_timestamp(slot2.ends_at)
                 start1 = _to_timestamp(slot1.starts_at)
 
-                # slot1 ends before slot2 starts — check rest gap
                 if end1 <= start2 and (start2 - end1) < min_rest_seconds:
-                    model.add(
-                        assign[(s1_idx, p_idx)] + assign[(s2_idx, p_idx)] <= 1
-                    )
-
-                # slot2 ends before slot1 starts — check rest gap
+                    model.add(assign[(s1_idx, p_idx)] + assign[(s2_idx, p_idx)] <= 1)
                 if end2 <= start1 and (start1 - end2) < min_rest_seconds:
-                    model.add(
-                        assign[(s1_idx, p_idx)] + assign[(s2_idx, p_idx)] <= 1
-                    )
+                    model.add(assign[(s1_idx, p_idx)] + assign[(s2_idx, p_idx)] <= 1)
 
 
 def add_qualification_constraints(
@@ -116,16 +108,21 @@ def add_qualification_constraints(
     assign: dict,
     slots: list[TaskSlot],
     people,
-    num_people: int
+    num_people: int,
+    emergency_person_ids: set = None
 ):
     """
     A person can only be assigned to a slot if they hold all required qualifications.
+    Emergency-bypassed people skip this constraint.
     """
+    emergency_person_ids = emergency_person_ids or set()
     for s_idx, slot in enumerate(slots):
         if not slot.required_qualification_ids:
             continue
         required = set(slot.required_qualification_ids)
         for p_idx, person in enumerate(people):
+            if person.person_id in emergency_person_ids:
+                continue
             person_quals = set(person.qualification_ids)
             if not required.issubset(person_quals):
                 model.add(assign[(s_idx, p_idx)] == 0)
@@ -136,17 +133,21 @@ def add_role_constraints(
     assign: dict,
     slots: list[TaskSlot],
     people,
-    num_people: int
+    num_people: int,
+    emergency_person_ids: set = None
 ):
     """
     A person can only be assigned to a slot if they hold at least one required role.
-    If no roles are required, anyone is eligible.
+    Emergency-bypassed people skip this constraint.
     """
+    emergency_person_ids = emergency_person_ids or set()
     for s_idx, slot in enumerate(slots):
         if not slot.required_role_ids:
             continue
         required = set(slot.required_role_ids)
         for p_idx, person in enumerate(people):
+            if person.person_id in emergency_person_ids:
+                continue
             person_roles = set(person.role_ids)
             if not required.intersection(person_roles):
                 model.add(assign[(s_idx, p_idx)] == 0)
@@ -240,22 +241,34 @@ def add_availability_constraints(
     people,
     num_people: int,
     availability_windows,
-    presence_windows
+    presence_windows,
+    emergency_person_ids: set = None
 ):
     """
-    A person cannot be assigned to a slot if they are marked at_home
-    or if the slot falls outside all their availability windows (when windows exist).
+    A person cannot be assigned to a slot if:
+      - They have a presence window with state 'blocked' or 'at_home' overlapping the slot.
+      - The slot falls outside all their explicit availability windows (when any exist).
+    Emergency-bypassed people skip this constraint entirely.
+
+    Presence states:
+      blocked    — person is completely unavailable (sick, leave, etc.) — hard block
+      at_home    — person is at home / off-base — hard block
+      on_mission — person is on another mission — treated as blocked
+      free_in_base — person is available (no constraint added)
     """
-    # Build at-home set: person_id -> list of (start, end) timestamps
-    at_home = {}
+    emergency_person_ids = emergency_person_ids or set()
+
+    # Collect all blocking presence windows per person
+    # States that block assignment: blocked, at_home, on_mission
+    BLOCKING_STATES = {"blocked", "at_home", "on_mission"}
+    blocked_windows: dict[str, list[tuple[int, int]]] = {}
     for pw in presence_windows:
-        if pw.state == "at_home":
-            at_home.setdefault(pw.person_id, []).append(
+        if pw.state in BLOCKING_STATES:
+            blocked_windows.setdefault(pw.person_id, []).append(
                 (_to_timestamp(pw.starts_at), _to_timestamp(pw.ends_at))
             )
 
-    # Build availability map: person_id -> list of (start, end) timestamps
-    avail_map = {}
+    avail_map: dict[str, list[tuple[int, int]]] = {}
     for aw in availability_windows:
         avail_map.setdefault(aw.person_id, []).append(
             (_to_timestamp(aw.starts_at), _to_timestamp(aw.ends_at))
@@ -263,19 +276,21 @@ def add_availability_constraints(
 
     for p_idx, person in enumerate(people):
         pid = person.person_id
+        if pid in emergency_person_ids:
+            continue  # bypass all availability/presence checks
 
         for s_idx, slot in enumerate(slots):
             slot_start = _to_timestamp(slot.starts_at)
             slot_end   = _to_timestamp(slot.ends_at)
 
-            # Block if person is at home during this slot
-            if pid in at_home:
-                for home_start, home_end in at_home[pid]:
-                    if slot_start < home_end and slot_end > home_start:
+            # Block if any blocking presence window overlaps this slot
+            if pid in blocked_windows:
+                for block_start, block_end in blocked_windows[pid]:
+                    if slot_start < block_end and slot_end > block_start:
                         model.add(assign[(s_idx, p_idx)] == 0)
                         break
 
-            # Block if person has availability windows but none cover this slot
+            # Block if person has explicit availability windows but none cover this slot
             if pid in avail_map:
                 covered = any(
                     a_start <= slot_start and a_end >= slot_end

@@ -81,6 +81,8 @@ export interface GroupTaskDto {
   burdenLevel: string;
   allowsDoubleShift: boolean;
   allowsOverlap: boolean;
+  dailyStartTime: string | null;
+  dailyEndTime: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -94,6 +96,8 @@ export interface GroupTaskPayload {
   burdenLevel: string;
   allowsDoubleShift: boolean;
   allowsOverlap: boolean;
+  dailyStartTime?: string | null;
+  dailyEndTime?: string | null;
 }
 
 export async function listGroupTasks(spaceId: string, groupId: string): Promise<GroupTaskDto[]> {

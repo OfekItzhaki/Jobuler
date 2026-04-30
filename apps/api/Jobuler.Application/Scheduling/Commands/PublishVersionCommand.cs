@@ -25,10 +25,14 @@ public class PublishVersionCommandHandler : IRequestHandler<PublishVersionComman
 
     public async Task Handle(PublishVersionCommand req, CancellationToken ct)
     {
-        // Set RLS session variables so queries on tenant-scoped tables work correctly
-        await _db.Database.ExecuteSqlRawAsync(
-            "SELECT set_config('app.current_space_id', {0}, TRUE), set_config('app.current_user_id', {1}, TRUE)",
-            req.SpaceId.ToString(), req.RequestingUserId.ToString());
+        // Set RLS session variables so queries on tenant-scoped tables work correctly.
+        // Skipped when using an in-memory provider (e.g. unit tests).
+        if (_db.Database.IsRelational())
+        {
+            await _db.Database.ExecuteSqlRawAsync(
+                "SELECT set_config('app.current_space_id', {0}, TRUE), set_config('app.current_user_id', {1}, TRUE)",
+                req.SpaceId.ToString(), req.RequestingUserId.ToString());
+        }
 
         var version = await _db.ScheduleVersions
             .FirstOrDefaultAsync(v => v.Id == req.VersionId && v.SpaceId == req.SpaceId, ct)

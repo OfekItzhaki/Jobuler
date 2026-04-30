@@ -11,6 +11,9 @@ const RULE_TYPES = [
   { value: "no_consecutive_burden", label: "ללא עומס רצוף" },
   { value: "min_base_headcount", label: "מינימום כוח אדם בבסיס" },
   { value: "no_task_type_restriction", label: "הגבלת סוג משימה" },
+  { value: "emergency_person_bypass", label: "🚨 חריגת חירום — אדם" },
+  { value: "emergency_slot_bypass", label: "🚨 חריגת חירום — משמרת" },
+  { value: "emergency_space_bypass", label: "🚨 חריגת חירום — כל המרחב" },
 ];
 
 function formatPayload(ruleType: string, json: string): string {
@@ -105,7 +108,7 @@ export default function ConstraintsTab({
                   <div className="flex items-center gap-2">
                     <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium border ${SEVERITY_STYLES[sev] ?? "bg-slate-100 text-slate-500 border-slate-200"}`}>
                       <span className={`w-1.5 h-1.5 rounded-full ${SEVERITY_DOTS[sev] ?? "bg-slate-400"}`} />
-                      {sev === "hard" ? "קשה" : "רך"}
+                      {sev === "hard" ? "קשה" : sev === "emergency" ? "🚨 חירום" : "רך"}
                     </span>
                     <span className="text-sm font-medium text-slate-700">{RULE_TYPES.find(r => r.value === c.ruleType)?.label ?? c.ruleType}</span>
                   </div>
@@ -139,6 +142,7 @@ export default function ConstraintsTab({
               <select value={newConstraintSeverity} onChange={e => onSeverityChange(e.target.value)} className="w-full border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
                 <option value="hard">קשה (Hard)</option>
                 <option value="soft">רך (Soft)</option>
+                <option value="emergency">🚨 חירום (Emergency)</option>
               </select>
             </div>
           </div>
@@ -172,6 +176,7 @@ export default function ConstraintsTab({
               <select value={editConstraintSeverity} onChange={e => onEditSeverityChange(e.target.value)} className="w-full border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
                 <option value="hard">קשה (Hard)</option>
                 <option value="soft">רך (Soft)</option>
+                <option value="emergency">🚨 חירום (Emergency)</option>
               </select>
             </div>
             <ConstraintPayloadEditor ruleType={editingConstraint.ruleType} value={editConstraintPayload} onChange={onEditPayloadChange} />

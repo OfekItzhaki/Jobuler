@@ -9,6 +9,12 @@ public class RedisSolverJobQueue : ISolverJobQueue
 {
     private const string QueueKey = "jobuler:solver:jobs";
 
+    // Case-insensitive so PascalCase JSON (from Serialize) maps to camelCase record constructor params
+    private static readonly JsonSerializerOptions JsonOptions = new()
+    {
+        PropertyNameCaseInsensitive = true
+    };
+
     private readonly IConnectionMultiplexer _redis;
     private readonly ILogger<RedisSolverJobQueue> _logger;
 
@@ -23,7 +29,7 @@ public class RedisSolverJobQueue : ISolverJobQueue
         try
         {
             var db = _redis.GetDatabase();
-            var json = JsonSerializer.Serialize(job);
+            var json = JsonSerializer.Serialize(job, JsonOptions);
             await db.ListRightPushAsync(QueueKey, json);
             _logger.LogInformation("Solver job enqueued: run_id={RunId} space_id={SpaceId}", job.RunId, job.SpaceId);
         }
@@ -41,6 +47,19 @@ public class RedisSolverJobQueue : ISolverJobQueue
         var value = await db.ListLeftPopAsync(QueueKey);
         if (value.IsNullOrEmpty) return null;
 
-        return JsonSerializer.Deserialize<SolverJobMessage>(value!);
+        // Explicitly convert RedisValue to string before deserializing
+        var json = (string?)value;
+        if (string.IsNullOrEmpty(json)) return null;
+
+        try
+        {
+            return JsonSerializer.Deserialize<SolverJobMessage>(json, JsonOptions);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to deserialize solver job from Redis. Raw value: {Json}", json);
+            // Don't re-throw — return null so the worker skips this malformed message
+            return null;
+        }
     }
 }

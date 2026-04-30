@@ -50,20 +50,24 @@ def solve(input: SolverInput) -> SolverOutput:
     }
 
     # ── Hard constraints ──────────────────────────────────────────────────────
+    # Build emergency bypass sets first — people/slots covered by emergency
+    # constraints skip availability, rest, and overlap enforcement.
+    emergency_person_ids, emergency_slot_ids = _build_emergency_bypass(input)
+
     add_headcount_constraints(model, assign, slots, num_people)
     add_no_duplicate_assignment(model, assign, num_slots, num_people)
-    add_no_overlap_constraints(model, assign, slots, num_people)
-    add_qualification_constraints(model, assign, slots, people, num_people)
-    add_role_constraints(model, assign, slots, people, num_people)
+    add_no_overlap_constraints(model, assign, slots, num_people, emergency_person_ids)
+    add_qualification_constraints(model, assign, slots, people, num_people, emergency_person_ids)
+    add_role_constraints(model, assign, slots, people, num_people, emergency_person_ids)
     add_restriction_constraints(model, assign, slots, people, num_people, input.hard_constraints)
     add_availability_constraints(
         model, assign, slots, people, num_people,
-        input.availability_windows, input.presence_windows)
+        input.availability_windows, input.presence_windows, emergency_person_ids)
 
     # Extract min_rest_hours from hard constraints if configured
     rest_rules = [c for c in input.hard_constraints if c.rule_type == "min_rest_hours"]
     rest_hours = float(rest_rules[0].payload.get("hours", 8)) if rest_rules else 8.0
-    add_min_rest_constraints(model, assign, slots, num_people, rest_hours)
+    add_min_rest_constraints(model, assign, slots, num_people, rest_hours, emergency_person_ids)
 
     add_kitchen_frequency_constraints(
         model, assign, slots, people, num_people,
@@ -99,7 +103,16 @@ def solve(input: SolverInput) -> SolverOutput:
     fairness  = _compute_fairness(solver, assign, input, feasible)
 
     fragments = _build_explanation(feasible, timed_out, uncovered, input)
-    hard_conflicts = [] if feasible else _build_hard_conflicts(input, people, slots)
+
+    # Build hard conflicts:
+    # - If truly infeasible (solver proved it): run full conflict analysis
+    # - If timed out with 0 assignments: also run conflict analysis — the model
+    #   is almost certainly infeasible (not enough people / rest constraints),
+    #   and we want to give the admin a clear reason rather than a generic timeout.
+    hard_conflicts = []
+    if not feasible or (timed_out and len(assignments) == 0):
+        hard_conflicts = _build_hard_conflicts(input, people, slots)
+
     return SolverOutput(
         run_id=input.run_id,
         feasible=feasible,
@@ -221,6 +234,40 @@ def _build_explanation(feasible, timed_out, uncovered, input: SolverInput) -> li
     return fragments
 
 
+def _build_emergency_bypass(input: SolverInput) -> tuple[set[str], set[str]]:
+    """
+    Parse emergency constraints and return two sets:
+    - emergency_person_ids: people who bypass availability/rest/overlap/qualification checks
+    - emergency_slot_ids:   slots that bypass headcount and eligibility checks
+
+    Supported emergency rule_types:
+      emergency_person_bypass  — payload: { "person_id": "..." }
+        Person can be assigned to any slot regardless of availability, rest, or qualifications.
+      emergency_slot_bypass    — payload: { "slot_id": "..." }
+        Slot can be filled by anyone regardless of qualifications or availability.
+      emergency_space_bypass   — scope_type: "space", no payload needed
+        ALL people and slots bypass all constraints (full emergency mode).
+    """
+    person_ids: set[str] = set()
+    slot_ids:   set[str] = set()
+
+    for c in input.emergency_constraints:
+        if c.rule_type == "emergency_space_bypass":
+            # Full bypass — add everyone and every slot
+            person_ids.update(p.person_id for p in input.people)
+            slot_ids.update(s.slot_id for s in input.task_slots)
+        elif c.rule_type == "emergency_person_bypass":
+            pid = c.payload.get("person_id") or c.scope_id
+            if pid:
+                person_ids.add(str(pid))
+        elif c.rule_type == "emergency_slot_bypass":
+            sid = c.payload.get("slot_id") or c.scope_id
+            if sid:
+                slot_ids.add(str(sid))
+
+    return person_ids, slot_ids
+
+
 def _build_hard_conflicts(input: SolverInput, people, slots) -> list[HardConflict]:
     """
     Analyse the input to produce locale-aware conflict explanations when
@@ -244,10 +291,11 @@ def _build_hard_conflicts(input: SolverInput, people, slots) -> list[HardConflic
         ))
 
     # ── 2. Per-slot eligibility check ─────────────────────────────────────────
-    at_home: dict[str, list[tuple[int, int]]] = {}
+    BLOCKING_STATES = {"blocked", "at_home", "on_mission"}
+    blocked_windows: dict[str, list[tuple[int, int]]] = {}
     for pw in input.presence_windows:
-        if pw.state == "at_home":
-            at_home.setdefault(pw.person_id, []).append(
+        if pw.state in BLOCKING_STATES:
+            blocked_windows.setdefault(pw.person_id, []).append(
                 (_to_timestamp(pw.starts_at), _to_timestamp(pw.ends_at))
             )
 
@@ -273,11 +321,11 @@ def _build_hard_conflicts(input: SolverInput, people, slots) -> list[HardConflic
         for person in people:
             pid = person.person_id
 
-            blocked_home = any(
-                slot_start < he and slot_end > hs
-                for hs, he in at_home.get(pid, [])
+            blocked = any(
+                slot_start < block_end and slot_end > block_start
+                for block_start, block_end in blocked_windows.get(pid, [])
             )
-            if blocked_home:
+            if blocked:
                 continue
 
             if pid in avail_map:
@@ -307,7 +355,7 @@ def _build_hard_conflicts(input: SolverInput, people, slots) -> list[HardConflic
                 reason_parts.append(t(locale, "reason_qualification"))
             if slot.required_role_ids:
                 reason_parts.append(t(locale, "reason_role"))
-            if at_home or avail_map:
+            if blocked_windows or avail_map:
                 reason_parts.append(t(locale, "reason_availability"))
             reason_str = ", ".join(reason_parts) if reason_parts else t(locale, "reason_other")
 

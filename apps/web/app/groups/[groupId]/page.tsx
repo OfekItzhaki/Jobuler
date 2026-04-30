@@ -46,6 +46,8 @@ const DEFAULT_TASK_FORM: TaskForm = {
   allowsDoubleShift: false,
   allowsOverlap: false,
   concurrentTaskIds: [],
+  dailyStartTime: "",
+  dailyEndTime: "",
 };
 
 // ── Tab labels ───────────────────────────────────────────────────────────────
@@ -587,16 +589,19 @@ export default function GroupDetailPage() {
       const payload = {
         name: taskForm.name,
         startsAt,
-        endsAt: endsAt,
+        endsAt,
         shiftDurationMinutes: taskForm.shiftDurationMinutes,
         requiredHeadcount: taskForm.requiredHeadcount,
         burdenLevel: taskForm.burdenLevel,
         allowsDoubleShift: taskForm.allowsDoubleShift,
         allowsOverlap: taskForm.allowsOverlap,
+        dailyStartTime: taskForm.dailyStartTime || null,
+        dailyEndTime: taskForm.dailyEndTime || null,
       };
       if (editingTask) {
         await updateGroupTask(currentSpaceId, groupId, editingTask.id, payload);
-        setGroupTasks(prev => prev.map(t => t.id === editingTask.id ? { ...t, ...payload } : t));
+        const updated = await listGroupTasks(currentSpaceId, groupId);
+        setGroupTasks(updated);
       } else {
         await createGroupTask(currentSpaceId, groupId, payload);
         const updated = await listGroupTasks(currentSpaceId, groupId);
@@ -1032,7 +1037,7 @@ export default function GroupDetailPage() {
               onCloseForm={() => { setShowTaskForm(false); setEditingTask(null); }}
               onFormChange={setTaskForm}
               onFormSubmit={handleTaskSubmit}
-              onEditTask={t => { setEditingTask(t); setTaskForm({ name: t.name, startsAt: t.startsAt?.slice(0, 16) ?? "", endsAt: t.endsAt?.slice(0, 16) ?? "", shiftDurationMinutes: t.shiftDurationMinutes, requiredHeadcount: t.requiredHeadcount, burdenLevel: t.burdenLevel, allowsDoubleShift: t.allowsDoubleShift, allowsOverlap: t.allowsOverlap, concurrentTaskIds: [] }); setShowTaskForm(true); }}
+              onEditTask={t => { setEditingTask(t); setTaskForm({ name: t.name, startsAt: t.startsAt?.slice(0, 16) ?? "", endsAt: t.endsAt?.slice(0, 16) ?? "", shiftDurationMinutes: t.shiftDurationMinutes, requiredHeadcount: t.requiredHeadcount, burdenLevel: t.burdenLevel, allowsDoubleShift: t.allowsDoubleShift, allowsOverlap: t.allowsOverlap, concurrentTaskIds: [], dailyStartTime: t.dailyStartTime ?? "", dailyEndTime: t.dailyEndTime ?? "" }); setShowTaskForm(true); }}
               onDeleteTask={handleDeleteTask}
             />
           )}
