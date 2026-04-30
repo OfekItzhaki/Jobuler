@@ -74,7 +74,7 @@ public class ConstraintPropertyTests
 
         var cmd = new UpdateConstraintCommand(
             spaceId, constraintId, userId,
-            newPayload, effectiveFrom, effectiveUntil);
+            newPayload, null, effectiveFrom, effectiveUntil);
 
         // Act
         await handler.Handle(cmd, CancellationToken.None);
@@ -110,6 +110,7 @@ public class ConstraintPropertyTests
         var cmd = new UpdateConstraintCommand(
             Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(),
             badJson,
+            null,
             new DateOnly(2025, 1, 1),
             new DateOnly(2025, 12, 31));
 
@@ -141,6 +142,7 @@ public class ConstraintPropertyTests
         var cmd = new UpdateConstraintCommand(
             Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(),
             "{}",
+            null,
             effectiveFrom, effectiveUntil);
 
         // Act

@@ -169,6 +169,7 @@ public class AdminManagementHandlerTests
         var cmd = new UpdateConstraintCommand(
             Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(),
             badJson,
+            null,
             new DateOnly(2025, 1, 1),
             new DateOnly(2025, 12, 31));
 
@@ -184,6 +185,7 @@ public class AdminManagementHandlerTests
         var cmd = new UpdateConstraintCommand(
             Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(),
             "{}",
+            null,
             new DateOnly(2025, 6, 1),   // effectiveFrom
             new DateOnly(2025, 1, 1));  // effectiveUntil BEFORE effectiveFrom
 
@@ -199,6 +201,7 @@ public class AdminManagementHandlerTests
         var cmd = new UpdateConstraintCommand(
             Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(),
             "{\"hours\": 8}",
+            null,
             new DateOnly(2025, 1, 1),
             new DateOnly(2025, 12, 31));
 
@@ -214,6 +217,7 @@ public class AdminManagementHandlerTests
         var cmd = new UpdateConstraintCommand(
             Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(),
             "{}",
+            null,
             null, null);
 
         var result = validator.Validate(cmd);

@@ -68,6 +68,14 @@ public class SolverWorkerService : BackgroundService
 
         _logger.LogInformation("Processing solver job: run_id={RunId}", job.RunId);
 
+        // Set PostgreSQL session variables BEFORE any DB query so RLS policies
+        // can evaluate app.current_space_id. Without this, the first query
+        // (loading the run record) is blocked by RLS returning zero rows.
+        await db.Database.ExecuteSqlRawAsync(
+            "SELECT set_config('app.current_space_id', {0}, TRUE), set_config('app.current_user_id', {1}, TRUE)",
+            job.SpaceId.ToString(),
+            job.RequestedByUserId?.ToString() ?? "");
+
         // Load the run record — must exist (created by the trigger command)
         var run = await db.ScheduleRuns
             .FirstOrDefaultAsync(r => r.Id == job.RunId && r.SpaceId == job.SpaceId, ct);
