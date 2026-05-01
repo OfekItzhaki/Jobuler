@@ -4,16 +4,6 @@ using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
 namespace Jobuler.Infrastructure.Persistence.Configurations;
 
-file static class SpaceConfigStringHelper
-{
-    internal static string ToSnakeCase(this string s) =>
-        string.Concat(s.Select((c, i) =>
-            i > 0 && char.IsUpper(c) ? "_" + char.ToLower(c) : char.ToLower(c).ToString()));
-
-    internal static string ToPascalCase(this string s) =>
-        string.Concat(s.Split('_').Select(w => w.Length > 0 ? char.ToUpper(w[0]) + w[1..] : ""));
-}
-
 public class SpaceConfiguration : IEntityTypeConfiguration<Space>
 {
     public void Configure(EntityTypeBuilder<Space> builder)

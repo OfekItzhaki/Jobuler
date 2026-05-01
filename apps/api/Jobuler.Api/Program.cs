@@ -10,7 +10,8 @@ using Jobuler.Application.Common;
 using Jobuler.Application.Scheduling;
 using Jobuler.Infrastructure.AI;
 using Jobuler.Infrastructure.Auth;
-using Jobuler.Infrastructure.Email;using Jobuler.Application.Auth;
+using Jobuler.Infrastructure.Email;
+using Jobuler.Application.Auth;
 using Jobuler.Infrastructure.Logging;
 using Jobuler.Infrastructure.Persistence;
 using Jobuler.Infrastructure.Scheduling;
@@ -81,8 +82,34 @@ builder.Services.AddScoped<IAuditLogger, AuditLogger>();
 builder.Services.AddScoped<ISystemLogger, SystemLogger>();
 builder.Services.AddScoped<INotificationService, NotificationService>();
 builder.Services.AddScoped<IPdfRenderer, QuestPdfRenderer>();
-builder.Services.AddScoped<IEmailSender, NoOpEmailSender>();
-builder.Services.AddScoped<INotificationSender, NoOpNotificationSender>();
+
+// ─── Email: SendGrid (real) or NoOp (dev fallback) ────────────────────────────
+if (!string.IsNullOrWhiteSpace(builder.Configuration["SendGrid:ApiKey"]))
+{
+    builder.Services.AddScoped<IEmailSender, SendGridEmailSender>();
+    Log.Information("Email provider: SendGrid");
+}
+else
+{
+    builder.Services.AddScoped<IEmailSender, NoOpEmailSender>();
+    Log.Warning("SendGrid:ApiKey not configured — emails will be logged only (NoOp)");
+}
+
+// ─── WhatsApp: Twilio (always registered — graceful no-op if unconfigured) ───
+builder.Services.AddScoped<TwilioWhatsAppSender>();
+
+// ─── Notification routing: phone → WhatsApp, email → SendGrid ────────────────
+if (!string.IsNullOrWhiteSpace(builder.Configuration["Twilio:AccountSid"]) ||
+    !string.IsNullOrWhiteSpace(builder.Configuration["SendGrid:ApiKey"]))
+{
+    builder.Services.AddScoped<INotificationSender, RoutingNotificationSender>();
+    Log.Information("Notification sender: RoutingNotificationSender (Twilio + SendGrid)");
+}
+else
+{
+    builder.Services.AddScoped<INotificationSender, NoOpNotificationSender>();
+    Log.Warning("Twilio and SendGrid not configured — notifications will be logged only (NoOp)");
+}
 
 // ─── Invitation senders ───────────────────────────────────────────────────────
 builder.Services.AddScoped<NoOpInvitationSender>();
@@ -90,6 +117,8 @@ builder.Services.AddScoped<EmailInvitationSender>();
 builder.Services.AddScoped<WhatsAppInvitationSender>();
 builder.Services.AddScoped<IInvitationSender, CompositeInvitationSender>();
 
+// ─── Schedule notifications ───────────────────────────────────────────────────
+builder.Services.AddScoped<IScheduleNotificationSender, ScheduleNotificationSender>();
 // ─── File storage ─────────────────────────────────────────────────────────────
 // LocalDiskFileStorage for dev — swap for S3FileStorage in prod via config/DI
 builder.Services.AddScoped<IFileStorage, LocalDiskFileStorage>();

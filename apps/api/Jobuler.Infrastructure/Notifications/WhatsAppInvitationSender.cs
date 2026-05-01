@@ -3,16 +3,16 @@ using Jobuler.Application.Common;
 namespace Jobuler.Infrastructure.Notifications;
 
 /// <summary>
-/// Sends invitations via WhatsApp using INotificationSender.
-/// Reuses the existing notification abstraction (same channel as password reset).
+/// Sends group invitations via WhatsApp using TwilioWhatsAppSender.
+/// Uses a friendly Hebrew message with the invite link.
 /// </summary>
 public class WhatsAppInvitationSender : IInvitationSender
 {
-    private readonly INotificationSender _notificationSender;
+    private readonly TwilioWhatsAppSender _twilio;
 
-    public WhatsAppInvitationSender(INotificationSender notificationSender)
+    public WhatsAppInvitationSender(TwilioWhatsAppSender twilio)
     {
-        _notificationSender = notificationSender;
+        _twilio = twilio;
     }
 
     public Task SendInvitationAsync(
@@ -21,8 +21,11 @@ public class WhatsAppInvitationSender : IInvitationSender
     {
         if (channel != "whatsapp") return Task.CompletedTask;
 
-        // Reuse the notification sender with the invite URL as the "token"
-        // In production, implement a dedicated WhatsApp template message
-        return _notificationSender.SendPasswordResetAsync(contact, inviteUrl, ct);
+        var message = $"שלום {personName}! 👋\n\n" +
+                      $"הוזמנת להצטרף לקבוצה ב-Shifter.\n\n" +
+                      $"לחץ על הקישור כדי לאשר את ההזמנה:\n{inviteUrl}\n\n" +
+                      $"הקישור תקף ל-7 ימים.";
+
+        return _twilio.SendRawAsync(contact, message, ct);
     }
 }
