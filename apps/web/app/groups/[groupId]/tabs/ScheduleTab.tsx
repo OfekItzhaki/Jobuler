@@ -20,6 +20,8 @@ interface Props {
   discardSaving: boolean;
   scheduleVersionError: string | null;
   currentUserName?: string;
+  /** Names of group members — used to filter assignments to this group only */
+  memberNames?: Set<string>;
   onOpenDraftModal: () => void;
   onPublish: () => Promise<void>;
   onDiscard: () => Promise<void>;
@@ -52,7 +54,7 @@ function getWeekDates(fromDate: string): string[] {
 export default function ScheduleTab({
   solverHorizonDays, scheduleData, scheduleLoading, scheduleError,
   draftVersion, lastRunSummary, isAdmin, publishSaving, discardSaving, scheduleVersionError,
-  currentUserName,
+  currentUserName, memberNames,
   onOpenDraftModal, onPublish, onDiscard,
 }: Props) {
   const today = new Date().toISOString().split("T")[0];
@@ -82,9 +84,13 @@ export default function ScheduleTab({
     if (next <= maxDate) setScheduleDate(next);
   }
 
-  const filtered = (scheduleData ?? []).filter(a =>
-    !personFilter || a.personName.toLowerCase().includes(personFilter.toLowerCase())
-  );
+  const filtered = (scheduleData ?? []).filter(a => {
+    // Filter to group members only (when memberNames is provided)
+    if (memberNames && memberNames.size > 0 && !memberNames.has(a.personName)) return false;
+    // Text search filter
+    if (personFilter && !a.personName.toLowerCase().includes(personFilter.toLowerCase())) return false;
+    return true;
+  });
 
   const weekDates = getWeekDates(scheduleDate);
   const selectedWeekDate = weekDates[selectedWeekDay] ?? weekDates[0];

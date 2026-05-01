@@ -263,7 +263,9 @@ export default function GroupDetailPage() {
 
   // ── Load members ─────────────────────────────────────────────────────────
   useEffect(() => {
-    if (!currentSpaceId || !groupId || activeTab !== "members") return;
+    if (!currentSpaceId || !groupId) return;
+    // Load members eagerly — needed for schedule tab filtering AND members tab
+    if (activeTab !== "members" && activeTab !== "schedule" && members.length > 0) return;
     setMembersLoading(true);
     setMembersError(null);
     getGroupMembers(currentSpaceId, groupId)
@@ -973,6 +975,7 @@ export default function GroupDetailPage() {
               discardSaving={discardSaving}
               scheduleVersionError={scheduleVersionError}
               currentUserName={displayName ?? undefined}
+              memberNames={members.length > 0 ? new Set(members.map(m => m.displayName ?? m.fullName)) : undefined}
               onOpenDraftModal={() => setShowDraftModal(true)}
               onPublish={handlePublish}
               onDiscard={handleDiscard}
