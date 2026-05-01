@@ -42,6 +42,7 @@ public class ExceptionHandlingMiddleware
             UnauthorizedAccessException => (HttpStatusCode.Forbidden, "You do not have permission to perform this action.", (List<string>?)[]),
             KeyNotFoundException        => (HttpStatusCode.NotFound, ex.Message, (List<string>?)[]),
             Jobuler.Application.Common.ConflictException => (HttpStatusCode.Conflict, ex.Message, (List<string>?)[]),
+            Jobuler.Application.Common.DomainValidationException => ((HttpStatusCode)422, ex.Message, (List<string>?)[]),
             InvalidOperationException   => (HttpStatusCode.BadRequest, ex.Message, (List<string>?)[]),
             ArgumentException           => (HttpStatusCode.BadRequest, ex.Message, (List<string>?)[]),
             // EF unique constraint violations → 409 Conflict

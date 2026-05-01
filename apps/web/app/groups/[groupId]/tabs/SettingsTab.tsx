@@ -1,6 +1,7 @@
 "use client";
 
-import type { GroupMemberDto } from "@/lib/api/groups";
+import { useState } from "react";
+import type { GroupMemberDto, GroupRoleDto } from "@/lib/api/groups";
 
 interface DraftVersion { id: string; status: string; }
 
@@ -27,6 +28,12 @@ interface Props {
   showDeleteConfirm: boolean;
   deleteSaving: boolean;
   deleteError: string | null;
+  // Roles
+  groupRoles: GroupRoleDto[];
+  groupRolesLoading: boolean;
+  onCreateRole: (name: string, description: string | null) => Promise<void>;
+  onUpdateRole: (roleId: string, name: string, description: string | null) => Promise<void>;
+  onDeactivateRole: (roleId: string) => Promise<void>;
   onGroupNameChange: (v: string) => void;
   onRenameGroup: () => void;
   onSolverHorizonChange: (v: number) => void;
@@ -46,6 +53,7 @@ export default function SettingsTab({
   solverHorizon, savingSettings, settingsError, settingsSaved,
   solverPolling, solverStatus, solverError, draftVersion,
   members,
+  groupRoles, groupRolesLoading, onCreateRole, onUpdateRole, onDeactivateRole,
   transferPersonId, transferSaving, transferError, hasPendingTransfer, cancelTransferSaving,
   showDeleteConfirm, deleteSaving, deleteError,
   onGroupNameChange, onRenameGroup, onSolverHorizonChange, onSaveSettings,
@@ -53,6 +61,47 @@ export default function SettingsTab({
   onTransferPersonChange, onInitiateTransfer, onCancelTransfer,
   onShowDeleteConfirm, onDeleteGroup,
 }: Props) {
+  // Roles form state
+  const [newRoleName, setNewRoleName] = useState("");
+  const [newRoleDesc, setNewRoleDesc] = useState("");
+  const [roleFormSaving, setRoleFormSaving] = useState(false);
+  const [roleFormError, setRoleFormError] = useState<string | null>(null);
+  const [editingRoleId, setEditingRoleId] = useState<string | null>(null);
+  const [editRoleName, setEditRoleName] = useState("");
+  const [editRoleDesc, setEditRoleDesc] = useState("");
+  const [editRoleSaving, setEditRoleSaving] = useState(false);
+  const [editRoleError, setEditRoleError] = useState<string | null>(null);
+
+  async function handleCreateRole(e: React.FormEvent) {
+    e.preventDefault();
+    if (!newRoleName.trim()) return;
+    setRoleFormSaving(true);
+    setRoleFormError(null);
+    try {
+      await onCreateRole(newRoleName.trim(), newRoleDesc.trim() || null);
+      setNewRoleName("");
+      setNewRoleDesc("");
+    } catch {
+      setRoleFormError("שגיאה ביצירת תפקיד");
+    } finally {
+      setRoleFormSaving(false);
+    }
+  }
+
+  async function handleUpdateRole(roleId: string) {
+    if (!editRoleName.trim()) return;
+    setEditRoleSaving(true);
+    setEditRoleError(null);
+    try {
+      await onUpdateRole(roleId, editRoleName.trim(), editRoleDesc.trim() || null);
+      setEditingRoleId(null);
+    } catch {
+      setEditRoleError("שגיאה בעדכון תפקיד");
+    } finally {
+      setEditRoleSaving(false);
+    }
+  }
+
   if (!isAdmin) {
     return (
       <div className="flex flex-col items-center justify-center py-16 text-center bg-white rounded-xl border border-slate-200">
@@ -133,8 +182,120 @@ export default function SettingsTab({
         </div>
       </Section>
 
-      {/* Ownership transfer */}
-      <Section title="העברת בעלות">
+      {/* Roles management */}
+      <Section title="תפקידים">
+        {groupRolesLoading ? (
+          <p className="text-sm text-slate-400">טוען תפקידים...</p>
+        ) : (
+          <div className="space-y-3">
+            {/* Existing roles list */}
+            {groupRoles.length > 0 && (
+              <div className="space-y-2">
+                {groupRoles.map(role => (
+                  <div key={role.id} className={`flex items-center gap-2 px-3 py-2 rounded-xl border ${role.isActive ? "border-slate-200 bg-white" : "border-slate-100 bg-slate-50"}`}>
+                    {editingRoleId === role.id ? (
+                      <div className="flex-1 space-y-2">
+                        <input
+                          type="text"
+                          value={editRoleName}
+                          onChange={e => setEditRoleName(e.target.value)}
+                          className="w-full border border-slate-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          placeholder="שם תפקיד"
+                        />
+                        <input
+                          type="text"
+                          value={editRoleDesc}
+                          onChange={e => setEditRoleDesc(e.target.value)}
+                          className="w-full border border-slate-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          placeholder="תיאור (אופציונלי)"
+                        />
+                        {editRoleError && <p className="text-xs text-red-600">{editRoleError}</p>}
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => handleUpdateRole(role.id)}
+                            disabled={editRoleSaving}
+                            className="bg-blue-500 hover:bg-blue-600 text-white text-xs font-medium px-3 py-1.5 rounded-lg disabled:opacity-50 transition-colors"
+                          >
+                            {editRoleSaving ? "שומר..." : "שמור"}
+                          </button>
+                          <button
+                            onClick={() => setEditingRoleId(null)}
+                            className="text-xs text-slate-500 border border-slate-200 px-3 py-1.5 rounded-lg hover:bg-slate-50 transition-colors"
+                          >
+                            ביטול
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <>
+                        <div className="flex-1 min-w-0">
+                          <span className={`text-sm font-medium ${role.isActive ? "text-slate-800" : "text-slate-400 line-through"}`}>
+                            {role.name}
+                          </span>
+                          {role.description && (
+                            <span className="text-xs text-slate-400 mr-2">{role.description}</span>
+                          )}
+                        </div>
+                        {role.isActive && (
+                          <div className="flex items-center gap-1 flex-shrink-0">
+                            <button
+                              onClick={() => {
+                                setEditingRoleId(role.id);
+                                setEditRoleName(role.name);
+                                setEditRoleDesc(role.description ?? "");
+                                setEditRoleError(null);
+                              }}
+                              className="text-xs text-slate-500 border border-slate-200 hover:bg-slate-50 px-2.5 py-1 rounded-lg transition-colors"
+                            >
+                              ערוך
+                            </button>
+                            <button
+                              onClick={() => onDeactivateRole(role.id)}
+                              className="text-xs text-red-500 border border-red-100 hover:bg-red-50 px-2.5 py-1 rounded-lg transition-colors"
+                            >
+                              בטל
+                            </button>
+                          </div>
+                        )}
+                      </>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Add role form */}
+            <form onSubmit={handleCreateRole} className="space-y-2 pt-1">
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={newRoleName}
+                  onChange={e => setNewRoleName(e.target.value)}
+                  placeholder="שם תפקיד חדש"
+                  className="flex-1 border border-slate-200 rounded-xl px-3.5 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+                <button
+                  type="submit"
+                  disabled={roleFormSaving || !newRoleName.trim()}
+                  className="bg-blue-500 hover:bg-blue-600 text-white text-sm font-medium px-4 py-2 rounded-xl disabled:opacity-50 transition-colors"
+                >
+                  {roleFormSaving ? "..." : "הוסף"}
+                </button>
+              </div>
+              <input
+                type="text"
+                value={newRoleDesc}
+                onChange={e => setNewRoleDesc(e.target.value)}
+                placeholder="תיאור (אופציונלי)"
+                className="w-full border border-slate-200 rounded-xl px-3.5 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+              {roleFormError && <p className="text-xs text-red-600">{roleFormError}</p>}
+            </form>
+          </div>
+        )}
+      </Section>
+
+      {/* Ownership transfer */}      <Section title="העברת בעלות">
         {hasPendingTransfer ? (
           <div className="space-y-2">
             <p className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">יש בקשת העברה ממתינה</p>

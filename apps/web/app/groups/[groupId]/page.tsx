@@ -26,6 +26,7 @@ import {
   getGroupAlerts, createGroupAlert, deleteGroupAlert, updateGroupAlert, GroupAlertDto,
   updateGroupMessage, deleteGroupMessage, pinGroupMessage,
   updatePersonInfo,
+  getGroupRoles, createGroupRole, updateGroupRole, deactivateGroupRole,
 } from "@/lib/api/groups";
 import { getAvatarColor, getAvatarLetter } from "@/lib/utils/groupAvatar";
 import { listGroupTasks, createGroupTask, updateGroupTask, deleteGroupTask, GroupTaskDto } from "@/lib/api/tasks";
@@ -70,7 +71,7 @@ export default function GroupDetailPage() {
   const router = useRouter();
   const groupId = params?.groupId as string;
   const { currentSpaceId } = useSpaceStore();
-  const { userId, isAdminForGroup, adminGroupId, enterAdminMode, exitAdminMode } = useAuthStore();
+  const { userId, displayName, isAdminForGroup, adminGroupId, enterAdminMode, exitAdminMode } = useAuthStore();
   const refetchNotifications = useRefetchNotifications(currentSpaceId);
 
   // ── Group / header state ─────────────────────────────────────────────────
@@ -193,6 +194,10 @@ export default function GroupDetailPage() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleteSaving, setDeleteSaving] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+
+  // ── Group roles state ────────────────────────────────────────────────────
+  const [groupRoles, setGroupRoles] = useState<import("@/lib/api/groups").GroupRoleDto[]>([]);
+  const [groupRolesLoading, setGroupRolesLoading] = useState(false);
 
   // ── Re-evaluate admin state when adminGroupId changes ───────────────────
   useEffect(() => {
@@ -323,6 +328,12 @@ export default function GroupDetailPage() {
       .then(setDeletedGroups)
       .catch(() => {})
       .finally(() => setDeletedGroupsLoading(false));
+    // Also load group roles when settings tab opens
+    setGroupRolesLoading(true);
+    getGroupRoles(currentSpaceId, groupId)
+      .then(setGroupRoles)
+      .catch(() => {})
+      .finally(() => setGroupRolesLoading(false));
   }, [currentSpaceId, groupId, activeTab]);
 
   // ── Cleanup polling on unmount ───────────────────────────────────────────
@@ -685,9 +696,29 @@ export default function GroupDetailPage() {
     }
   }
 
+  // ── Group role handlers ──────────────────────────────────────────────────
+  async function handleCreateRole(name: string, description: string | null) {
+    if (!currentSpaceId) return;
+    await createGroupRole(currentSpaceId, groupId, { name, description });
+    const updated = await getGroupRoles(currentSpaceId, groupId);
+    setGroupRoles(updated);
+  }
+
+  async function handleUpdateRole(roleId: string, name: string, description: string | null) {
+    if (!currentSpaceId) return;
+    await updateGroupRole(currentSpaceId, groupId, roleId, { name, description });
+    const updated = await getGroupRoles(currentSpaceId, groupId);
+    setGroupRoles(updated);
+  }
+
+  async function handleDeactivateRole(roleId: string) {
+    if (!currentSpaceId) return;
+    await deactivateGroupRole(currentSpaceId, groupId, roleId);
+    setGroupRoles(prev => prev.map(r => r.id === roleId ? { ...r, isActive: false } : r));
+  }
+
   // ── Settings handlers ────────────────────────────────────────────────────
-  async function handleRenameGroup() {
-    if (!currentSpaceId || !newGroupName.trim()) return;
+  async function handleRenameGroup() {    if (!currentSpaceId || !newGroupName.trim()) return;
     setRenameSaving(true);
     setRenameError(null);
     try {
@@ -941,6 +972,7 @@ export default function GroupDetailPage() {
               publishSaving={publishSaving}
               discardSaving={discardSaving}
               scheduleVersionError={scheduleVersionError}
+              currentUserName={displayName ?? undefined}
               onOpenDraftModal={() => setShowDraftModal(true)}
               onPublish={handlePublish}
               onDiscard={handleDiscard}
@@ -1079,6 +1111,20 @@ export default function GroupDetailPage() {
               onEditUntilChange={setEditConstraintUntil}
               onEditSeverityChange={setEditConstraintSeverity}
               onUpdateConstraint={handleUpdateConstraint}
+              groupId={groupId}
+              groupRoles={groupRoles}
+              groupRolesLoading={groupRolesLoading}
+              members={members}
+              onCreateWithScope={async (scopeType, scopeId, form) => {
+                if (!currentSpaceId) return;
+                await createConstraint(
+                  currentSpaceId, scopeType, scopeId,
+                  form.severity, form.ruleType, form.payload,
+                  form.from || null, form.until || null
+                );
+                const updated = await getConstraints(currentSpaceId);
+                setConstraints(updated);
+              }}
             />
           )}
 
@@ -1098,6 +1144,11 @@ export default function GroupDetailPage() {
               solverError={solverError}
               draftVersion={draftVersion}
               members={members}
+              groupRoles={groupRoles}
+              groupRolesLoading={groupRolesLoading}
+              onCreateRole={handleCreateRole}
+              onUpdateRole={handleUpdateRole}
+              onDeactivateRole={handleDeactivateRole}
               transferPersonId={transferPersonId}
               transferSaving={transferSaving}
               transferError={transferError}

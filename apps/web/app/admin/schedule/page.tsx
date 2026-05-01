@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import AppShell from "@/components/shell/AppShell";
-import ScheduleTable from "@/components/schedule/ScheduleTable";
+import ScheduleTable2D from "@/components/schedule/ScheduleTable2D";
 import DiffSummaryCard from "@/components/schedule/DiffSummaryCard";
 import {
   getScheduleVersions, getVersionDetail,
@@ -145,6 +145,30 @@ interface VersionDetailPanelProps {
 }
 
 function VersionDetailPanel({ selected, actionLoading, spaceId, onPublish, onRollback }: VersionDetailPanelProps) {
+  const today = new Date().toISOString().split("T")[0];
+  const [selectedDate, setSelectedDate] = useState(today);
+
+  function prevDay() {
+    const d = new Date(selectedDate + "T00:00:00");
+    d.setDate(d.getDate() - 1);
+    setSelectedDate(d.toISOString().split("T")[0]);
+  }
+
+  function nextDay() {
+    const d = new Date(selectedDate + "T00:00:00");
+    d.setDate(d.getDate() + 1);
+    setSelectedDate(d.toISOString().split("T")[0]);
+  }
+
+  function formatDateLabel(dateStr: string): string {
+    if (dateStr === today) return "היום";
+    const yesterday = new Date(Date.now() - 86400000).toISOString().split("T")[0];
+    const tomorrow = new Date(Date.now() + 86400000).toISOString().split("T")[0];
+    if (dateStr === yesterday) return "אתמול";
+    if (dateStr === tomorrow) return "מחר";
+    return new Date(dateStr + "T00:00:00").toLocaleDateString("he-IL", { day: "numeric", month: "short" });
+  }
+
   return (
     <div className="col-span-2 space-y-4">
       {/* Action bar */}
@@ -208,7 +232,35 @@ function VersionDetailPanel({ selected, actionLoading, spaceId, onPublish, onRol
       <InfeasibilityBanner summaryJson={selected.version.summaryJson} />
 
       {selected.diff && <DiffSummaryCard diff={selected.diff} />}
-      <ScheduleTable assignments={selected.assignments} />
+
+      {/* Date navigation */}
+      <div className="flex items-center gap-2">
+        <button onClick={prevDay} className="p-2 rounded-lg border border-slate-200 hover:bg-slate-50 transition-colors">
+          <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+          </svg>
+        </button>
+        <button
+          onClick={() => setSelectedDate(today)}
+          className={`px-3 py-1.5 rounded-lg text-sm font-medium border transition-colors ${
+            selectedDate === today ? "bg-blue-500 text-white border-blue-500" : "border-slate-200 text-slate-600 hover:bg-slate-50"
+          }`}
+        >
+          היום
+        </button>
+        <button onClick={nextDay} className="p-2 rounded-lg border border-slate-200 hover:bg-slate-50 transition-colors">
+          <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+          </svg>
+        </button>
+        <span className="text-sm font-medium text-slate-700 mr-1">{formatDateLabel(selectedDate)}</span>
+      </div>
+
+      {/* 2D schedule table */}
+      <ScheduleTable2D
+        assignments={selected.assignments}
+        filterDate={selectedDate}
+      />
     </div>
   );
 }

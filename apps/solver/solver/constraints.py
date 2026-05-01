@@ -4,8 +4,109 @@ Each function receives the model, decision variables, and relevant input data,
 and adds the appropriate constraints to the model.
 """
 from ortools.sat.python import cp_model
-from models.solver_input import SolverInput, TaskSlot, HardConstraint
+from models.solver_input import SolverInput, TaskSlot, HardConstraint, SoftConstraint
 from datetime import datetime, timezone
+import copy
+import logging
+
+logger = logging.getLogger(__name__)
+
+
+def expand_role_constraints(
+    hard_constraints: list,
+    soft_constraints: list,
+    emergency_constraints: list,
+    people
+) -> tuple:
+    """
+    Expand role-scoped constraints to individual person-scoped constraints.
+
+    For each constraint with scope_type == "role":
+      - Find all people whose role_ids include the role's scope_id
+      - Create one person-scoped copy per matching person
+      - Remove the original role-scoped constraint
+
+    Returns the modified (hard, soft, emergency) tuple.
+    """
+    # Build role_id → [person_id, ...] map
+    role_to_people: dict[str, list[str]] = {}
+    for person in people:
+        for role_id in person.role_ids:
+            role_to_people.setdefault(role_id, []).append(person.person_id)
+
+    def _expand_list(constraints: list) -> list:
+        result = []
+        for c in constraints:
+            if c.scope_type != "role":
+                result.append(c)
+                continue
+            role_id = c.scope_id
+            members = role_to_people.get(role_id, [])
+            if not members:
+                logger.warning(
+                    "expand_role_constraints: role %s has no members — constraint %s dropped",
+                    role_id, c.constraint_id
+                )
+                continue
+            for person_id in members:
+                expanded = copy.copy(c)
+                expanded = expanded.model_copy(update={"scope_type": "person", "scope_id": person_id})
+                result.append(expanded)
+        return result
+
+    return (
+        _expand_list(hard_constraints),
+        _expand_list(soft_constraints),
+        _expand_list(emergency_constraints),
+    )
+
+
+def expand_group_constraints(
+    hard_constraints: list,
+    soft_constraints: list,
+    emergency_constraints: list,
+    people
+) -> tuple:
+    """
+    Expand group-scoped constraints to individual person-scoped constraints.
+
+    For each constraint with scope_type == "group":
+      - Find all people whose group_ids include the group's scope_id
+      - Create one person-scoped copy per matching person
+      - Remove the original group-scoped constraint
+
+    Returns the modified (hard, soft, emergency) tuple.
+    """
+    # Build group_id → [person_id, ...] map
+    group_to_people: dict[str, list[str]] = {}
+    for person in people:
+        for group_id in person.group_ids:
+            group_to_people.setdefault(group_id, []).append(person.person_id)
+
+    def _expand_list(constraints: list) -> list:
+        result = []
+        for c in constraints:
+            if c.scope_type != "group":
+                result.append(c)
+                continue
+            group_id = c.scope_id
+            members = group_to_people.get(group_id, [])
+            if not members:
+                logger.warning(
+                    "expand_group_constraints: group %s has no members — constraint %s dropped",
+                    group_id, c.constraint_id
+                )
+                continue
+            for person_id in members:
+                expanded = c.model_copy(update={"scope_type": "person", "scope_id": person_id})
+                result.append(expanded)
+        return result
+
+    return (
+        _expand_list(hard_constraints),
+        _expand_list(soft_constraints),
+        _expand_list(emergency_constraints),
+    )
 
 
 def add_headcount_constraints(
@@ -319,3 +420,98 @@ def _to_timestamp(dt) -> int:
     if dt.tzinfo is None:
         dt = dt.replace(tzinfo=timezone.utc)
     return int(dt.timestamp())
+
+
+# ── Constraint expansion ──────────────────────────────────────────────────────
+
+def expand_role_constraints(
+    hard_constraints: list,
+    soft_constraints: list,
+    emergency_constraints: list,
+    people: list,
+) -> tuple[list, list, list]:
+    """
+    Expand role-scoped constraints into individual person-scoped constraints.
+
+    For each constraint with scope_type == "role", find all people whose
+    role_ids include that role's scope_id, and create one person-scoped copy
+    per matching person. The original role-scoped constraint is removed.
+
+    Returns the modified (hard, soft, emergency) tuple.
+    """
+    # Build role_id → [person_id, ...] map from people's role_ids
+    role_to_people: dict[str, list[str]] = {}
+    for person in people:
+        for role_id in person.role_ids:
+            role_to_people.setdefault(role_id, []).append(person.person_id)
+
+    def _expand(constraints: list) -> list:
+        result = []
+        for c in constraints:
+            if c.scope_type != "role":
+                result.append(c)
+                continue
+            role_id = c.scope_id
+            if not role_id:
+                result.append(c)
+                continue
+            members = role_to_people.get(role_id, [])
+            if not members:
+                import logging
+                logging.getLogger(__name__).warning(
+                    "expand_role_constraints: role %s has no members — constraint %s skipped.",
+                    role_id, c.constraint_id)
+                continue
+            for person_id in members:
+                # Create a copy with scope_type=person and scope_id=person_id
+                expanded = c.model_copy(update={"scope_type": "person", "scope_id": person_id})
+                result.append(expanded)
+        return result
+
+    return _expand(hard_constraints), _expand(soft_constraints), _expand(emergency_constraints)
+
+
+def expand_group_constraints(
+    hard_constraints: list,
+    soft_constraints: list,
+    emergency_constraints: list,
+    people: list,
+) -> tuple[list, list, list]:
+    """
+    Expand group-scoped constraints into individual person-scoped constraints.
+
+    For each constraint with scope_type == "group", find all people whose
+    group_ids include that group's scope_id, and create one person-scoped copy
+    per matching person. The original group-scoped constraint is removed.
+
+    Returns the modified (hard, soft, emergency) tuple.
+    """
+    # Build group_id → [person_id, ...] map from people's group_ids
+    group_to_people: dict[str, list[str]] = {}
+    for person in people:
+        for group_id in person.group_ids:
+            group_to_people.setdefault(group_id, []).append(person.person_id)
+
+    def _expand(constraints: list) -> list:
+        result = []
+        for c in constraints:
+            if c.scope_type != "group":
+                result.append(c)
+                continue
+            group_id = c.scope_id
+            if not group_id:
+                result.append(c)
+                continue
+            members = group_to_people.get(group_id, [])
+            if not members:
+                import logging
+                logging.getLogger(__name__).warning(
+                    "expand_group_constraints: group %s has no members — constraint %s skipped.",
+                    group_id, c.constraint_id)
+                continue
+            for person_id in members:
+                expanded = c.model_copy(update={"scope_type": "person", "scope_id": person_id})
+                result.append(expanded)
+        return result
+
+    return _expand(hard_constraints), _expand(soft_constraints), _expand(emergency_constraints)

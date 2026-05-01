@@ -17,6 +17,8 @@ from solver.constraints import (
     add_restriction_constraints,
     add_kitchen_frequency_constraints,
     add_availability_constraints,
+    expand_role_constraints,
+    expand_group_constraints,
 )
 from solver.objectives import build_objective
 from solver.i18n import t
@@ -40,6 +42,27 @@ def solve(input: SolverInput) -> SolverOutput:
 
     if num_slots == 0 or num_people == 0:
         return _empty_result(input)
+
+    # ── Expand role/group constraints to person-scoped constraints ────────────
+    # Role and group constraints are fan-out shortcuts: a single constraint
+    # targeting a role or group is expanded to one person-scoped copy per member.
+    # This happens before the CP-SAT model is built so all constraint functions
+    # only need to handle person-scoped constraints.
+    hard_constraints, soft_constraints, emergency_constraints = expand_role_constraints(
+        list(input.hard_constraints),
+        list(input.soft_constraints),
+        list(input.emergency_constraints),
+        input.people,
+    )
+    hard_constraints, soft_constraints, emergency_constraints = expand_group_constraints(
+        hard_constraints, soft_constraints, emergency_constraints, input.people
+    )
+    # Rebuild a modified input with expanded constraints for downstream functions
+    input = input.model_copy(update={
+        "hard_constraints": hard_constraints,
+        "soft_constraints": soft_constraints,
+        "emergency_constraints": emergency_constraints,
+    })
 
     # ── Decision variables ────────────────────────────────────────────────────
     # assign[slot_idx][person_idx] = 1 if person is assigned to slot

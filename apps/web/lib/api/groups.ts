@@ -191,3 +191,43 @@ export async function pinGroupMessage(
 ): Promise<void> {
   await apiClient.patch(`/spaces/${spaceId}/groups/${groupId}/messages/${messageId}/pin`, { isPinned });
 }
+
+// ── Group Roles ───────────────────────────────────────────────────────────────
+
+export interface GroupRoleDto {
+  id: string;
+  name: string;
+  description: string | null;
+  isActive: boolean;
+}
+
+export async function getGroupRoles(spaceId: string, groupId: string): Promise<GroupRoleDto[]> {
+  const { data } = await apiClient.get(`/spaces/${spaceId}/groups/${groupId}/roles`);
+  return data as GroupRoleDto[];
+}
+
+export async function createGroupRole(
+  spaceId: string,
+  groupId: string,
+  payload: { name: string; description?: string | null }
+): Promise<{ id: string }> {
+  const { data } = await apiClient.post(`/spaces/${spaceId}/groups/${groupId}/roles`, payload);
+  return data as { id: string };
+}
+
+export async function updateGroupRole(
+  spaceId: string,
+  groupId: string,
+  roleId: string,
+  payload: { name: string; description?: string | null }
+): Promise<void> {
+  await apiClient.put(`/spaces/${spaceId}/groups/${groupId}/roles/${roleId}`, payload);
+}
+
+export async function deactivateGroupRole(
+  spaceId: string,
+  groupId: string,
+  roleId: string
+): Promise<void> {
+  await apiClient.delete(`/spaces/${spaceId}/groups/${groupId}/roles/${roleId}`);
+}

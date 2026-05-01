@@ -113,8 +113,6 @@ public class AutoSchedulerService : BackgroundService
         DateTime now,
         CancellationToken ct)
     {
-        var horizonEnd = now.AddDays(horizonDays);
-
         // Check if there's already a pending/running solver job for this space
         var hasActiveRun = await db.ScheduleRuns.AsNoTracking()
             .AnyAsync(r => r.SpaceId == spaceId &&
@@ -168,28 +166,55 @@ public class AutoSchedulerService : BackgroundService
         }
         else
         {
-            // Check if the published schedule covers the horizon
-            // Look at the latest assignment end time for this space
-            var latestAssignmentEnd = await db.Assignments.AsNoTracking()
-                .Where(a => a.ScheduleVersionId == publishedVersion.Id && a.SpaceId == spaceId)
-                .Join(db.TaskSlots, a => a.TaskSlotId, s => s.Id, (a, s) => s.EndsAt)
-                .MaxAsync(endsAt => (DateTime?)endsAt, ct);
+            // Slot-level gap scan: check every active task slot in the horizon.
+            // If any slot has no published assignment, the schedule is incomplete.
+            var horizonStartDt = now.Date;
+            var horizonEndDt   = now.Date.AddDays(horizonDays);
 
-            if (latestAssignmentEnd is null || latestAssignmentEnd < horizonEnd)
-            {
-                needsNewSchedule = true;
-                _logger.LogInformation(
-                    "AutoScheduler: group {GroupName} ({GroupId}) schedule ends {End:yyyy-MM-dd}, horizon requires {Horizon:yyyy-MM-dd}. Triggering solver.",
-                    groupName, groupId,
-                    latestAssignmentEnd?.ToString("yyyy-MM-dd") ?? "never",
-                    horizonEnd.ToString("yyyy-MM-dd"));
-            }
-            else
+            var slotIds = await db.TaskSlots.AsNoTracking()
+                .Where(s => s.SpaceId == spaceId
+                    && s.Status == Domain.Tasks.TaskSlotStatus.Active
+                    && s.StartsAt >= horizonStartDt
+                    && s.StartsAt < horizonEndDt)
+                .Select(s => s.Id)
+                .ToListAsync(ct);
+
+            if (slotIds.Count == 0)
             {
                 needsNewSchedule = false;
                 _logger.LogDebug(
-                    "AutoScheduler: group {GroupName} ({GroupId}) schedule covers until {End:yyyy-MM-dd}. OK.",
-                    groupName, groupId, latestAssignmentEnd.Value);
+                    "AutoScheduler: group {GroupName} ({GroupId}) has no active slots in horizon. OK.",
+                    groupName, groupId);
+            }
+            else
+            {
+                // Find which slots already have a published assignment
+                var coveredSlotIds = await db.Assignments.AsNoTracking()
+                    .Where(a => a.ScheduleVersionId == publishedVersion.Id
+                        && a.SpaceId == spaceId
+                        && slotIds.Contains(a.TaskSlotId))
+                    .Select(a => a.TaskSlotId)
+                    .Distinct()
+                    .ToListAsync(ct);
+
+                var coveredSet = coveredSlotIds.ToHashSet();
+                var gapSlotIds = slotIds.Where(id => !coveredSet.Contains(id)).ToList();
+
+                if (gapSlotIds.Count > 0)
+                {
+                    needsNewSchedule = true;
+                    _logger.LogInformation(
+                        "AutoScheduler: group {GroupName} ({GroupId}) has {GapCount} uncovered slot(s) in horizon. Gap slot IDs: {GapIds}. Triggering solver.",
+                        groupName, groupId, gapSlotIds.Count,
+                        string.Join(", ", gapSlotIds.Take(10).Select(id => id.ToString())));
+                }
+                else
+                {
+                    needsNewSchedule = false;
+                    _logger.LogDebug(
+                        "AutoScheduler: group {GroupName} ({GroupId}) all {Count} slot(s) covered. OK.",
+                        groupName, groupId, slotIds.Count);
+                }
             }
         }
 

@@ -213,8 +213,12 @@ public class SolverPayloadNormalizer : ISolverPayloadNormalizer
         }
 
         // ── Constraints ───────────────────────────────────────────────────────
+        // Filter by effective date window: exclude constraints that have expired
+        // before the horizon starts, or haven't started yet by the horizon end.
         var constraints = await _db.ConstraintRules.AsNoTracking()
-            .Where(c => c.SpaceId == spaceId && c.IsActive)
+            .Where(c => c.SpaceId == spaceId && c.IsActive
+                && (c.EffectiveUntil == null || c.EffectiveUntil >= horizonStart)
+                && (c.EffectiveFrom == null || c.EffectiveFrom <= horizonEnd))
             .ToListAsync(ct);
 
         var hardConstraints = constraints
