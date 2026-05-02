@@ -137,7 +137,7 @@ export default function MembersTab({
                     <button onClick={() => onOpenInvite(m.personId)} className="text-xs text-slate-500 hover:text-slate-700 border border-slate-200 px-2 py-1 rounded-lg hover:bg-slate-50 transition-colors">הזמן</button>
                     {confirmRemove === m.personId ? (
                       <>
-                        <span className="text-xs text-slate-600">להסיר?</span>
+                        <span className="text-xs text-slate-600">הסרה קבועה?</span>
                         <button
                           onClick={() => { setConfirmRemove(null); onRemoveMember(m.personId); }}
                           className="text-xs text-white bg-red-500 hover:bg-red-600 px-2 py-1 rounded-lg transition-colors"

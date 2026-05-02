@@ -70,12 +70,34 @@ public class GetGroupScheduleQueryHandler : IRequestHandler<GetGroupScheduleQuer
             .ToDictionaryAsync(t => t.Id, t => t.Name, ct);
 
         // Try GroupTasks for any slot IDs not found in task_slots
+        // Only include tasks that belong to THIS group — prevents cross-group leakage
         var missingSlotIds = slotIds.Where(id => !taskSlots.ContainsKey(id)).ToHashSet();
-        var groupTasks = missingSlotIds.Count > 0
-            ? await _db.GroupTasks.AsNoTracking()
-                .Where(t => missingSlotIds.Contains(t.Id))
-                .ToDictionaryAsync(t => t.Id, ct)
-            : new();
+
+        // Build shift-GUID → task lookup for this group's tasks (solver generates derived GUIDs)
+        var shiftGuidToTask = new Dictionary<Guid, (string Name, DateTime StartsAt, DateTime EndsAt)>();
+        if (missingSlotIds.Count > 0)
+        {
+            var thisGroupTasks = await _db.GroupTasks.AsNoTracking()
+                .Where(t => t.GroupId == req.GroupId && t.SpaceId == req.SpaceId && t.IsActive)
+                .ToListAsync(ct);
+
+            foreach (var gt in thisGroupTasks)
+            {
+                if (gt.ShiftDurationMinutes < 1) continue;
+                var shiftDuration = TimeSpan.FromMinutes(gt.ShiftDurationMinutes);
+                var shiftStart = gt.StartsAt;
+                var shiftIndex = 0;
+                while (shiftStart + shiftDuration <= gt.EndsAt)
+                {
+                    var shiftEnd = shiftStart + shiftDuration;
+                    var shiftGuid = DeriveShiftGuid(gt.Id, shiftIndex);
+                    if (missingSlotIds.Contains(shiftGuid))
+                        shiftGuidToTask[shiftGuid] = (gt.Name, shiftStart, shiftEnd);
+                    shiftStart = shiftEnd;
+                    shiftIndex++;
+                }
+            }
+        }
 
         var result = new List<GroupScheduleAssignmentDto>();
 
@@ -91,15 +113,16 @@ public class GetGroupScheduleQueryHandler : IRequestHandler<GetGroupScheduleQuer
                 startsAt = slot.StartsAt;
                 endsAt = slot.EndsAt;
             }
-            else if (groupTasks.TryGetValue(a.TaskSlotId, out var gt))
+            else if (shiftGuidToTask.TryGetValue(a.TaskSlotId, out var shiftInfo))
             {
-                taskName = gt.Name;
-                startsAt = gt.StartsAt;
-                endsAt = gt.EndsAt;
+                taskName = shiftInfo.Name;
+                startsAt = shiftInfo.StartsAt;
+                endsAt = shiftInfo.EndsAt;
             }
             else
             {
-                continue; // slot not found in either table — skip
+                // Slot belongs to a different group or not found — skip
+                continue;
             }
 
             var personName = people.TryGetValue(a.PersonId, out var pn) ? pn : "Unknown";
@@ -109,5 +132,14 @@ public class GetGroupScheduleQueryHandler : IRequestHandler<GetGroupScheduleQuer
         }
 
         return result.OrderBy(r => r.SlotStartsAt).ToList();
+    }
+
+    private static Guid DeriveShiftGuid(Guid taskId, int shiftIndex)
+    {
+        var bytes = taskId.ToByteArray();
+        var indexBytes = BitConverter.GetBytes(shiftIndex);
+        for (int i = 0; i < 4; i++)
+            bytes[12 + i] ^= indexBytes[i];
+        return new Guid(bytes);
     }
 }
