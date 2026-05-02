@@ -1,32 +1,57 @@
 "use client";
 
+import { useState } from "react";
 import Modal from "@/components/Modal";
 import ImageUpload from "@/components/ImageUpload";
-import type { GroupMemberDto } from "@/lib/api/groups";
+import type { GroupMemberDto, GroupRoleDto } from "@/lib/api/groups";
 
 interface Props {
   isAdmin: boolean;
+  /** True only when the current user is the group owner — can edit member roles */
+  isOwner: boolean;
   members: GroupMemberDto[];
   membersLoading: boolean;
   membersError: string | null;
   membersSearch: string;
   removeErrors: Record<string, string>;
+  groupRoles: GroupRoleDto[];
   onSearchChange: (v: string) => void;
   onSelectMember: (m: GroupMemberDto) => void;
   onRemoveMember: (id: string) => void;
   onOpenAddMember: () => void;
   onOpenInvite: (id: string) => void;
+  onUpdateMemberRole: (personId: string, roleId: string | null) => Promise<void>;
 }
 
 export default function MembersTab({
-  isAdmin, members, membersLoading, membersError, membersSearch, removeErrors,
-  onSearchChange, onSelectMember, onRemoveMember, onOpenAddMember, onOpenInvite,
+  isAdmin, isOwner, members, membersLoading, membersError, membersSearch, removeErrors,
+  groupRoles, onSearchChange, onSelectMember, onRemoveMember, onOpenAddMember,
+  onOpenInvite, onUpdateMemberRole,
 }: Props) {
+  const [editingRoleFor, setEditingRoleFor] = useState<string | null>(null);
+  const [roleEditValue, setRoleEditValue] = useState<string>("");
+  const [roleSaving, setRoleSaving] = useState(false);
+  const [roleErrors, setRoleErrors] = useState<Record<string, string>>({});
+  const [confirmRemove, setConfirmRemove] = useState<string | null>(null);
+
   const filtered = members.filter(m =>
     !membersSearch ||
     m.fullName.toLowerCase().includes(membersSearch.toLowerCase()) ||
     (m.displayName ?? "").toLowerCase().includes(membersSearch.toLowerCase())
   );
+
+  async function handleSaveRole(personId: string) {
+    setRoleSaving(true);
+    setRoleErrors(prev => ({ ...prev, [personId]: "" }));
+    try {
+      await onUpdateMemberRole(personId, roleEditValue || null);
+      setEditingRoleFor(null);
+    } catch {
+      setRoleErrors(prev => ({ ...prev, [personId]: "שגיאה בעדכון תפקיד" }));
+    } finally {
+      setRoleSaving(false);
+    }
+  }
 
   return (
     <div className="space-y-4">
@@ -64,27 +89,120 @@ export default function MembersTab({
 
       <div className="space-y-2">
         {filtered.map(m => (
-          <div key={m.personId} className="flex items-center gap-3 bg-white border border-slate-200 rounded-xl px-4 py-3 hover:border-slate-300 transition-colors">
-            <div className="w-9 h-9 rounded-full bg-blue-500 flex items-center justify-center text-white text-sm font-bold flex-shrink-0">
-              {m.fullName.charAt(0).toUpperCase()}
+          <div key={m.personId} className="bg-white border border-slate-200 rounded-xl px-4 py-3 hover:border-slate-300 transition-colors">
+            <div className="flex items-center gap-3">
+              {/* Avatar */}
+              <div className="w-9 h-9 rounded-full bg-blue-500 flex items-center justify-center text-white text-sm font-bold flex-shrink-0">
+                {m.fullName.charAt(0).toUpperCase()}
+              </div>
+
+              {/* Name + role badge */}
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <p className="text-sm font-medium text-slate-900 truncate">{m.fullName}</p>
+                  {m.isOwner && (
+                    <span className="text-xs px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 border border-amber-200 flex-shrink-0">
+                      בעלים
+                    </span>
+                  )}
+                  {!m.isOwner && m.roleName && (
+                    <span className="text-xs px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-600 border border-slate-200 flex-shrink-0">
+                      {m.roleName}
+                    </span>
+                  )}
+                </div>
+                {m.displayName && m.displayName !== m.fullName && (
+                  <p className="text-xs text-slate-400 truncate">{m.displayName}</p>
+                )}
+                {m.phoneNumber && <p className="text-xs text-slate-400 tabular-nums" dir="ltr">{m.phoneNumber}</p>}
+              </div>
+
+              {/* Actions */}
+              <div className="flex items-center gap-2 flex-shrink-0">
+                <button onClick={() => onSelectMember(m)} className="text-xs text-blue-600 hover:underline">פרטים</button>
+                {isAdmin && !m.isOwner && (
+                  <>
+                    {isOwner && (
+                      <button
+                        onClick={() => {
+                          setEditingRoleFor(m.personId);
+                          setRoleEditValue(m.roleId ?? "");
+                          setRoleErrors(prev => ({ ...prev, [m.personId]: "" }));
+                        }}
+                        className="text-xs text-slate-500 hover:text-slate-700 border border-slate-200 px-2 py-1 rounded-lg hover:bg-slate-50 transition-colors"
+                      >
+                        תפקיד
+                      </button>
+                    )}
+                    <button onClick={() => onOpenInvite(m.personId)} className="text-xs text-slate-500 hover:text-slate-700 border border-slate-200 px-2 py-1 rounded-lg hover:bg-slate-50 transition-colors">הזמן</button>
+                    {confirmRemove === m.personId ? (
+                      <>
+                        <span className="text-xs text-slate-600">להסיר?</span>
+                        <button
+                          onClick={() => { setConfirmRemove(null); onRemoveMember(m.personId); }}
+                          className="text-xs text-white bg-red-500 hover:bg-red-600 px-2 py-1 rounded-lg transition-colors"
+                        >
+                          אישור
+                        </button>
+                        <button
+                          onClick={() => setConfirmRemove(null)}
+                          className="text-xs text-slate-500 border border-slate-200 px-2 py-1 rounded-lg hover:bg-slate-50 transition-colors"
+                        >
+                          ביטול
+                        </button>
+                      </>
+                    ) : (
+                      <button
+                        onClick={() => setConfirmRemove(m.personId)}
+                        className="text-xs text-red-500 hover:text-red-700 border border-red-100 px-2 py-1 rounded-lg hover:bg-red-50 transition-colors"
+                      >
+                        הסר
+                      </button>
+                    )}
+                  </>
+                )}
+              </div>
             </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-slate-900 truncate">{m.fullName}</p>
-              {m.displayName && m.displayName !== m.fullName && (
-                <p className="text-xs text-slate-400 truncate">{m.displayName}</p>
-              )}
-              {m.phoneNumber && <p className="text-xs text-slate-400 tabular-nums" dir="ltr">{m.phoneNumber}</p>}
-            </div>
-            <div className="flex items-center gap-2 flex-shrink-0">
-              <button onClick={() => onSelectMember(m)} className="text-xs text-blue-600 hover:underline">פרטים</button>
-              {isAdmin && (
-                <>
-                  <button onClick={() => onOpenInvite(m.personId)} className="text-xs text-slate-500 hover:text-slate-700 border border-slate-200 px-2 py-1 rounded-lg hover:bg-slate-50 transition-colors">הזמן</button>
-                  <button onClick={() => onRemoveMember(m.personId)} className="text-xs text-red-500 hover:text-red-700 border border-red-100 px-2 py-1 rounded-lg hover:bg-red-50 transition-colors">הסר</button>
-                </>
-              )}
-            </div>
-            {removeErrors[m.personId] && <p className="text-xs text-red-600">{removeErrors[m.personId]}</p>}
+
+            {/* Inline role editor — owner only */}
+            {editingRoleFor === m.personId && (
+              <div className="mt-3 pt-3 border-t border-slate-100 flex items-center gap-2 flex-wrap">
+                <select
+                  value={roleEditValue}
+                  onChange={e => setRoleEditValue(e.target.value)}
+                  className="flex-1 min-w-0 border border-slate-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="">ללא תפקיד</option>
+                  {groupRoles
+                    .filter(r => r.isActive)
+                    .map(r => (
+                      <option key={r.id} value={r.id}>
+                        {r.name}{r.isDefault ? " (ברירת מחדל)" : ""}
+                      </option>
+                    ))}
+                </select>
+                <button
+                  onClick={() => handleSaveRole(m.personId)}
+                  disabled={roleSaving}
+                  className="bg-blue-500 hover:bg-blue-600 text-white text-xs font-medium px-3 py-1.5 rounded-lg disabled:opacity-50 transition-colors"
+                >
+                  {roleSaving ? "שומר..." : "שמור"}
+                </button>
+                <button
+                  onClick={() => setEditingRoleFor(null)}
+                  className="text-xs text-slate-500 border border-slate-200 px-3 py-1.5 rounded-lg hover:bg-slate-50 transition-colors"
+                >
+                  ביטול
+                </button>
+                {roleErrors[m.personId] && (
+                  <p className="w-full text-xs text-red-600">{roleErrors[m.personId]}</p>
+                )}
+              </div>
+            )}
+
+            {removeErrors[m.personId] && (
+              <p className="text-xs text-red-600 mt-1">{removeErrors[m.personId]}</p>
+            )}
           </div>
         ))}
       </div>
@@ -147,6 +265,9 @@ export function MemberProfileModal({ member, isAdmin, editForm, saving, error, o
             </div>
             <div>
               <p className="text-lg font-semibold text-slate-900">{member.displayName ?? member.fullName}</p>
+              {member.roleName && (
+                <p className="text-sm text-slate-500">{member.roleName}</p>
+              )}
               {member.phoneNumber && <p className="text-sm text-slate-500 tabular-nums" dir="ltr">{member.phoneNumber}</p>}
             </div>
           </div>

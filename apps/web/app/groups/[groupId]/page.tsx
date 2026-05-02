@@ -28,6 +28,7 @@ import {
   updateGroupMessage, deleteGroupMessage, pinGroupMessage,
   updatePersonInfo,
   getGroupRoles, createGroupRole, updateGroupRole, deactivateGroupRole,
+  updateMemberRole,
 } from "@/lib/api/groups";
 import { getAvatarColor, getAvatarLetter } from "@/lib/utils/groupAvatar";
 import { listGroupTasks, createGroupTask, updateGroupTask, deleteGroupTask, GroupTaskDto } from "@/lib/api/tasks";
@@ -278,6 +279,15 @@ export default function GroupDetailPage() {
       .finally(() => setMembersLoading(false));
   }, [currentSpaceId, groupId, activeTab]);
 
+  // ── Load group roles when members tab opens (needed for role dropdown) ───
+  useEffect(() => {
+    if (!currentSpaceId || !groupId || activeTab !== "members") return;
+    if (groupRoles.length > 0) return; // already loaded
+    getGroupRoles(currentSpaceId, groupId)
+      .then(setGroupRoles)
+      .catch(() => {});
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentSpaceId, groupId, activeTab]);
   // ── Load alerts ──────────────────────────────────────────────────────────
   useEffect(() => {
     if (!currentSpaceId || !groupId || activeTab !== "alerts") return;
@@ -735,6 +745,15 @@ export default function GroupDetailPage() {
     setGroupRoles(prev => prev.map(r => r.id === roleId ? { ...r, isActive: false } : r));
   }
 
+  async function handleUpdateMemberRole(personId: string, roleId: string | null) {
+    if (!currentSpaceId) return;
+    await updateMemberRole(currentSpaceId, groupId, personId, roleId);
+    // Update local state so the badge refreshes immediately
+    const roleName = roleId ? (groupRoles.find(r => r.id === roleId)?.name ?? null) : null;
+    setMembers(prev => prev.map(m =>
+      m.personId === personId ? { ...m, roleId: roleId ?? null, roleName } : m
+    ));
+  }
   // ── Settings handlers ────────────────────────────────────────────────────
   async function handleRenameGroup() {    if (!currentSpaceId || !newGroupName.trim()) return;
     setRenameSaving(true);
@@ -1001,16 +1020,19 @@ export default function GroupDetailPage() {
           {activeTab === "members" && (
             <MembersTab
               isAdmin={isAdmin}
+              isOwner={!!group?.ownerPersonId && members.some(m => m.personId === group.ownerPersonId && m.linkedUserId === userId)}
               members={members}
               membersLoading={membersLoading}
               membersError={membersError}
               membersSearch={membersSearch}
               removeErrors={removeErrors}
+              groupRoles={groupRoles}
               onSearchChange={setMembersSearch}
               onSelectMember={m => { setSelectedMember(m); setMemberEditForm(null); }}
               onRemoveMember={handleRemoveMember}
               onOpenAddMember={() => setShowAddMember(true)}
               onOpenInvite={handleInvite}
+              onUpdateMemberRole={handleUpdateMemberRole}
             />
           )}
 

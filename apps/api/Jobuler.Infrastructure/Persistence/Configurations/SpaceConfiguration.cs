@@ -67,6 +67,7 @@ public class SpaceRoleConfiguration : IEntityTypeConfiguration<SpaceRole>
         builder.Property(r => r.Name).HasColumnName("name").IsRequired();
         builder.Property(r => r.Description).HasColumnName("description");
         builder.Property(r => r.IsActive).HasColumnName("is_active");
+        builder.Property(r => r.IsDefault).HasColumnName("is_default");
         builder.Property(r => r.CreatedByUserId).HasColumnName("created_by_user_id");
         builder.Property(r => r.PermissionLevel).HasColumnName("permission_level")
             .HasConversion(

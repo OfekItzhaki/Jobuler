@@ -6,7 +6,7 @@ namespace Jobuler.Application.Groups.Queries;
 
 public record GroupTypeDto(Guid Id, string Name, string? Description, bool IsActive);
 public record GroupDto(Guid Id, Guid? GroupTypeId, string? GroupTypeName, string Name, string? Description, bool IsActive, int MemberCount, int SolverHorizonDays, Guid? OwnerPersonId);
-public record GroupMemberDto(Guid PersonId, string FullName, string? DisplayName, bool IsOwner, string? PhoneNumber, string? InvitationStatus, string? ProfileImageUrl, string? Birthday, Guid? LinkedUserId = null);
+public record GroupMemberDto(Guid PersonId, string FullName, string? DisplayName, bool IsOwner, string? PhoneNumber, string? InvitationStatus, string? ProfileImageUrl, string? Birthday, Guid? LinkedUserId = null, Guid? RoleId = null, string? RoleName = null);
 
 public record GetGroupTypesQuery(Guid SpaceId) : IRequest<List<GroupTypeDto>>;
 
@@ -90,12 +90,36 @@ public class GetGroupMembersQueryHandler : IRequestHandler<GetGroupMembersQuery,
             .Where(p => personIds.Contains(p.Id))
             .ToDictionaryAsync(p => p.Id, ct);
 
+        // Load group-scoped role assignments for this group
+        var roleAssignments = await _db.PersonRoleAssignments.AsNoTracking()
+            .Where(a => a.GroupId == req.GroupId && personIds.Contains(a.PersonId))
+            .ToListAsync(ct);
+
+        // Load role names for the assigned roles
+        var roleIds = roleAssignments.Select(a => a.RoleId).Distinct().ToList();
+        var roles = roleIds.Any()
+            ? await _db.SpaceRoles.AsNoTracking()
+                .Where(r => roleIds.Contains(r.Id))
+                .ToDictionaryAsync(r => r.Id, r => r.Name, ct)
+            : new Dictionary<Guid, string>();
+
+        // Map person → role (one role per person per group)
+        var personRoleMap = roleAssignments
+            .GroupBy(a => a.PersonId)
+            .ToDictionary(g => g.Key, g => g.First());
+
         return memberships
             .Where(m => people.ContainsKey(m.PersonId))
             .OrderBy(m => people[m.PersonId].FullName)
             .Select(m => {
                 var p = people[m.PersonId];
-                return new GroupMemberDto(p.Id, p.FullName, p.DisplayName, m.IsOwner, p.PhoneNumber, p.InvitationStatus ?? "accepted", p.ProfileImageUrl, p.Birthday?.ToString("yyyy-MM-dd"), p.LinkedUserId);
+                personRoleMap.TryGetValue(m.PersonId, out var assignment);
+                var roleName = assignment is not null && roles.TryGetValue(assignment.RoleId, out var rn) ? rn : null;
+                return new GroupMemberDto(
+                    p.Id, p.FullName, p.DisplayName, m.IsOwner, p.PhoneNumber,
+                    p.InvitationStatus ?? "accepted", p.ProfileImageUrl,
+                    p.Birthday?.ToString("yyyy-MM-dd"), p.LinkedUserId,
+                    assignment?.RoleId, roleName);
             })
             .ToList();
     }

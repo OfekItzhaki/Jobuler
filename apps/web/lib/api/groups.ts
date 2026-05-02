@@ -45,6 +45,8 @@ export interface GroupMemberDto {
   profileImageUrl: string | null;
   birthday: string | null;
   linkedUserId: string | null;
+  roleId: string | null;
+  roleName: string | null;
 }
 
 export interface DeletedGroupDto {
@@ -200,6 +202,7 @@ export interface GroupRoleDto {
   name: string;
   description: string | null;
   isActive: boolean;
+  isDefault: boolean;
   permissionLevel: "View" | "ViewAndEdit" | "Owner";
 }
 
@@ -232,6 +235,15 @@ export async function deactivateGroupRole(
   roleId: string
 ): Promise<void> {
   await apiClient.delete(`/spaces/${spaceId}/groups/${groupId}/roles/${roleId}`);
+}
+
+export async function updateMemberRole(
+  spaceId: string,
+  groupId: string,
+  personId: string,
+  roleId: string | null
+): Promise<void> {
+  await apiClient.patch(`/spaces/${spaceId}/groups/${groupId}/members/${personId}/role`, { roleId });
 }
 
 // ── Live Status ───────────────────────────────────────────────────────────────

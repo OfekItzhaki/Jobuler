@@ -96,6 +96,7 @@ public class GetGroupAlertsQueryHandler : IRequestHandler<GetGroupAlertsQuery, L
 
     public async Task<List<GroupAlertDto>> Handle(GetGroupAlertsQuery req, CancellationToken ct)
     {
+        // Allow access if the user is a group member OR a space admin
         var isMember = await _db.GroupMemberships
             .Join(_db.People, m => m.PersonId, p => p.Id, (m, p) => new { m, p })
             .AnyAsync(x => x.m.GroupId == req.GroupId
@@ -103,7 +104,17 @@ public class GetGroupAlertsQueryHandler : IRequestHandler<GetGroupAlertsQuery, L
                         && x.p.LinkedUserId == req.RequestingUserId, ct);
 
         if (!isMember)
-            throw new UnauthorizedAccessException("You are not a member of this group.");
+        {
+            // Fall back to space admin check
+            var isSpaceAdmin = await _db.SpacePermissionGrants
+                .AnyAsync(g => g.SpaceId == req.SpaceId
+                            && g.UserId == req.RequestingUserId
+                            && g.PermissionKey == Permissions.SpaceAdminMode
+                            && g.RevokedAt == null, ct);
+
+            if (!isSpaceAdmin)
+                throw new UnauthorizedAccessException("You are not a member of this group.");
+        }
 
         var alerts = await _db.GroupAlerts.AsNoTracking()
             .Where(a => a.GroupId == req.GroupId && a.SpaceId == req.SpaceId)

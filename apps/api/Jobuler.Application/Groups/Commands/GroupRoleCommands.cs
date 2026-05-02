@@ -1,4 +1,5 @@
 using Jobuler.Application.Common;
+using Jobuler.Domain.Groups;
 using Jobuler.Domain.Spaces;
 using Jobuler.Infrastructure.Persistence;
 using MediatR;
@@ -7,7 +8,7 @@ namespace Jobuler.Application.Groups.Commands;
 
 // ── DTOs ─────────────────────────────────────────────────────────────────────
 
-public record GroupRoleDto(Guid Id, string Name, string? Description, bool IsActive, string PermissionLevel);
+public record GroupRoleDto(Guid Id, string Name, string? Description, bool IsActive, string PermissionLevel, bool IsDefault = false);
 
 // ── Create ────────────────────────────────────────────────────────────────────
 
@@ -128,6 +129,78 @@ public class DeactivateGroupRoleCommandHandler : IRequestHandler<DeactivateGroup
             ?? throw new KeyNotFoundException("Role not found in this group.");
 
         role.Deactivate();
+        await _db.SaveChangesAsync(ct);
+    }
+}
+
+// ── Assign / Update member role ───────────────────────────────────────────────
+
+/// <summary>
+/// Assigns or replaces a member's role within a group.
+/// Only the group owner may call this.
+/// Pass RoleId = null to remove the member's current role assignment.
+/// </summary>
+public record UpdateMemberRoleCommand(
+    Guid SpaceId,
+    Guid GroupId,
+    Guid PersonId,
+    Guid? RoleId,
+    Guid RequestingUserId) : IRequest;
+
+public class UpdateMemberRoleCommandHandler : IRequestHandler<UpdateMemberRoleCommand>
+{
+    private readonly AppDbContext _db;
+    private readonly IPermissionService _permissions;
+
+    public UpdateMemberRoleCommandHandler(AppDbContext db, IPermissionService permissions)
+    {
+        _db = db;
+        _permissions = permissions;
+    }
+
+    public async Task Handle(UpdateMemberRoleCommand req, CancellationToken ct)
+    {
+        await _permissions.RequirePermissionAsync(req.RequestingUserId, req.SpaceId, Permissions.PeopleManage, ct);
+
+        // Only the group owner may assign roles
+        var requestingPerson = await _db.People.AsNoTracking()
+            .FirstOrDefaultAsync(p => p.SpaceId == req.SpaceId && p.LinkedUserId == req.RequestingUserId, ct);
+
+        var isGroupOwner = requestingPerson is not null && await _db.GroupMemberships.AsNoTracking()
+            .AnyAsync(m => m.GroupId == req.GroupId && m.PersonId == requestingPerson.Id && m.IsOwner, ct);
+
+        if (!isGroupOwner)
+            throw new UnauthorizedAccessException("Only the group owner can assign or change member roles.");
+
+        // Verify the target person is a member of this group
+        var membershipExists = await _db.GroupMemberships.AsNoTracking()
+            .AnyAsync(m => m.GroupId == req.GroupId && m.PersonId == req.PersonId && m.SpaceId == req.SpaceId, ct);
+        if (!membershipExists)
+            throw new KeyNotFoundException("Person is not a member of this group.");
+
+        // Validate the new role belongs to this group (if provided)
+        if (req.RoleId.HasValue)
+        {
+            var roleExists = await _db.SpaceRoles.AsNoTracking()
+                .AnyAsync(r => r.Id == req.RoleId.Value
+                    && r.SpaceId == req.SpaceId
+                    && r.GroupId == req.GroupId
+                    && r.IsActive, ct);
+            if (!roleExists)
+                throw new KeyNotFoundException("Role not found in this group.");
+        }
+
+        // Remove all existing group-scoped role assignments for this person in this group
+        var existing = await _db.PersonRoleAssignments
+            .Where(a => a.PersonId == req.PersonId && a.GroupId == req.GroupId)
+            .ToListAsync(ct);
+        _db.PersonRoleAssignments.RemoveRange(existing);
+
+        // Assign the new role (if not null)
+        if (req.RoleId.HasValue)
+            _db.PersonRoleAssignments.Add(
+                PersonRoleAssignment.Create(req.SpaceId, req.PersonId, req.RoleId.Value, req.GroupId));
+
         await _db.SaveChangesAsync(ct);
     }
 }
