@@ -30,11 +30,15 @@ interface Props {
 const DAY_NAMES = ["ראשון", "שני", "שלישי", "רביעי", "חמישי", "שישי", "שבת"];
 
 function getWeekDates(anchor: string): string[] {
-  const start = new Date(anchor + "T00:00:00");
-  start.setDate(start.getDate() - start.getDay());
+  // Parse as UTC to avoid timezone shifting the date
+  const parts = anchor.split("-").map(Number);
+  const start = new Date(Date.UTC(parts[0], parts[1] - 1, parts[2]));
+  // Go back to Sunday
+  const day = start.getUTCDay();
+  start.setUTCDate(start.getUTCDate() - day);
   return Array.from({ length: 7 }, (_, i) => {
     const d = new Date(start);
-    d.setDate(start.getDate() + i);
+    d.setUTCDate(start.getUTCDate() + i);
     return d.toISOString().split("T")[0];
   });
 }
@@ -53,7 +57,7 @@ export default function DraftScheduleModal({
 
   const today = new Date().toISOString().split("T")[0];
   const [weekAnchor, setWeekAnchor] = useState(today);
-  const [selectedDay, setSelectedDay] = useState(new Date().getDay());
+  const [selectedDay, setSelectedDay] = useState(new Date().getUTCDay());
 
   useEffect(() => {
     if (!open || !draftVersionId) return;
@@ -81,10 +85,11 @@ export default function DraftScheduleModal({
           const firstDate = filtered.map(a => a.slotStartsAt.split("T")[0]).sort()[0];
           if (firstDate) {
             setWeekAnchor(firstDate);
-            setSelectedDay(new Date(firstDate + "T00:00:00").getDay());
+            // Use UTC day to avoid timezone shifting
+            const parts = firstDate.split("-").map(Number);
+            setSelectedDay(new Date(Date.UTC(parts[0], parts[1] - 1, parts[2])).getUTCDay());
           }
-        }
-      })
+        }      })
       .catch(() => setError("שגיאה בטעינת הטיוטה"))
       .finally(() => setLoading(false));
   }, [open, draftVersionId, spaceId]);
@@ -114,13 +119,15 @@ export default function DraftScheduleModal({
     : "";
 
   function prevWeek() {
-    const d = new Date(weekAnchor + "T00:00:00");
-    d.setDate(d.getDate() - 7);
+    const parts = weekAnchor.split("-").map(Number);
+    const d = new Date(Date.UTC(parts[0], parts[1] - 1, parts[2]));
+    d.setUTCDate(d.getUTCDate() - 7);
     setWeekAnchor(d.toISOString().split("T")[0]);
   }
   function nextWeek() {
-    const d = new Date(weekAnchor + "T00:00:00");
-    d.setDate(d.getDate() + 7);
+    const parts = weekAnchor.split("-").map(Number);
+    const d = new Date(Date.UTC(parts[0], parts[1] - 1, parts[2]));
+    d.setUTCDate(d.getUTCDate() + 7);
     setWeekAnchor(d.toISOString().split("T")[0]);
   }
 
