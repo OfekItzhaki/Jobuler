@@ -813,7 +813,7 @@ export default function GroupDetailPage() {
     try {
       const res = await apiClient.post<{ runId: string }>(
         `/spaces/${currentSpaceId}/schedule-runs/trigger`,
-        { triggerMode: "standard" }
+        { triggerMode: "standard", groupId }
       );
       const runId = res.data.runId;
 

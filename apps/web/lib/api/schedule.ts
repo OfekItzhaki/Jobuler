@@ -54,8 +54,8 @@ export async function getVersionDetail(spaceId: string, versionId: string): Prom
   return data;
 }
 
-export async function triggerSolve(spaceId: string, triggerMode = "standard"): Promise<{ runId: string }> {
-  const { data } = await apiClient.post(`/spaces/${spaceId}/schedule-runs/trigger`, { triggerMode });
+export async function triggerSolve(spaceId: string, triggerMode = "standard", groupId?: string): Promise<{ runId: string }> {
+  const { data } = await apiClient.post(`/spaces/${spaceId}/schedule-runs/trigger`, { triggerMode, groupId });
   return data;
 }
 

@@ -29,6 +29,7 @@ public class ScheduleRunsController : ControllerBase
     /// <summary>
     /// Trigger a solver run. Returns the RunId immediately — solve happens asynchronously.
     /// Poll GET /schedule-runs/{runId} to check status.
+    /// When groupId is provided, the solver only schedules that group's members and tasks.
     /// </summary>
     [HttpPost("trigger")]
     public async Task<IActionResult> Trigger(
@@ -38,7 +39,7 @@ public class ScheduleRunsController : ControllerBase
             CurrentUserId, spaceId, Permissions.ScheduleRecalculate, ct);
 
         var runId = await _mediator.Send(
-            new TriggerSolverCommand(spaceId, req.TriggerMode ?? "standard", CurrentUserId), ct);
+            new TriggerSolverCommand(spaceId, req.TriggerMode ?? "standard", CurrentUserId, req.GroupId), ct);
 
         return Accepted(new { runId });
     }
@@ -53,4 +54,4 @@ public class ScheduleRunsController : ControllerBase
     }
 }
 
-public record TriggerSolverRequest(string? TriggerMode);
+public record TriggerSolverRequest(string? TriggerMode, Guid? GroupId = null);

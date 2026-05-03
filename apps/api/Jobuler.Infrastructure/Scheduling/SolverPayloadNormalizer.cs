@@ -25,7 +25,7 @@ public class SolverPayloadNormalizer : ISolverPayloadNormalizer
 
     public async Task<SolverInputDto> BuildAsync(
         Guid spaceId, Guid runId, string triggerMode,
-        Guid? baselineVersionId, CancellationToken ct = default)
+        Guid? baselineVersionId, Guid? groupId = null, CancellationToken ct = default)
     {
         // Set PostgreSQL session variable so RLS policies allow queries on this space
         // Skip when using an in-memory provider (e.g. unit/integration tests).
@@ -39,18 +39,41 @@ public class SolverPayloadNormalizer : ISolverPayloadNormalizer
         var today = DateOnly.FromDateTime(DateTime.UtcNow);
         var horizonStart = today;
 
-        // Use the maximum solver horizon across all groups in this space,
-        // capped at 7 days to keep the CP-SAT model tractable.
-        var maxHorizon = await _db.Groups.AsNoTracking()
-            .Where(g => g.SpaceId == spaceId && g.DeletedAt == null)
-            .MaxAsync(g => (int?)g.SolverHorizonDays, ct) ?? 7;
+        // Use the solver horizon for the specific group (if scoped), otherwise max across all groups.
+        // Capped at 7 days to keep the CP-SAT model tractable.
+        int maxHorizon;
+        if (groupId.HasValue)
+        {
+            maxHorizon = await _db.Groups.AsNoTracking()
+                .Where(g => g.Id == groupId.Value && g.SpaceId == spaceId && g.DeletedAt == null)
+                .Select(g => (int?)g.SolverHorizonDays)
+                .FirstOrDefaultAsync(ct) ?? 7;
+        }
+        else
+        {
+            maxHorizon = await _db.Groups.AsNoTracking()
+                .Where(g => g.SpaceId == spaceId && g.DeletedAt == null)
+                .MaxAsync(g => (int?)g.SolverHorizonDays, ct) ?? 7;
+        }
         maxHorizon = Math.Min(maxHorizon, 7); // hard cap
 
         var horizonEnd = today.AddDays(maxHorizon - 1); // inclusive
 
         // ── People eligibility ────────────────────────────────────────────────
+        // When group-scoped, only include members of that group.
+        HashSet<Guid>? groupMemberIdSet = null;
+        if (groupId.HasValue)
+        {
+            var memberIds = await _db.GroupMemberships.AsNoTracking()
+                .Where(m => m.GroupId == groupId.Value && m.SpaceId == spaceId)
+                .Select(m => m.PersonId)
+                .ToListAsync(ct);
+            groupMemberIdSet = memberIds.ToHashSet();
+        }
+
         var people = await _db.People.AsNoTracking()
-            .Where(p => p.SpaceId == spaceId && p.IsActive)
+            .Where(p => p.SpaceId == spaceId && p.IsActive
+                && (groupMemberIdSet == null || groupMemberIdSet.Contains(p.Id)))
             .ToListAsync(ct);
 
         var roleAssignments = await _db.PersonRoleAssignments.AsNoTracking()
@@ -133,10 +156,12 @@ public class SolverPayloadNormalizer : ISolverPayloadNormalizer
         // Each GroupTask defines a window + shift duration. Expand into individual
         // shift slots so the solver assigns people to specific time windows.
         // Use the full solver horizon (up to 7 days) so 24/7 tasks are fully covered.
+        // When group-scoped, only include tasks belonging to that group.
         var groupTasks = await _db.GroupTasks.AsNoTracking()
             .Where(t => t.SpaceId == spaceId
                 && t.IsActive
-                && t.StartsAt <= horizonEndDt)  // task must start before the horizon ends
+                && t.StartsAt <= horizonEndDt
+                && (groupId == null || t.GroupId == groupId.Value))
             .ToListAsync(ct);
 
         foreach (var task in groupTasks)
@@ -214,10 +239,17 @@ public class SolverPayloadNormalizer : ISolverPayloadNormalizer
         // ── Constraints ───────────────────────────────────────────────────────
         // Filter by effective date window: exclude constraints that have expired
         // before the horizon starts, or haven't started yet by the horizon end.
+        // When group-scoped, include space-level constraints + constraints scoped to this group.
         var constraints = await _db.ConstraintRules.AsNoTracking()
             .Where(c => c.SpaceId == spaceId && c.IsActive
                 && (c.EffectiveUntil == null || c.EffectiveUntil >= horizonStart)
-                && (c.EffectiveFrom == null || c.EffectiveFrom <= horizonEnd))
+                && (c.EffectiveFrom == null || c.EffectiveFrom <= horizonEnd)
+                && (groupId == null
+                    || c.ScopeType == ConstraintScopeType.Space
+                    || c.ScopeType == ConstraintScopeType.Person
+                    || c.ScopeType == ConstraintScopeType.Role
+                    || (c.ScopeType == ConstraintScopeType.Group && c.ScopeId == groupId)
+                    || c.ScopeType == ConstraintScopeType.TaskType))
             .ToListAsync(ct);
 
         var hardConstraints = constraints
@@ -289,8 +321,8 @@ public class SolverPayloadNormalizer : ISolverPayloadNormalizer
         var locale = space?.Locale ?? "en";
 
         _logger.LogInformation(
-            "Solver payload built: people={People} slots={Slots} hard={Hard} soft={Soft} horizon={Start}→{End}",
-            peopleDto.Count, slotsDto.Count, hardConstraints.Count, softConstraints.Count,
+            "Solver payload built: group={Group} people={People} slots={Slots} hard={Hard} soft={Soft} horizon={Start}→{End}",
+            groupId?.ToString() ?? "all", peopleDto.Count, slotsDto.Count, hardConstraints.Count, softConstraints.Count,
             horizonStart, horizonEnd);
 
         return new SolverInputDto(

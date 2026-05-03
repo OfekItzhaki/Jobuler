@@ -9,7 +9,8 @@ namespace Jobuler.Application.Scheduling.Commands;
 public record TriggerSolverCommand(
     Guid SpaceId,
     string TriggerMode,        // standard | emergency
-    Guid? RequestedByUserId) : IRequest<Guid>;  // null = system/auto-triggered
+    Guid? RequestedByUserId,
+    Guid? GroupId = null) : IRequest<Guid>;
 
 public class TriggerSolverCommandHandler : IRequestHandler<TriggerSolverCommand, Guid>
 {
@@ -54,7 +55,7 @@ public class TriggerSolverCommandHandler : IRequestHandler<TriggerSolverCommand,
         // Enqueue — worker picks it up asynchronously
         await _queue.EnqueueAsync(new SolverJobMessage(
             run.Id, request.SpaceId, request.TriggerMode,
-            baseline?.Id, request.RequestedByUserId), ct);
+            baseline?.Id, request.RequestedByUserId, request.GroupId), ct);
 
         return run.Id;
     }
