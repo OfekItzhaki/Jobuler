@@ -37,7 +37,7 @@ const nextConfig = {
     NEXT_PUBLIC_APP_VERSION: version,
   },
   experimental: {
-    optimizeCss: true,
+    // optimizeCss causes CSS preload warnings in dev mode — disabled
   },
   async headers() {
     return [
