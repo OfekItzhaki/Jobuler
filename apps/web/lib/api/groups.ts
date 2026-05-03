@@ -246,6 +246,24 @@ export async function updateMemberRole(
   await apiClient.patch(`/spaces/${spaceId}/groups/${groupId}/members/${personId}/role`, { roleId });
 }
 
+export interface GroupScheduleAssignmentDto {
+  id: string;
+  personId: string;
+  personName: string;
+  taskTypeName: string;
+  slotStartsAt: string;
+  slotEndsAt: string;
+  source: string;
+}
+
+export async function getGroupSchedule(
+  spaceId: string,
+  groupId: string
+): Promise<GroupScheduleAssignmentDto[]> {
+  const { data } = await apiClient.get(`/spaces/${spaceId}/groups/${groupId}/schedule`);
+  return data as GroupScheduleAssignmentDto[];
+}
+
 // ── Live Status ───────────────────────────────────────────────────────────────
 
 export interface MemberLiveStatusDto {

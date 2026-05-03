@@ -29,6 +29,7 @@ import {
   updatePersonInfo,
   getGroupRoles, createGroupRole, updateGroupRole, deactivateGroupRole,
   updateMemberRole,
+  getGroupSchedule,
 } from "@/lib/api/groups";
 import { getAvatarColor, getAvatarLetter } from "@/lib/utils/groupAvatar";
 import { listGroupTasks, createGroupTask, updateGroupTask, deleteGroupTask, GroupTaskDto } from "@/lib/api/tasks";
@@ -234,30 +235,25 @@ export default function GroupDetailPage() {
     if (!currentSpaceId || !groupId || activeTab !== "schedule") return;
     setScheduleLoading(true);
     setScheduleError(null);
-    // The schedule is space-level, not group-level.
-    // GET /spaces/{id}/schedule-versions/current returns the published version (404 if none).
-    // GET /spaces/{id}/schedule-versions?status=draft returns any pending draft.
+    // Schedule is GROUP-scoped. Each group is independent — "IDF platoon" and
+    // "downtown restaurant" share a space but have completely separate schedules.
+    // GET /spaces/{id}/groups/{groupId}/schedule → assignments for THIS group only.
+    // Draft/publish management still uses space-level schedule-versions endpoints.
     Promise.all([
-      apiClient.get<{ version: { id: string; status: string }; assignments: ScheduleAssignment[] }>(
-        `/spaces/${currentSpaceId}/schedule-versions/current`
-      ).catch(() => null),
+      getGroupSchedule(currentSpaceId, groupId).catch(() => null),
       apiClient.get<Array<{ id: string; status: string; summaryJson?: string | null }>>(
         `/spaces/${currentSpaceId}/schedule-versions?status=draft`
       ).catch(() => ({ data: [] as Array<{ id: string; status: string; summaryJson?: string | null }> })),
-      // Also fetch the most recent discarded version to show infeasibility reason
       apiClient.get<Array<{ id: string; status: string; summaryJson?: string | null }>>(
         `/spaces/${currentSpaceId}/schedule-versions?status=discarded`
       ).catch(() => ({ data: [] as Array<{ id: string; status: string; summaryJson?: string | null }> })),
-    ]).then(([currentRes, draftRes, discardedRes]) => {
-      const allAssignments = currentRes?.data?.assignments ?? [];
-      setScheduleData(allAssignments);
+    ]).then(([groupAssignments, draftRes, discardedRes]) => {
+      setScheduleData(groupAssignments ?? []);
       const drafts = Array.isArray(draftRes?.data) ? draftRes.data : [];
       setDraftVersion(drafts.length > 0 ? drafts[0] : null);
-      // Show infeasibility reason from most recent discarded version (if no draft)
       if (drafts.length === 0) {
         const discarded = Array.isArray(discardedRes?.data) ? discardedRes.data : [];
-        const latest = discarded[0];
-        setLastRunSummary(latest?.summaryJson ?? null);
+        setLastRunSummary(discarded[0]?.summaryJson ?? null);
       } else {
         setLastRunSummary(null);
       }
@@ -1029,8 +1025,6 @@ export default function GroupDetailPage() {
               discardSaving={discardSaving}
               scheduleVersionError={scheduleVersionError}
               currentUserName={displayName ?? undefined}
-              memberIds={members.length > 0 ? new Set(members.map(m => m.personId)) : undefined}
-              membersLoading={membersLoading}
               onOpenDraftModal={() => setShowDraftModal(true)}
               onPublish={handlePublish}
               onDiscard={handleDiscard}

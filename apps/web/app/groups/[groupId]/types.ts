@@ -7,11 +7,13 @@ export type ActiveTab = "schedule" | "members" | "alerts" | "messages" | "tasks"
 export const ADMIN_ONLY_TABS: ActiveTab[] = ["tasks", "constraints", "settings", "stats"];
 
 export interface ScheduleAssignment {
+  id: string;
   personId: string;
   personName: string;
   taskTypeName: string;
   slotStartsAt: string;
   slotEndsAt: string;
+  source: string;
 }
 
 export const burdenLabels: Record<string, string> = {
