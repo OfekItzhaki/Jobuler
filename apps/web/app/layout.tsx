@@ -11,9 +11,9 @@ export const metadata: Metadata = {
   title: "Shifter",
   description: "Smart Shift Scheduling",
   icons: {
-    icon: "/favicon.jpeg",
-    shortcut: "/favicon.jpeg",
-    apple: "/favicon.jpeg",
+    icon: "/favicon.svg",
+    shortcut: "/favicon.svg",
+    apple: "/favicon.svg",
   },
 };
 
