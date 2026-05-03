@@ -24,11 +24,11 @@ export default function ForgotPasswordPage() {
         <div style={{ display: "flex", justifyContent: "center", marginBottom: "2rem" }}>
           <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
             <div style={{ width: 40, height: 40, borderRadius: 10, background: "#3b82f6", display: "flex", alignItems: "center", justifyContent: "center" }}>
-              <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="white" strokeWidth={2.5}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
+              <svg width="20" height="20" fill="none" viewBox="0 0 32 32" stroke="white" strokeWidth={2.5}>
+                <path strokeLinecap="round" d="M9 12 C9 9.5 11 8 15 8 C19 8 21 9.5 21 12 C21 14.5 19 15 15 15 C11 15 9 16.5 9 19 C9 21.5 11 23 15 23 C19 23 21 21.5 21 19" />
               </svg>
             </div>
-            <span style={{ fontSize: "1.5rem", fontWeight: 700, color: "#0f172a" }}>Jobuler</span>
+            <span style={{ fontSize: "1.5rem", fontWeight: 700, color: "#0f172a" }}>Shifter</span>
           </div>
         </div>
 
@@ -79,3 +79,4 @@ export default function ForgotPasswordPage() {
     </main>
   );
 }
+

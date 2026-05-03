@@ -1,9 +1,9 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 64" fill="none">
-  <!-- Icon mark: blue rounded square with lightning bolt -->
+  <!-- Icon mark: blue rounded square with S letterform -->
   <rect width="64" height="64" rx="14" fill="#3b82f6"/>
-  <!-- Lightning bolt centered in the square -->
-  <path d="M37 8L22 36h14l-7 20L50 28H36L37 8z"
-        fill="white" stroke="white" stroke-width="0.5" stroke-linejoin="round"/>
+  <!-- S letterform centered in the square -->
+  <path d="M20 28 C20 22 24 19 32 19 C40 19 44 22 44 28 C44 34 40 35 32 35 C24 35 20 38 20 44 C20 50 24 53 32 53 C40 53 44 50 44 44"
+        stroke="white" stroke-width="4" stroke-linecap="round" fill="none"/>
 
   <!-- Wordmark: "Shifter" -->
   <text x="80" y="44"
