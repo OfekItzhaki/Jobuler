@@ -1263,6 +1263,7 @@ export default function GroupDetailPage() {
           onClose={() => setShowDraftModal(false)}
           spaceId={currentSpaceId}
           draftVersionId={draftVersion.id}
+          groupMemberIds={new Set(members.map(m => m.personId))}
           isAdmin={isAdmin}
           onPublish={async () => { await handlePublish(); setShowDraftModal(false); }}
           onDiscard={async () => { await handleDiscard(); setShowDraftModal(false); }}

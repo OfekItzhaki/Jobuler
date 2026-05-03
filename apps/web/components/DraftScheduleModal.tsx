@@ -5,6 +5,7 @@ import { apiClient } from "@/lib/api/client";
 import { useDateFormat } from "@/lib/hooks/useDateFormat";
 
 interface Assignment {
+  personId: string;
   personName: string;
   taskTypeName: string;
   startsAt: string;
@@ -16,6 +17,8 @@ interface Props {
   onClose: () => void;
   spaceId: string;
   draftVersionId: string;
+  /** Set of personIds belonging to this group — filters out cross-group assignments */
+  groupMemberIds: Set<string>;
   isAdmin: boolean;
   onPublish: () => Promise<void>;
   onDiscard: () => Promise<void>;
@@ -23,7 +26,7 @@ interface Props {
 }
 
 export default function DraftScheduleModal({
-  open, onClose, spaceId, draftVersionId,
+  open, onClose, spaceId, draftVersionId, groupMemberIds,
   isAdmin, onPublish, onDiscard, onRunAgain,
 }: Props) {
   const [assignments, setAssignments] = useState<Assignment[]>([]);
@@ -41,12 +44,18 @@ export default function DraftScheduleModal({
     apiClient.get(`/spaces/${spaceId}/schedule-versions/${draftVersionId}`)
       .then(r => {
         const detail = r.data;
-        setAssignments((detail.assignments ?? []).map((a: any) => ({
+        const allAssignments = (detail.assignments ?? []).map((a: any) => ({
+          personId: a.personId,
           personName: a.personName,
           taskTypeName: a.taskTypeName,
           startsAt: a.slotStartsAt,
           endsAt: a.slotEndsAt,
-        })));
+        }));
+        // Filter to only this group's members — draft is space-wide
+        const filtered = groupMemberIds.size > 0
+          ? allAssignments.filter((a: Assignment) => groupMemberIds.has(a.personId))
+          : allAssignments;
+        setAssignments(filtered);
       })
       .catch(() => setError("שגיאה בטעינת הטיוטה"))
       .finally(() => setLoading(false));
