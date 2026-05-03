@@ -236,20 +236,9 @@ export default function GroupDetailPage() {
     setScheduleLoading(true);
     setScheduleError(null);
 
-    // ── Offline-first: show cached schedule immediately while fetching ────
     const cacheKey = `schedule:${currentSpaceId}:${groupId}`;
-    try {
-      const cached = localStorage.getItem(cacheKey);
-      if (cached) {
-        const { assignments: cachedAssignments } = JSON.parse(cached);
-        if (Array.isArray(cachedAssignments)) {
-          setScheduleData(cachedAssignments);
-          setScheduleLoading(false); // show cached immediately
-        }
-      }
-    } catch { /* ignore parse errors */ }
 
-    // Schedule is GROUP-scoped. Each group is independent.
+    // Try to fetch fresh data first. Only fall back to cache if offline/network error.
     Promise.all([
       getGroupSchedule(currentSpaceId, groupId).catch(() => null),
       apiClient.get<Array<{ id: string; status: string; summaryJson?: string | null }>>(
@@ -259,16 +248,38 @@ export default function GroupDetailPage() {
         `/spaces/${currentSpaceId}/schedule-versions?status=discarded`
       ).catch(() => ({ data: [] as Array<{ id: string; status: string; summaryJson?: string | null }> })),
     ]).then(([groupAssignments, draftRes, discardedRes]) => {
-      const assignments = groupAssignments ?? [];
-      setScheduleData(assignments);
-
-      // Cache the fresh schedule for offline use
-      try {
-        localStorage.setItem(cacheKey, JSON.stringify({
-          assignments,
-          cachedAt: new Date().toISOString(),
-        }));
-      } catch { /* storage full or unavailable */ }
+      if (groupAssignments !== null) {
+        // Fresh data — update display and cache
+        setScheduleData(groupAssignments);
+        setScheduleError(null);
+        try {
+          localStorage.setItem(cacheKey, JSON.stringify({
+            assignments: groupAssignments,
+            cachedAt: new Date().toISOString(),
+          }));
+        } catch { /* storage full */ }
+      } else {
+        // Network failed — try cache
+        try {
+          const cached = localStorage.getItem(cacheKey);
+          if (cached) {
+            const { assignments: cachedAssignments, cachedAt } = JSON.parse(cached);
+            if (Array.isArray(cachedAssignments)) {
+              setScheduleData(cachedAssignments);
+              const cachedDate = cachedAt
+                ? new Date(cachedAt).toLocaleDateString("he-IL", { day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" })
+                : "";
+              setScheduleError(`אין חיבור לאינטרנט — מציג סידור שמור מ-${cachedDate}`);
+            } else {
+              setScheduleError("אין חיבור לאינטרנט ואין סידור שמור");
+            }
+          } else {
+            setScheduleError("אין חיבור לאינטרנט ואין סידור שמור");
+          }
+        } catch {
+          setScheduleError("שגיאה בטעינת הסידור");
+        }
+      }
 
       const drafts = Array.isArray(draftRes?.data) ? draftRes.data : [];
       setDraftVersion(drafts.length > 0 ? drafts[0] : null);
@@ -280,8 +291,26 @@ export default function GroupDetailPage() {
       }
     })
     .catch(() => {
-      // Network failed — keep showing cached data, just clear the loading state
-      setScheduleError(null); // don't show error if we have cached data
+      // Full failure — try cache
+      try {
+        const cached = localStorage.getItem(cacheKey);
+        if (cached) {
+          const { assignments: cachedAssignments, cachedAt } = JSON.parse(cached);
+          if (Array.isArray(cachedAssignments)) {
+            setScheduleData(cachedAssignments);
+            const cachedDate = cachedAt
+              ? new Date(cachedAt).toLocaleDateString("he-IL", { day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" })
+              : "";
+            setScheduleError(`אין חיבור לאינטרנט — מציג סידור שמור מ-${cachedDate}`);
+          } else {
+            setScheduleError("שגיאה בטעינת הסידור");
+          }
+        } else {
+          setScheduleError("שגיאה בטעינת הסידור");
+        }
+      } catch {
+        setScheduleError("שגיאה בטעינת הסידור");
+      }
     })
     .finally(() => setScheduleLoading(false));
   }, [currentSpaceId, groupId, activeTab]);

@@ -89,15 +89,60 @@ export default function ScheduleTab({
 
   function exportCSV() {
     if (!scheduleData || scheduleData.length === 0) return;
-    const rows = [
-      ["שם", "משימה", "התחלה", "סיום"],
-      ...scheduleData.map(a => [
-        a.personName,
-        a.taskTypeName,
-        new Date(a.slotStartsAt).toLocaleString("he-IL"),
-        new Date(a.slotEndsAt).toLocaleString("he-IL"),
-      ])
-    ];
+
+    // Group by task type, then by date within each task
+    const byTask = new Map<string, typeof scheduleData>();
+    for (const a of scheduleData) {
+      const list = byTask.get(a.taskTypeName) ?? [];
+      list.push(a);
+      byTask.set(a.taskTypeName, list);
+    }
+
+    const rows: string[][] = [];
+    const taskNames = Array.from(byTask.keys()).sort();
+
+    for (const taskName of taskNames) {
+      const taskAssignments = byTask.get(taskName)!;
+
+      // Task header
+      rows.push([taskName]);
+      rows.push(["תאריך", "שעת התחלה", "שעת סיום", "ממונה 1", "ממונה 2", "ממונה 3"]);
+
+      // Group by slot key
+      const slotMap = new Map<string, { date: string; startTime: string; endTime: string; people: string[] }>();
+      for (const a of taskAssignments) {
+        const key = `${a.slotStartsAt}|${a.slotEndsAt}`;
+        const slot = slotMap.get(key) ?? {
+          date: new Date(a.slotStartsAt).toLocaleDateString("he-IL", { weekday: "long", day: "numeric", month: "long" }),
+          startTime: new Date(a.slotStartsAt).toLocaleTimeString("he-IL", { hour: "2-digit", minute: "2-digit" }),
+          endTime: new Date(a.slotEndsAt).toLocaleTimeString("he-IL", { hour: "2-digit", minute: "2-digit" }),
+          people: [],
+        };
+        slot.people.push(a.personName);
+        slotMap.set(key, slot);
+      }
+
+      const slots = Array.from(slotMap.values())
+        .sort((a, b) => a.date.localeCompare(b.date) || a.startTime.localeCompare(b.startTime));
+
+      let lastDate = "";
+      for (const slot of slots) {
+        const dateCell = slot.date !== lastDate ? slot.date : "";
+        lastDate = slot.date;
+        rows.push([
+          dateCell,
+          slot.startTime,
+          slot.endTime,
+          slot.people[0] ?? "",
+          slot.people[1] ?? "",
+          slot.people[2] ?? "",
+        ]);
+      }
+
+      // Empty separator row between tasks
+      rows.push([]);
+    }
+
     const csv = rows.map(r => r.map(c => `"${c}"`).join(",")).join("\n");
     const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
@@ -269,10 +314,24 @@ export default function ScheduleTab({
           טוען...
         </div>
       )}
-      {scheduleError && <p className="text-sm text-red-600 py-4">{scheduleError}</p>}
+      {scheduleError && (
+        <div className={`flex items-center gap-2 px-4 py-3 rounded-xl text-sm border ${
+          scheduleError.includes("אין חיבור")
+            ? "bg-amber-50 border-amber-200 text-amber-800"
+            : "bg-red-50 border-red-200 text-red-700"
+        }`}>
+          <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            {scheduleError.includes("אין חיבור")
+              ? <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+              : <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            }
+          </svg>
+          {scheduleError}
+        </div>
+      )}
 
-      {/* Per-task schedule tables */}
-      {!scheduleLoading && !scheduleError && (
+      {/* Per-task schedule tables — show even when offline (cached data) */}
+      {!scheduleLoading && (
         <ScheduleTaskTable
           assignments={filtered}
           filterDate={selectedDate}
