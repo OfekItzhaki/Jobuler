@@ -1,6 +1,5 @@
 using Jobuler.Domain.Constraints;
-using Jobuler.Domain.Groups;
-using Jobuler.Domain.Identity;
+using Jobuler.Domain.Groups;using Jobuler.Domain.Identity;
 using Jobuler.Domain.Logs;
 using Jobuler.Domain.Notifications;
 using Jobuler.Domain.People;
@@ -49,6 +48,8 @@ public class AppDbContext : DbContext
     public DbSet<GroupAlert> GroupAlerts => Set<GroupAlert>();
     public DbSet<PendingOwnershipTransfer> PendingOwnershipTransfers => Set<PendingOwnershipTransfer>();
     public DbSet<PersonRoleAssignment> PersonRoleAssignments => Set<PersonRoleAssignment>();
+    public DbSet<GroupQualification> GroupQualifications => Set<GroupQualification>();
+    public DbSet<MemberQualification> MemberQualifications => Set<MemberQualification>();
 
     // Tasks
     public DbSet<TaskType> TaskTypes => Set<TaskType>();

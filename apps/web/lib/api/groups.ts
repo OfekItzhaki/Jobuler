@@ -284,3 +284,50 @@ export async function getGroupLiveStatus(
   );
   return data as MemberLiveStatusDto[];
 }
+
+// ── Qualifications ────────────────────────────────────────────────────────────
+
+export interface GroupQualificationDto {
+  id: string;
+  name: string;
+  description: string | null;
+  isActive: boolean;
+}
+
+export interface MemberQualificationDto {
+  id: string;
+  personId: string;
+  qualificationId: string;
+  qualificationName: string;
+}
+
+export async function getGroupQualifications(spaceId: string, groupId: string): Promise<GroupQualificationDto[]> {
+  const { data } = await apiClient.get(`/spaces/${spaceId}/groups/${groupId}/qualifications`);
+  return data;
+}
+
+export async function createGroupQualification(spaceId: string, groupId: string, name: string, description?: string | null): Promise<{ id: string }> {
+  const { data } = await apiClient.post(`/spaces/${spaceId}/groups/${groupId}/qualifications`, { name, description });
+  return data;
+}
+
+export async function updateGroupQualification(spaceId: string, groupId: string, qualificationId: string, name: string, description?: string | null): Promise<void> {
+  await apiClient.put(`/spaces/${spaceId}/groups/${groupId}/qualifications/${qualificationId}`, { name, description });
+}
+
+export async function deactivateGroupQualification(spaceId: string, groupId: string, qualificationId: string): Promise<void> {
+  await apiClient.delete(`/spaces/${spaceId}/groups/${groupId}/qualifications/${qualificationId}`);
+}
+
+export async function getMemberQualifications(spaceId: string, groupId: string): Promise<MemberQualificationDto[]> {
+  const { data } = await apiClient.get(`/spaces/${spaceId}/groups/${groupId}/qualifications/members`);
+  return data;
+}
+
+export async function assignMemberQualification(spaceId: string, groupId: string, personId: string, qualificationId: string): Promise<void> {
+  await apiClient.post(`/spaces/${spaceId}/groups/${groupId}/qualifications/members/${personId}`, { qualificationId });
+}
+
+export async function removeMemberQualification(spaceId: string, groupId: string, personId: string, qualificationId: string): Promise<void> {
+  await apiClient.delete(`/spaces/${spaceId}/groups/${groupId}/qualifications/members/${personId}/${qualificationId}`);
+}

@@ -1,7 +1,7 @@
 "use client";
 
 import Modal from "@/components/Modal";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import type { GroupTaskDto } from "@/lib/api/tasks";
 import { burdenLabels, burdenColors } from "../types";
 
@@ -41,6 +41,93 @@ interface Props {
 /** Split total minutes into hours + minutes for display */
 function minutesToHM(total: number): { hours: number; mins: number } {
   return { hours: Math.floor(total / 60), mins: total % 60 };
+}
+
+function formatDuration(mins: number): string {
+  const h = Math.floor(mins / 60);
+  const m = mins % 60;
+  if (m === 0) return `${h}ש׳`;
+  return `${h}ש׳ ${m}ד׳`;
+}
+
+/** Sub-shift editor: lets admin split a shift into N equal parts */
+function SubShiftEditor({ totalMinutes, onChange }: { totalMinutes: number; onChange: (mins: number) => void }) {
+  // numSubShifts = how many equal parts the total is divided into
+  // shiftDurationMinutes = totalMinutes / numSubShifts
+  // We infer numSubShifts from the current shiftDurationMinutes
+  // (we store the sub-shift duration, not the count)
+
+  // The "base" total is what the user set as the shift duration before sub-shifts
+  // We track sub-shifts as: if totalMinutes < some threshold, it's already sub-shifted
+  // Simple approach: show sub-shift count as a derived display
+
+  // For the sub-shift UI, we need to know the "original full shift" duration
+  // We'll use a local state to track the original duration
+  const [originalMinutes, setOriginalMinutes] = useState(totalMinutes);
+  const [numSubShifts, setNumSubShifts] = useState(1);
+
+  // Sync when totalMinutes changes externally (e.g. form reset)
+  useEffect(() => {
+    setOriginalMinutes(totalMinutes);
+    setNumSubShifts(1);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // only on mount
+
+  function addSubShift() {
+    const next = numSubShifts + 1;
+    setNumSubShifts(next);
+    onChange(Math.max(1, Math.round(originalMinutes / next)));
+  }
+
+  function removeSubShift() {
+    if (numSubShifts <= 1) return;
+    const next = numSubShifts - 1;
+    setNumSubShifts(next);
+    if (next === 1) {
+      onChange(originalMinutes);
+    } else {
+      onChange(Math.max(1, Math.round(originalMinutes / next)));
+    }
+  }
+
+  if (numSubShifts <= 1 && originalMinutes <= 60) return null; // don't show for very short shifts
+
+  return (
+    <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 space-y-2">
+      <div className="flex items-center justify-between">
+        <div>
+          <p className="text-xs font-semibold text-slate-600">תת-משמרות</p>
+          {numSubShifts > 1 && (
+            <p className="text-xs text-slate-400">
+              {numSubShifts} תת-משמרות × {formatDuration(Math.round(originalMinutes / numSubShifts))} כל אחת
+            </p>
+          )}
+        </div>
+        <div className="flex items-center gap-2">
+          {numSubShifts > 1 && (
+            <button
+              type="button"
+              onClick={removeSubShift}
+              className="w-7 h-7 rounded-lg border border-slate-200 bg-white text-slate-500 hover:bg-red-50 hover:text-red-600 hover:border-red-200 text-sm font-bold transition-colors flex items-center justify-center"
+            >
+              −
+            </button>
+          )}
+          <span className="text-sm font-semibold text-slate-700 min-w-[1.5rem] text-center">{numSubShifts}</span>
+          <button
+            type="button"
+            onClick={addSubShift}
+            className="w-7 h-7 rounded-lg border border-blue-200 bg-blue-50 text-blue-600 hover:bg-blue-100 text-sm font-bold transition-colors flex items-center justify-center"
+          >
+            +
+          </button>
+        </div>
+      </div>
+      {numSubShifts === 1 && (
+        <p className="text-xs text-slate-400">לחץ + להוסיף תת-משמרת ולפצל את המשמרת</p>
+      )}
+    </div>
+  );
 }
 
 export default function TasksTab({
@@ -149,7 +236,7 @@ export default function TasksTab({
           {/* Duration in hours + minutes */}
           <div>
             <label className="block text-xs text-slate-500 mb-1">משך משמרת</label>
-            <div className="space-y-2">
+            <div className="space-y-3">
               <label className="flex items-center gap-2 text-sm text-slate-600 cursor-pointer">
                 <input
                   type="checkbox"
@@ -160,30 +247,38 @@ export default function TasksTab({
                 יום מלא (24 שעות)
               </label>
               {taskForm.shiftDurationMinutes !== 1440 && (
-                <div className="flex items-center gap-2">
-                  <div className="flex items-center gap-1.5">
-                    <input
-                      type="number"
-                      min={0}
-                      value={durHours}
-                      onChange={e => setDuration(Number(e.target.value), durMins)}
-                      className="w-16 border border-slate-200 rounded-xl px-2.5 py-2.5 text-sm text-center focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                    <span className="text-xs text-slate-500">שעות</span>
+                <>
+                  <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-1.5">
+                      <input
+                        type="number"
+                        min={0}
+                        value={durHours}
+                        onChange={e => setDuration(Number(e.target.value), durMins)}
+                        className="w-16 border border-slate-200 rounded-xl px-2.5 py-2.5 text-sm text-center focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                      <span className="text-xs text-slate-500">שעות</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <input
+                        type="number"
+                        min={0}
+                        max={59}
+                        step={5}
+                        value={durMins}
+                        onChange={e => setDuration(durHours, Number(e.target.value))}
+                        className="w-16 border border-slate-200 rounded-xl px-2.5 py-2.5 text-sm text-center focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                      <span className="text-xs text-slate-500">דקות</span>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-1.5">
-                    <input
-                      type="number"
-                      min={0}
-                      max={59}
-                      step={5}
-                      value={durMins}
-                      onChange={e => setDuration(durHours, Number(e.target.value))}
-                      className="w-16 border border-slate-200 rounded-xl px-2.5 py-2.5 text-sm text-center focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                    <span className="text-xs text-slate-500">דקות</span>
-                  </div>
-                </div>
+
+                  {/* Sub-shifts */}
+                  <SubShiftEditor
+                    totalMinutes={taskForm.shiftDurationMinutes}
+                    onChange={mins => onFormChange({ ...taskForm, shiftDurationMinutes: mins })}
+                  />
+                </>
               )}
             </div>
           </div>

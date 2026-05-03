@@ -14,6 +14,7 @@ import TasksTab from "./tabs/TasksTab";
 import ConstraintsTab from "./tabs/ConstraintsTab";
 import SettingsTab from "./tabs/SettingsTab";
 import StatsTab from "./tabs/StatsTab";
+import QualificationsTab from "./tabs/QualificationsTab";
 import LiveStatusPanel from "@/components/schedule/LiveStatusPanel";
 import { ActiveTab, ADMIN_ONLY_TABS, ScheduleAssignment } from "./types";
 import { useSpaceStore } from "@/lib/store/spaceStore";
@@ -30,6 +31,9 @@ import {
   getGroupRoles, createGroupRole, updateGroupRole, deactivateGroupRole,
   updateMemberRole,
   getGroupSchedule,
+  getGroupQualifications, createGroupQualification, deactivateGroupQualification,
+  getMemberQualifications, assignMemberQualification, removeMemberQualification,
+  GroupQualificationDto, MemberQualificationDto,
 } from "@/lib/api/groups";
 import { getAvatarColor, getAvatarLetter } from "@/lib/utils/groupAvatar";
 import { listGroupTasks, createGroupTask, updateGroupTask, deleteGroupTask, GroupTaskDto } from "@/lib/api/tasks";
@@ -58,6 +62,7 @@ const DEFAULT_TASK_FORM: TaskForm = {
 const TAB_LABELS: Record<ActiveTab, string> = {
   schedule: "סידור",
   members: "חברים",
+  qualifications: "כישורים",
   alerts: "התראות",
   messages: "הודעות",
   tasks: "משימות",
@@ -67,7 +72,7 @@ const TAB_LABELS: Record<ActiveTab, string> = {
   "live-status": "סטטוס נוכחי",
 };
 
-const ALL_TABS: ActiveTab[] = ["schedule", "live-status", "members", "alerts", "messages", "tasks", "constraints", "stats", "settings"];
+const ALL_TABS: ActiveTab[] = ["schedule", "live-status", "members", "qualifications", "alerts", "messages", "tasks", "constraints", "stats", "settings"];
 
 // ── Main component ───────────────────────────────────────────────────────────
 export default function GroupDetailPage() {
@@ -204,6 +209,11 @@ export default function GroupDetailPage() {
   const [groupRolesLoading, setGroupRolesLoading] = useState(false);
   // Task options for the no_task_type_restriction constraint dropdown
   const [constraintTaskOptions, setConstraintTaskOptions] = useState<{ id: string; name: string }[]>([]);
+
+  // ── Qualifications state ─────────────────────────────────────────────────
+  const [groupQualifications, setGroupQualifications] = useState<GroupQualificationDto[]>([]);
+  const [memberQualifications, setMemberQualifications] = useState<MemberQualificationDto[]>([]);
+  const [qualificationsLoading, setQualificationsLoading] = useState(false);
 
   // ── Re-evaluate admin state when adminGroupId changes ───────────────────
   useEffect(() => {
@@ -411,6 +421,22 @@ export default function GroupDetailPage() {
       .then(setGroupRoles)
       .catch(() => {})
       .finally(() => setGroupRolesLoading(false));
+  }, [currentSpaceId, groupId, activeTab]);
+
+  // ── Load qualifications ──────────────────────────────────────────────────
+  useEffect(() => {
+    if (!currentSpaceId || !groupId || activeTab !== "qualifications") return;
+    setQualificationsLoading(true);
+    Promise.all([
+      getGroupQualifications(currentSpaceId, groupId),
+      getMemberQualifications(currentSpaceId, groupId),
+    ])
+      .then(([quals, memberQuals]) => {
+        setGroupQualifications(quals);
+        setMemberQualifications(memberQuals);
+      })
+      .catch(() => {})
+      .finally(() => setQualificationsLoading(false));
   }, [currentSpaceId, groupId, activeTab]);
 
   // ── Cleanup polling on unmount ───────────────────────────────────────────
@@ -821,6 +847,36 @@ export default function GroupDetailPage() {
     setMembers(prev => prev.map(m =>
       m.personId === personId ? { ...m, roleId: roleId ?? null, roleName } : m
     ));
+  }
+
+  // ── Qualification handlers ───────────────────────────────────────────────
+  async function handleCreateQualification(name: string, description: string | null) {
+    if (!currentSpaceId) return;
+    await createGroupQualification(currentSpaceId, groupId, name, description);
+    const updated = await getGroupQualifications(currentSpaceId, groupId);
+    setGroupQualifications(updated);
+  }
+
+  async function handleDeactivateQualification(qualId: string) {
+    if (!currentSpaceId) return;
+    await deactivateGroupQualification(currentSpaceId, groupId, qualId);
+    setGroupQualifications(prev => prev.filter(q => q.id !== qualId));
+  }
+
+  async function handleAssignQualification(personId: string, qualificationId: string) {
+    if (!currentSpaceId) return;
+    await assignMemberQualification(currentSpaceId, groupId, personId, qualificationId);
+    const qual = groupQualifications.find(q => q.id === qualificationId);
+    setMemberQualifications(prev => [
+      ...prev.filter(mq => !(mq.personId === personId && mq.qualificationId === qualificationId)),
+      { id: crypto.randomUUID(), personId, qualificationId, qualificationName: qual?.name ?? "" },
+    ]);
+  }
+
+  async function handleRemoveQualification(personId: string, qualificationId: string) {
+    if (!currentSpaceId) return;
+    await removeMemberQualification(currentSpaceId, groupId, personId, qualificationId);
+    setMemberQualifications(prev => prev.filter(mq => !(mq.personId === personId && mq.qualificationId === qualificationId)));
   }
   // ── Settings handlers ────────────────────────────────────────────────────
   async function handleRenameGroup() {    if (!currentSpaceId || !newGroupName.trim()) return;
@@ -1302,6 +1358,20 @@ export default function GroupDetailPage() {
               onCancelTransfer={handleCancelTransfer}
               onShowDeleteConfirm={setShowDeleteConfirm}
               onDeleteGroup={handleDeleteGroup}
+            />
+          )}
+
+          {activeTab === "qualifications" && currentSpaceId && (
+            <QualificationsTab
+              isAdmin={isAdmin}
+              members={members}
+              qualifications={groupQualifications}
+              memberQualifications={memberQualifications}
+              loading={qualificationsLoading}
+              onCreateQualification={handleCreateQualification}
+              onDeactivateQualification={handleDeactivateQualification}
+              onAssign={handleAssignQualification}
+              onRemove={handleRemoveQualification}
             />
           )}
 
