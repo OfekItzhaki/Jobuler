@@ -13,7 +13,10 @@
     "displayName": "Display Name",
     "loginButton": "Sign In",
     "registerButton": "Sign Up",
-    "invalidCredentials": "Invalid credentials"
+    "invalidCredentials": "Invalid credentials",
+    "forgotPassword": "Forgot password",
+    "resetPassword": "Reset password",
+    "joinShifter": "Join Shifter"
   },
   "nav": {
     "schedule": "Schedule",
@@ -35,7 +38,32 @@
     "selectGroupLabel": "Group",
     "noGroup": "No group selected",
     "live": "Live",
-    "loading": "Loading..."
+    "loading": "Loading...",
+    "source": "Source"
+  },
+  "groups": {
+    "title": "My Groups",
+    "subtitle": "Groups you belong to",
+    "newGroup": "+ New Group",
+    "noGroups": "You are not part of any group yet.",
+    "deletedGroups": "Deleted Groups",
+    "noDeletedGroups": "No deleted groups",
+    "restore": "Restore",
+    "members": "members"
+  },
+  "profile": {
+    "title": "My Profile",
+    "memberSince": "Member since",
+    "personalInfo": "Personal Info",
+    "contactInfo": "Contact Info",
+    "birthday": "Birthday",
+    "phone": "Phone",
+    "email": "Email",
+    "edit": "Edit",
+    "save": "Save",
+    "cancel": "Cancel",
+    "saving": "Saving...",
+    "saved": "Saved ✓"
   },
   "admin": {
     "title": "Admin Mode",
@@ -90,6 +118,22 @@
   "errors": {
     "unauthorized": "Unauthorized",
     "notFound": "Not found",
-    "serverError": "Server error"
+    "serverError": "Server error",
+    "generic": "Something went wrong. Please try again."
+  },
+  "common": {
+    "loading": "Loading...",
+    "save": "Save",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "edit": "Edit",
+    "confirm": "Confirm",
+    "yes": "Yes",
+    "no": "No",
+    "add": "Add",
+    "remove": "Remove",
+    "search": "Search",
+    "noResults": "No results found",
+    "optional": "optional"
   }
 }

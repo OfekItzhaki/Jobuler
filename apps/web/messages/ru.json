@@ -13,7 +13,10 @@
     "displayName": "Отображаемое имя",
     "loginButton": "Войти",
     "registerButton": "Зарегистрироваться",
-    "invalidCredentials": "Неверные учётные данные"
+    "invalidCredentials": "Неверные учётные данные",
+    "forgotPassword": "Забыли пароль",
+    "resetPassword": "Сброс пароля",
+    "joinShifter": "Присоединиться к Shifter"
   },
   "nav": {
     "schedule": "Расписание",
@@ -35,7 +38,32 @@
     "selectGroupLabel": "Группа",
     "noGroup": "Группа не выбрана",
     "live": "Онлайн",
-    "loading": "Загрузка..."
+    "loading": "Загрузка...",
+    "source": "Источник"
+  },
+  "groups": {
+    "title": "Мои группы",
+    "subtitle": "Группы, в которых вы состоите",
+    "newGroup": "+ Новая группа",
+    "noGroups": "Вы ещё не состоите ни в одной группе.",
+    "deletedGroups": "Удалённые группы",
+    "noDeletedGroups": "Нет удалённых групп",
+    "restore": "Восстановить",
+    "members": "участников"
+  },
+  "profile": {
+    "title": "Мой профиль",
+    "memberSince": "Участник с",
+    "personalInfo": "Личные данные",
+    "contactInfo": "Контактные данные",
+    "birthday": "Дата рождения",
+    "phone": "Телефон",
+    "email": "Электронная почта",
+    "edit": "Редактировать",
+    "save": "Сохранить",
+    "cancel": "Отмена",
+    "saving": "Сохранение...",
+    "saved": "Сохранено ✓"
   },
   "admin": {
     "title": "Режим администратора",
@@ -78,7 +106,7 @@
       "Favorable": "Удобно",
       "Neutral": "Нейтрально",
       "Disliked": "Нежелательно",
-      "Hated": "Нежелательно крайне"
+      "Hated": "Ненавистно"
     }
   },
   "language": {
@@ -90,6 +118,22 @@
   "errors": {
     "unauthorized": "Нет доступа",
     "notFound": "Не найдено",
-    "serverError": "Ошибка сервера"
+    "serverError": "Ошибка сервера",
+    "generic": "Что-то пошло не так. Попробуйте ещё раз."
+  },
+  "common": {
+    "loading": "Загрузка...",
+    "save": "Сохранить",
+    "cancel": "Отмена",
+    "delete": "Удалить",
+    "edit": "Редактировать",
+    "confirm": "Подтвердить",
+    "yes": "Да",
+    "no": "Нет",
+    "add": "Добавить",
+    "remove": "Удалить",
+    "search": "Поиск",
+    "noResults": "Результаты не найдены",
+    "optional": "необязательно"
   }
 }

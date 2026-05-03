@@ -13,7 +13,10 @@
     "displayName": "שם תצוגה",
     "loginButton": "כניסה",
     "registerButton": "הרשמה",
-    "invalidCredentials": "פרטי התחברות שגויים"
+    "invalidCredentials": "פרטי התחברות שגויים",
+    "forgotPassword": "שכחתי סיסמה",
+    "resetPassword": "איפוס סיסמה",
+    "joinShifter": "הצטרף ל-Shifter"
   },
   "nav": {
     "schedule": "לוח זמנים",
@@ -35,7 +38,32 @@
     "selectGroupLabel": "קבוצה",
     "noGroup": "לא נבחרה קבוצה",
     "live": "חי",
-    "loading": "טוען..."
+    "loading": "טוען...",
+    "source": "מקור"
+  },
+  "groups": {
+    "title": "הקבוצות שלי",
+    "subtitle": "הקבוצות שאתה משויך אליהן",
+    "newGroup": "+ קבוצה חדשה",
+    "noGroups": "אינך משויך לאף קבוצה עדיין.",
+    "deletedGroups": "קבוצות מחוקות",
+    "noDeletedGroups": "אין קבוצות מחוקות",
+    "restore": "שחזר",
+    "members": "חברים"
+  },
+  "profile": {
+    "title": "הפרופיל שלי",
+    "memberSince": "חבר מאז",
+    "personalInfo": "פרטים אישיים",
+    "contactInfo": "פרטי קשר",
+    "birthday": "תאריך לידה",
+    "phone": "טלפון",
+    "email": "אימייל",
+    "edit": "עריכה",
+    "save": "שמור",
+    "cancel": "ביטול",
+    "saving": "שומר...",
+    "saved": "נשמר ✓"
   },
   "admin": {
     "title": "מצב ניהול",
@@ -90,6 +118,22 @@
   "errors": {
     "unauthorized": "אין הרשאה",
     "notFound": "לא נמצא",
-    "serverError": "שגיאת שרת"
+    "serverError": "שגיאת שרת",
+    "generic": "אירעה שגיאה. נסה שוב."
+  },
+  "common": {
+    "loading": "טוען...",
+    "save": "שמור",
+    "cancel": "ביטול",
+    "delete": "מחק",
+    "edit": "ערוך",
+    "confirm": "אישור",
+    "yes": "כן",
+    "no": "לא",
+    "add": "הוסף",
+    "remove": "הסר",
+    "search": "חיפוש",
+    "noResults": "לא נמצאו תוצאות",
+    "optional": "אופציונלי"
   }
 }
