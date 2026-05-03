@@ -1,4 +1,8 @@
 import createNextIntlPlugin from "next-intl/plugin";
+import { createRequire } from "module";
+
+const require = createRequire(import.meta.url);
+const { version } = require("./package.json");
 
 const withNextIntl = createNextIntlPlugin("./i18n/request.ts");
 
@@ -29,6 +33,9 @@ const securityHeaders = [
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   output: "standalone",
+  env: {
+    NEXT_PUBLIC_APP_VERSION: version,
+  },
   experimental: {
     optimizeCss: true,
   },

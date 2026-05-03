@@ -179,6 +179,9 @@ export default function AppShell({ children }: AppShellProps) {
             </svg>
             {t("auth.logout")}
           </button>
+          <div style={{ padding: "4px 12px 8px", color: "#334155", fontSize: 11, opacity: 0.4, textAlign: "center" }}>
+            v{process.env.NEXT_PUBLIC_APP_VERSION ?? "1.4.0"}
+          </div>
         </div>
       </aside>
 
