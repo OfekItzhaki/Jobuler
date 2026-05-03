@@ -1,9 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Modal from "@/components/Modal";
 import ImageUpload from "@/components/ImageUpload";
 import type { GroupMemberDto, GroupRoleDto } from "@/lib/api/groups";
+import { apiClient } from "@/lib/api/client";
+import { useSpaceStore } from "@/lib/store/spaceStore";
 
 interface Props {
   isAdmin: boolean;
@@ -225,57 +227,153 @@ interface MemberProfileModalProps {
 }
 
 export function MemberProfileModal({ member, isAdmin, editForm, saving, error, onClose, onStartEdit, onCancelEdit, onChangeForm, onSave }: MemberProfileModalProps) {
+  const [availTab, setAvailTab] = useState<"info" | "availability">("info");
+  const [presenceWindows, setPresenceWindows] = useState<{ id: string; state: string; startsAt: string; endsAt: string; note: string | null }[]>([]);
+  const [presenceLoading, setPresenceLoading] = useState(false);
+  const [newPresenceStart, setNewPresenceStart] = useState("");
+  const [newPresenceEnd, setNewPresenceEnd] = useState("");
+  const [newPresenceNote, setNewPresenceNote] = useState("");
+  const [presenceSaving, setPresenceSaving] = useState(false);
+  const [presenceError, setPresenceError] = useState<string | null>(null);
+  const { currentSpaceId } = useSpaceStore();
+
+  useEffect(() => {
+    if (availTab !== "availability" || !currentSpaceId || !isAdmin) return;
+    setPresenceLoading(true);
+    apiClient.get(`/spaces/${currentSpaceId}/people/${member.personId}/presence`)
+      .then(r => setPresenceWindows(r.data ?? []))
+      .catch(() => {})
+      .finally(() => setPresenceLoading(false));
+  }, [availTab, currentSpaceId, member.personId, isAdmin]);
+
+  async function handleAddPresence(e: React.FormEvent) {
+    e.preventDefault();
+    if (!currentSpaceId || !newPresenceStart || !newPresenceEnd) return;
+    setPresenceSaving(true);
+    setPresenceError(null);
+    try {
+      await apiClient.post(`/spaces/${currentSpaceId}/people/${member.personId}/presence`, {
+        state: "at_home",
+        startsAt: new Date(newPresenceStart).toISOString(),
+        endsAt: new Date(newPresenceEnd).toISOString(),
+        note: newPresenceNote || null,
+      });
+      setNewPresenceStart(""); setNewPresenceEnd(""); setNewPresenceNote("");
+      // Reload
+      const r = await apiClient.get(`/spaces/${currentSpaceId}/people/${member.personId}/presence`);
+      setPresenceWindows(r.data ?? []);
+    } catch {
+      setPresenceError("שגיאה בהוספת חלון זמינות");
+    } finally {
+      setPresenceSaving(false);
+    }
+  }
+
   return (
-    <Modal title="פרטי חבר" open onClose={onClose} maxWidth={480}>
-      {editForm ? (
-        <div className="space-y-4">
-          <div>
-            <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">שם מלא</label>
-            <input type="text" value={editForm.fullName} onChange={e => onChangeForm({ ...editForm, fullName: e.target.value })} className="w-full border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
-          </div>
-          <div>
-            <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">שם תצוגה</label>
-            <input type="text" value={editForm.displayName} onChange={e => onChangeForm({ ...editForm, displayName: e.target.value })} className="w-full border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
-          </div>
-          <div>
-            <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">טלפון</label>
-            <input type="tel" value={editForm.phoneNumber} onChange={e => onChangeForm({ ...editForm, phoneNumber: e.target.value })} dir="ltr" className="w-full border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
-          </div>
-          <div>
-            <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">תמונת פרופיל</label>
-            <ImageUpload value={editForm.profileImageUrl || null} onChange={url => onChangeForm({ ...editForm, profileImageUrl: url })} shape="circle" size={64} label="העלה תמונה" disabled={saving} />
-          </div>
-          <div>
-            <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">תאריך לידה</label>
-            <input type="date" value={editForm.birthday} onChange={e => onChangeForm({ ...editForm, birthday: e.target.value })} className="w-full border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
-          </div>
-          {error && <p className="text-sm text-red-600">{error}</p>}
-          <div className="flex gap-2 pt-1">
-            <button onClick={() => onSave(member.personId)} disabled={saving} className="bg-blue-500 hover:bg-blue-600 text-white text-sm font-medium px-4 py-2.5 rounded-xl disabled:opacity-50 transition-colors">
-              {saving ? "שומר..." : "שמור"}
-            </button>
-            <button onClick={onCancelEdit} className="text-sm text-slate-500 border border-slate-200 px-4 py-2.5 rounded-xl hover:bg-slate-50 transition-colors">ביטול</button>
-          </div>
+    <Modal title="פרטי חבר" open onClose={onClose} maxWidth={520}>
+      {/* Tab switcher */}
+      {isAdmin && (
+        <div className="flex gap-1 bg-slate-100 p-1 rounded-xl mb-4">
+          <button onClick={() => setAvailTab("info")} className={`flex-1 py-1.5 rounded-lg text-sm font-medium transition-all ${availTab === "info" ? "bg-white text-slate-900 shadow-sm" : "text-slate-500"}`}>פרטים</button>
+          <button onClick={() => setAvailTab("availability")} className={`flex-1 py-1.5 rounded-lg text-sm font-medium transition-all ${availTab === "availability" ? "bg-white text-slate-900 shadow-sm" : "text-slate-500"}`}>זמינות</button>
         </div>
-      ) : (
-        <div className="space-y-4">
-          <div className="flex items-center gap-4">
-            <div className="w-16 h-16 rounded-full bg-blue-500 flex items-center justify-center text-white text-2xl font-bold flex-shrink-0">
-              {(member.displayName ?? member.fullName).charAt(0).toUpperCase()}
+      )}
+
+      {availTab === "info" ? (
+        editForm ? (
+          <div className="space-y-4">
+            <div>
+              <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">שם מלא</label>
+              <input type="text" value={editForm.fullName} onChange={e => onChangeForm({ ...editForm, fullName: e.target.value })} className="w-full border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
             </div>
             <div>
-              <p className="text-lg font-semibold text-slate-900">{member.displayName ?? member.fullName}</p>
-              {member.roleName && (
-                <p className="text-sm text-slate-500">{member.roleName}</p>
-              )}
-              {member.phoneNumber && <p className="text-sm text-slate-500 tabular-nums" dir="ltr">{member.phoneNumber}</p>}
+              <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">שם תצוגה</label>
+              <input type="text" value={editForm.displayName} onChange={e => onChangeForm({ ...editForm, displayName: e.target.value })} className="w-full border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">טלפון</label>
+              <input type="tel" value={editForm.phoneNumber} onChange={e => onChangeForm({ ...editForm, phoneNumber: e.target.value })} dir="ltr" className="w-full border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">תמונת פרופיל</label>
+              <ImageUpload value={editForm.profileImageUrl || null} onChange={url => onChangeForm({ ...editForm, profileImageUrl: url })} shape="circle" size={64} label="העלה תמונה" disabled={saving} />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">תאריך לידה</label>
+              <input type="date" value={editForm.birthday} onChange={e => onChangeForm({ ...editForm, birthday: e.target.value })} className="w-full border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+            </div>
+            {error && <p className="text-sm text-red-600">{error}</p>}
+            <div className="flex gap-2 pt-1">
+              <button onClick={() => onSave(member.personId)} disabled={saving} className="bg-blue-500 hover:bg-blue-600 text-white text-sm font-medium px-4 py-2.5 rounded-xl disabled:opacity-50 transition-colors">
+                {saving ? "שומר..." : "שמור"}
+              </button>
+              <button onClick={onCancelEdit} className="text-sm text-slate-500 border border-slate-200 px-4 py-2.5 rounded-xl hover:bg-slate-50 transition-colors">ביטול</button>
             </div>
           </div>
-          {isAdmin && (
-            <button onClick={onStartEdit} className="text-sm text-blue-600 border border-blue-200 bg-blue-50 hover:bg-blue-100 px-4 py-2 rounded-xl transition-colors">
-              ערוך פרטים
-            </button>
+        ) : (
+          <div className="space-y-4">
+            <div className="flex items-center gap-4">
+              <div className="w-16 h-16 rounded-full bg-blue-500 flex items-center justify-center text-white text-2xl font-bold flex-shrink-0">
+                {(member.displayName ?? member.fullName).charAt(0).toUpperCase()}
+              </div>
+              <div>
+                <p className="text-lg font-semibold text-slate-900">{member.displayName ?? member.fullName}</p>
+                {member.roleName && <p className="text-sm text-slate-500">{member.roleName}</p>}
+                {member.phoneNumber && <p className="text-sm text-slate-500 tabular-nums" dir="ltr">{member.phoneNumber}</p>}
+              </div>
+            </div>
+            {isAdmin && (
+              <button onClick={onStartEdit} className="text-sm text-blue-600 border border-blue-200 bg-blue-50 hover:bg-blue-100 px-4 py-2 rounded-xl transition-colors">
+                ערוך פרטים
+              </button>
+            )}
+          </div>
+        )
+      ) : (
+        /* Availability tab */
+        <div className="space-y-4">
+          <p className="text-xs text-slate-500">הגדר מתי החבר אינו זמין (חופשה, מחלה, וכו׳). הסולבר לא ישבץ אותו בזמנים אלו.</p>
+
+          {/* Existing windows */}
+          {presenceLoading ? (
+            <p className="text-sm text-slate-400">טוען...</p>
+          ) : presenceWindows.length === 0 ? (
+            <p className="text-sm text-slate-400">אין חלוני אי-זמינות מוגדרים</p>
+          ) : (
+            <div className="space-y-2">
+              {presenceWindows.map((w, i) => (
+                <div key={i} className="flex items-center justify-between bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm">
+                  <div>
+                    <span className="font-medium text-slate-700">
+                      {new Date(w.startsAt).toLocaleDateString("he-IL")} – {new Date(w.endsAt).toLocaleDateString("he-IL")}
+                    </span>
+                    {w.note && <span className="text-slate-400 mr-2 text-xs">{w.note}</span>}
+                  </div>
+                  <span className="text-xs px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">לא זמין</span>
+                </div>
+              ))}
+            </div>
           )}
+
+          {/* Add new window */}
+          <form onSubmit={handleAddPresence} className="space-y-3 pt-2 border-t border-slate-100">
+            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">הוסף חלון אי-זמינות</p>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs text-slate-500 mb-1">מ</label>
+                <input type="datetime-local" value={newPresenceStart} onChange={e => setNewPresenceStart(e.target.value)} required className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              </div>
+              <div>
+                <label className="block text-xs text-slate-500 mb-1">עד</label>
+                <input type="datetime-local" value={newPresenceEnd} onChange={e => setNewPresenceEnd(e.target.value)} required className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              </div>
+            </div>
+            <input type="text" value={newPresenceNote} onChange={e => setNewPresenceNote(e.target.value)} placeholder="הערה (אופציונלי)" className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+            {presenceError && <p className="text-xs text-red-600">{presenceError}</p>}
+            <button type="submit" disabled={presenceSaving} className="bg-blue-500 hover:bg-blue-600 text-white text-sm font-medium px-4 py-2 rounded-xl disabled:opacity-50 transition-colors">
+              {presenceSaving ? "שומר..." : "הוסף"}
+            </button>
+          </form>
         </div>
       )}
     </Modal>

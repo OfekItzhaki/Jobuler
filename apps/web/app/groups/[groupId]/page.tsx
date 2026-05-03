@@ -1306,7 +1306,7 @@ export default function GroupDetailPage() {
           )}
 
           {activeTab === "stats" && currentSpaceId && (
-            <StatsTab groupId={groupId} spaceId={currentSpaceId} members={members} />
+            <StatsTab groupId={groupId} spaceId={currentSpaceId} />
           )}
 
           {activeTab === "live-status" && currentSpaceId && (

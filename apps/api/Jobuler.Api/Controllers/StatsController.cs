@@ -31,10 +31,10 @@ public class StatsController : ControllerBase
     /// Requires space.view permission.
     /// </summary>
     [HttpGet("burden")]
-    public async Task<IActionResult> GetBurdenStats(Guid spaceId, CancellationToken ct)
+    public async Task<IActionResult> GetBurdenStats(Guid spaceId, [FromQuery] Guid? groupId, CancellationToken ct)
     {
         await _permissions.RequirePermissionAsync(CurrentUserId, spaceId, Permissions.SpaceView, ct);
-        var result = await _mediator.Send(new GetBurdenStatsQuery(spaceId), ct);
+        var result = await _mediator.Send(new GetBurdenStatsQuery(spaceId, groupId), ct);
         return Ok(result);
     }
 }

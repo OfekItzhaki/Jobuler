@@ -97,6 +97,7 @@ export default function AppShell({ children }: AppShellProps) {
   const { currentSpaceId, currentSpaceName, setCurrentSpace } = useSpaceStore();
   const router = useRouter();
   const [resolvedName, setResolvedName] = useState<string | null>(storedDisplayName);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   // Always fetch display name from API on mount to stay fresh across tab changes
   useEffect(() => {
@@ -131,8 +132,23 @@ export default function AppShell({ children }: AppShellProps) {
 
   return (
     <div style={{ display: "flex" }}>
+      {/* Mobile overlay */}
+      {sidebarOpen && (
+        <div
+          style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 29 }}
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+
       {/* Sidebar */}
-      <aside style={S.sidebar}>
+      <aside style={{
+        ...S.sidebar,
+        transform: sidebarOpen ? "translateX(0)" : undefined,
+        // On mobile: hidden by default, slides in when open
+        // On desktop (≥768px): always visible via CSS media query handled inline
+      }}
+        className={`${sidebarOpen ? "" : "max-md:hidden"}`}
+      >
         <Link href="/spaces" style={S.logo}>
           <div style={S.logoIcon}>
             <svg width="18" height="18" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -186,9 +202,21 @@ export default function AppShell({ children }: AppShellProps) {
       </aside>
 
       {/* Main */}
-      <div style={S.main}>
-        <header style={S.topbar(false)}>
-          {/* admin mode indicator is shown per-group */}
+      <div style={S.main} className="md:ml-64">
+        <header style={S.topbar(false)} className="md:hidden flex items-center gap-3 px-4">
+          <button
+            onClick={() => setSidebarOpen(o => !o)}
+            style={{ background: "none", border: "none", cursor: "pointer", padding: 4, color: "#64748b" }}
+            aria-label="Toggle menu"
+          >
+            <svg width="22" height="22" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
+            </svg>
+          </button>
+          <span style={{ fontWeight: 700, fontSize: 15, color: "#0f172a" }}>Shifter</span>
+        </header>
+        <header style={{ ...S.topbar(false), display: "none" }} className="md:flex">
+          {/* desktop topbar — empty, admin mode indicator shown per-group */}
         </header>
         <main style={S.content}>{children}</main>
       </div>

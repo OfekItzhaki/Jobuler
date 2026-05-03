@@ -156,8 +156,11 @@ export interface BurdenStats {
   lastUpdated: string | null;
 }
 
-export async function getBurdenStats(spaceId: string): Promise<BurdenStats> {
-  const { data } = await apiClient.get(`/spaces/${spaceId}/stats/burden`);
+export async function getBurdenStats(spaceId: string, groupId?: string): Promise<BurdenStats> {
+  const url = groupId
+    ? `/spaces/${spaceId}/stats/burden?groupId=${groupId}`
+    : `/spaces/${spaceId}/stats/burden`;
+  const { data } = await apiClient.get(url);
   return data;
 }
 

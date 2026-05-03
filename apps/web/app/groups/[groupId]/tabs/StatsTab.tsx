@@ -2,48 +2,28 @@
 
 import { useEffect, useState } from "react";
 import { getBurdenStats, BurdenStats } from "@/lib/api/schedule";
-import type { GroupMemberDto } from "@/lib/api/groups";
 import StatsLeaderboard from "@/app/admin/stats/_components/StatsLeaderboard";
 import StatsPeopleTable from "@/app/admin/stats/_components/StatsPeopleTable";
 
 interface Props {
   groupId: string;
   spaceId: string;
-  members: GroupMemberDto[];
 }
 
-export default function StatsTab({ spaceId, members }: Props) {
+export default function StatsTab({ spaceId, groupId }: Props) {
   const [stats, setStats] = useState<BurdenStats | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const memberIds = new Set(members.map(m => m.personId));
-
   useEffect(() => {
     setLoading(true);
     setError(null);
-    getBurdenStats(spaceId)
-      .then(data => {
-        // Filter to only members of this group
-        const filtered: BurdenStats = {
-          ...data,
-          people: data.people.filter(p => memberIds.has(p.personId)),
-          mostAssignments: data.mostAssignments.filter(e => memberIds.has(e.personId)),
-          mostHatedTasks: data.mostHatedTasks.filter(e => memberIds.has(e.personId)),
-          highestBurdenScore: data.highestBurdenScore.filter(e => memberIds.has(e.personId)),
-          bestBurdenBalance: data.bestBurdenBalance.filter(e => memberIds.has(e.personId)),
-          mostKitchenDuty: data.mostKitchenDuty.filter(e => memberIds.has(e.personId)),
-          mostNightMissions: data.mostNightMissions.filter(e => memberIds.has(e.personId)),
-          mostFavorableTasks: data.mostFavorableTasks.filter(e => memberIds.has(e.personId)),
-          worstBurdenBalance: data.worstBurdenBalance.filter(e => memberIds.has(e.personId)),
-          mostConsecutiveBurden: data.mostConsecutiveBurden.filter(e => memberIds.has(e.personId)),
-        };
-        setStats(filtered);
-      })
+    // Pass groupId so the backend only returns stats for this group's members
+    getBurdenStats(spaceId, groupId)
+      .then(setStats)
       .catch(() => setError("שגיאה בטעינת הסטטיסטיקות"))
       .finally(() => setLoading(false));
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [spaceId]);
+  }, [spaceId, groupId]);
 
   if (loading) {
     return (
@@ -57,27 +37,31 @@ export default function StatsTab({ spaceId, members }: Props) {
     );
   }
 
-  if (error) {
-    return <p className="text-sm text-red-600 py-8">{error}</p>;
-  }
+  if (error) return <p className="text-sm text-red-600 py-8">{error}</p>;
 
   if (!stats || stats.people.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-16 bg-white rounded-xl border border-slate-200">
         <p className="text-slate-400 text-sm">אין נתוני סטטיסטיקה לקבוצה זו</p>
+        <p className="text-slate-300 text-xs mt-1">פרסם סידור כדי לראות נתונים</p>
       </div>
     );
   }
 
+  // Compute group-scoped totals from the filtered people data
+  const totalAssignments = stats.people.reduce((s, p) => s + p.totalAssignmentsAllTime, 0);
+  const avgPerPerson = stats.people.length > 0 ? Math.round(totalAssignments / stats.people.length) : 0;
+  const totalHated = stats.people.reduce((s, p) => s + p.hatedTasksAllTime, 0);
+
   return (
     <div className="space-y-5" dir="rtl">
-      {/* Summary */}
+      {/* Summary — group-scoped totals */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         {[
           { label: "חברים פעילים", value: stats.people.length },
-          { label: "שיבוצים סה״כ", value: stats.people.reduce((s, p) => s + p.totalAssignmentsAllTime, 0) },
-          { label: "ממוצע לאדם", value: stats.people.length > 0 ? Math.round(stats.people.reduce((s, p) => s + p.totalAssignmentsAllTime, 0) / stats.people.length) : 0 },
-          { label: "משימות שנואות", value: stats.people.reduce((s, p) => s + p.hatedTasksAllTime, 0) },
+          { label: "שיבוצים סה״כ", value: totalAssignments },
+          { label: "ממוצע לאדם", value: avgPerPerson },
+          { label: "משימות שנואות", value: totalHated },
         ].map(c => (
           <div key={c.label} className="bg-white border border-slate-200 rounded-xl p-4">
             <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-1">{c.label}</p>
