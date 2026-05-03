@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { apiClient } from "@/lib/api/client";
 import { useDateFormat } from "@/lib/hooks/useDateFormat";
-import ScheduleTable2D from "@/components/schedule/ScheduleTable2D";
+import ScheduleTaskTable from "@/components/schedule/ScheduleTaskTable";
 
 interface Assignment {
   id: string;
@@ -243,8 +243,8 @@ export default function DraftScheduleModal({
                 ))}
               </div>
 
-              {/* 2D schedule table */}
-              <ScheduleTable2D
+              {/* Per-task schedule tables */}
+              <ScheduleTaskTable
                 assignments={tableAssignments}
                 filterDate={selectedDate}
               />

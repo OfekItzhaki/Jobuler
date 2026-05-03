@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useDateFormat } from "@/lib/hooks/useDateFormat";
 import type { ScheduleAssignment } from "../types";
-import ScheduleTable2D from "@/components/schedule/ScheduleTable2D";
+import ScheduleTaskTable from "@/components/schedule/ScheduleTaskTable";
 
 interface DraftVersion { id: string; status: string; summaryJson?: string | null; }
 
@@ -235,9 +235,9 @@ export default function ScheduleTab({
       )}
       {scheduleError && <p className="text-sm text-red-600 py-4">{scheduleError}</p>}
 
-      {/* 2D schedule table for selected day */}
+      {/* Per-task schedule tables */}
       {!scheduleLoading && !scheduleError && (
-        <ScheduleTable2D
+        <ScheduleTaskTable
           assignments={filtered}
           filterDate={selectedDate}
           currentUserName={currentUserName}
