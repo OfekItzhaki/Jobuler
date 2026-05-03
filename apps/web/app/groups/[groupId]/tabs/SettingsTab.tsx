@@ -177,11 +177,15 @@ export default function SettingsTab({
           {solverStatus && (
             <p className={`text-sm ${solverStatus === "Completed" ? "text-emerald-600" : solverStatus === "Failed" ? "text-red-600" : "text-slate-600"}`}>
               {solverStatus === "Completed" ? "✓ הסידור הושלם — בדוק את לשונית הסידור"
-               : solverStatus === "Failed" ? "✗ הסידור נכשל — בדוק את ההתראות לפרטים"
+               : solverStatus === "Failed" ? "✗ הסידור נכשל"
                : `סטטוס: ${solverStatus}`}
             </p>
           )}
-          {solverError && <p className="text-sm text-red-600">{solverError}</p>}
+          {solverError && (
+            <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3 text-sm text-red-700">
+              {solverError}
+            </div>
+          )}
         </div>
       </Section>
 

@@ -828,11 +828,16 @@ export default function GroupDetailPage() {
         }
 
         try {
-          const statusRes = await apiClient.get<{ status: string }>(
+          const statusRes = await apiClient.get<{ status: string; errorSummary?: string | null }>(
             `/spaces/${currentSpaceId}/schedule-runs/${runId}`
           );
           const status = statusRes.data.status;
           setSolverStatus(status);
+
+          // Show pre-flight / solver error immediately when failed
+          if (status === "Failed" && statusRes.data.errorSummary) {
+            setSolverError(statusRes.data.errorSummary);
+          }
 
           const terminal = status === "Completed" || status === "Failed" || status === "TimedOut";
           if (terminal) {
