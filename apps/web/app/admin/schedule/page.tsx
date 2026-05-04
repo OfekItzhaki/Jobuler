@@ -275,6 +275,7 @@ function VersionDetailPanel({ selected, actionLoading, spaceId, onPublish, onRol
 // ── AdminSchedulePage ────────────────────────────────────────────────────────
 export default function AdminSchedulePage() {
   const t = useTranslations("admin");
+  const tSchedule = useTranslations("admin.schedule");
   const { currentSpaceId } = useSpaceStore();
   const { isAdminMode } = useAuthStore();
 
@@ -348,10 +349,10 @@ export default function AdminSchedulePage() {
     setActionLoading(true);
     try {
       await publishVersion(currentSpaceId, selected.version.id);
-      setMessage({ text: "Version published successfully.", type: "success" });
+      setMessage({ text: tSchedule("publishedSuccess"), type: "success" });
       await loadVersions();
     } catch {
-      setMessage({ text: "Failed to publish.", type: "error" });
+      setMessage({ text: tSchedule("publishedError"), type: "error" });
     } finally { setActionLoading(false); }
   }
 
@@ -360,10 +361,10 @@ export default function AdminSchedulePage() {
     setActionLoading(true);
     try {
       const { newVersionId } = await rollbackVersion(currentSpaceId, versionId);
-      setMessage({ text: `Rollback created. New draft version ID: ${newVersionId}`, type: "success" });
+      setMessage({ text: tSchedule("rollbackSuccess", { newVersionId }), type: "success" });
       await loadVersions();
     } catch {
-      setMessage({ text: "Failed to rollback.", type: "error" });
+      setMessage({ text: tSchedule("rollbackError"), type: "error" });
     } finally { setActionLoading(false); }
   }
 
@@ -391,17 +392,17 @@ export default function AdminSchedulePage() {
       `${a.slotStartsAt}|${a.slotEndsAt}` === slotKey
     )?.taskSlotId;
     if (!slotId) {
-      setOverrideError("Shift not found");
+      setOverrideError(tSchedule("shiftNotFound"));
       setOverrideSaving(false);
       return;
     }
     try {
       await applyManualOverride(currentSpaceId, slotId, newPersonIds);
-      setMessage({ text: "Override applied — draft updated", type: "success" });
+      setMessage({ text: tSchedule("overrideApplied"), type: "success" });
       setOverrideCell(null);
       await loadVersions();
     } catch {
-      setOverrideError("Error applying override");
+      setOverrideError(tSchedule("overrideError"));
     } finally {
       setOverrideSaving(false);
     }
@@ -415,17 +416,17 @@ export default function AdminSchedulePage() {
       `${a.slotStartsAt}|${a.slotEndsAt}` === slotKey
     )?.taskSlotId;
     if (!slotId) {
-      setOverrideError("Shift not found");
+      setOverrideError(tSchedule("shiftNotFound"));
       setOverrideSaving(false);
       return;
     }
     try {
       await removeManualOverride(currentSpaceId, slotId);
-      setMessage({ text: "Shift cleared — draft updated", type: "success" });
+      setMessage({ text: tSchedule("shiftCleared"), type: "success" });
       setOverrideCell(null);
       await loadVersions();
     } catch {
-      setOverrideError("Error clearing shift");
+      setOverrideError(tSchedule("shiftClearError"));
     } finally {
       setOverrideSaving(false);
     }

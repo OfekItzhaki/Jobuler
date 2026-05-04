@@ -34,6 +34,7 @@ function SummaryCard({ label, value, sub }: { label: string; value: string | num
 export default function StatsPage() {
   const t = useTranslations("groups.stats_tab");
   const tAdmin = useTranslations("admin");
+  const tStats = useTranslations("admin.stats");
   const { adminGroupId } = useAuthStore();
   const { currentSpaceId } = useSpaceStore();
 
@@ -47,7 +48,7 @@ export default function StatsPage() {
     setError(null);
     getBurdenStats(currentSpaceId)
       .then(setStats)
-      .catch(() => setError("Error loading statistics"))
+      .catch(() => setError(tStats("errorLoading")))
       .finally(() => setLoading(false));
   }, [currentSpaceId, adminGroupId]);
 
@@ -55,9 +56,9 @@ export default function StatsPage() {
     <AppShell>
       <div style={{ maxWidth: 1100 }}>
         <div style={{ marginBottom: "1.5rem" }}>
-          <h1 style={{ fontSize: "1.5rem", fontWeight: 800, color: "#0f172a", margin: 0 }}>Statistics</h1>
+          <h1 style={{ fontSize: "1.5rem", fontWeight: 800, color: "#0f172a", margin: 0 }}>{tStats("title")}</h1>
           <p style={{ fontSize: "0.875rem", color: "#64748b", margin: "0.25rem 0 0" }}>
-            Burden and fairness data by person
+            {tStats("subtitle")}
           </p>
         </div>
 
@@ -90,7 +91,7 @@ export default function StatsPage() {
               <SummaryCard label={t("activeMembers")} value={stats.totalPeople} />
               <SummaryCard label={t("totalAssignments")} value={stats.totalPublishedAssignments} />
               <SummaryCard label={t("avgPerPerson")} value={stats.averageAssignmentsPerPerson} />
-              <SummaryCard label="Published versions" value={stats.totalPublishedVersions} />
+              <SummaryCard label={tStats("publishedVersions")} value={stats.totalPublishedVersions} />
             </div>
 
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem", marginBottom: "1.5rem" }}>

@@ -474,6 +474,33 @@
       "Neutral": "ניטרלי",
       "Disliked": "לא אהוב",
       "Hated": "שנוא"
+    },
+    "logs": {
+      "title": "לוגים",
+      "subtitle": "יומן פעילות המערכת",
+      "level": "רמה",
+      "source": "מקור",
+      "message": "הודעה",
+      "time": "זמן",
+      "noLogs": "אין לוגים להצגה.",
+      "loading": "טוען..."
+    },
+    "stats": {
+      "title": "סטטיסטיקות",
+      "subtitle": "נתוני עומס והוגנות לפי אדם",
+      "publishedVersions": "גרסאות מפורסמות",
+      "errorLoading": "שגיאה בטעינת הסטטיסטיקות"
+    },
+    "schedule": {
+      "publishedSuccess": "הגרסה פורסמה בהצלחה.",
+      "publishedError": "הפרסום נכשל.",
+      "rollbackSuccess": "שחזור נוצר. מזהה גרסת טיוטה חדשה: {newVersionId}",
+      "rollbackError": "השחזור נכשל.",
+      "overrideApplied": "עקיפה הוחלה — הטיוטה עודכנה",
+      "overrideError": "שגיאה בהחלת עקיפה",
+      "shiftCleared": "המשמרת נוקתה — הטיוטה עודכנה",
+      "shiftClearError": "שגיאה בניקוי המשמרת",
+      "shiftNotFound": "המשמרת לא נמצאה"
     }
   },
   "language": {

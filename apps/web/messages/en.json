@@ -471,6 +471,33 @@
       "Neutral": "Neutral",
       "Disliked": "Disliked",
       "Hated": "Hated"
+    },
+    "logs": {
+      "title": "Logs",
+      "subtitle": "System activity log",
+      "level": "Level",
+      "source": "Source",
+      "message": "Message",
+      "time": "Time",
+      "noLogs": "No logs to display.",
+      "loading": "Loading..."
+    },
+    "stats": {
+      "title": "Statistics",
+      "subtitle": "Burden and fairness data by person",
+      "publishedVersions": "Published versions",
+      "errorLoading": "Error loading statistics"
+    },
+    "schedule": {
+      "publishedSuccess": "Version published successfully.",
+      "publishedError": "Failed to publish.",
+      "rollbackSuccess": "Rollback created. New draft version ID: {newVersionId}",
+      "rollbackError": "Failed to rollback.",
+      "overrideApplied": "Override applied — draft updated",
+      "overrideError": "Error applying override",
+      "shiftCleared": "Shift cleared — draft updated",
+      "shiftClearError": "Error clearing shift",
+      "shiftNotFound": "Shift not found"
     }
   },
   "language": {
