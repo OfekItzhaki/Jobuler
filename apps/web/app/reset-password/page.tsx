@@ -5,6 +5,7 @@ import { useTranslations } from "next-intl";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { resetPassword } from "@/lib/api/auth";
+import ShifterLogo from "@/components/shell/ShifterLogo";
 
 function ResetPasswordForm() {
   const t = useTranslations("auth");
@@ -102,11 +103,7 @@ export default function ResetPasswordPage() {
       <div style={{ width: "100%", maxWidth: "380px" }}>
         <div style={{ display: "flex", justifyContent: "center", marginBottom: "2rem" }}>
           <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
-            <div style={{ width: 40, height: 40, borderRadius: 10, background: "#3b82f6", display: "flex", alignItems: "center", justifyContent: "center" }}>
-              <svg width="20" height="20" fill="none" viewBox="0 0 32 32" stroke="white" strokeWidth={2.5}>
-                <path strokeLinecap="round" d="M9 12 C9 9.5 11 8 15 8 C19 8 21 9.5 21 12 C21 14.5 19 15 15 15 C11 15 9 16.5 9 19 C9 21.5 11 23 15 23 C19 23 21 21.5 21 19" />
-              </svg>
-            </div>
+            <ShifterLogo size={40} />
             <span style={{ fontSize: "1.5rem", fontWeight: 700, color: "#0f172a" }}>Shifter</span>
           </div>
         </div>

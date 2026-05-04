@@ -7,6 +7,7 @@ import { useSpaceStore } from "@/lib/store/spaceStore";
 import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
 import NotificationBell from "@/components/shell/NotificationBell";
+import ShifterLogo from "@/components/shell/ShifterLogo";
 import { getMySpaces } from "@/lib/api/spaces";
 import { getMe } from "@/lib/api/auth";
 
@@ -153,12 +154,7 @@ export default function AppShell({ children }: AppShellProps) {
       >
         <div style={{ ...S.logo, textDecoration: "none" }}>
           <Link href="/spaces" style={{ display: "flex", alignItems: "center", gap: 10, textDecoration: "none", flex: 1, minWidth: 0 }}>
-            <div style={S.logoIcon}>
-              <svg width="18" height="18" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M9 12 C9 9.5 11 8 15 8 C19 8 21 9.5 21 12 C21 14.5 19 15 15 15 C11 15 9 16.5 9 19 C9 21.5 11 23 15 23 C19 23 21 21.5 21 19"
-                  stroke="white" strokeWidth="2.5" strokeLinecap="round" fill="none"/>
-              </svg>
-            </div>
+            <ShifterLogo size={32} />
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ color: "white", fontWeight: 700, fontSize: 14, lineHeight: 1.2 }}>Shifter</div>
               {currentSpaceName && <div style={{ color: "#64748b", fontSize: 11, marginTop: 1 }}>{currentSpaceName}</div>}
