@@ -378,8 +378,11 @@ public class SolverWorkerService : BackgroundService
 
                 await db.SaveChangesAsync(ct);
 
-                // Update fairness counters after successful solve
-                await mediator.Send(new UpdateFairnessCountersCommand(job.SpaceId, version.Id), ct);
+                // Update fairness counters in a separate scope so its DbContext
+                // instance doesn't conflict with the worker's ongoing context.
+                using var fairnessScope = _scopeFactory.CreateScope();
+                var fairnessMediator = fairnessScope.ServiceProvider.GetRequiredService<IMediator>();
+                await fairnessMediator.Send(new UpdateFairnessCountersCommand(job.SpaceId, version.Id), ct);
             }
             else
             {

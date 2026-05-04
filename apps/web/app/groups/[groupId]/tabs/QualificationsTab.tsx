@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useTranslations } from "next-intl";
+import { useTranslations, useLocale } from "next-intl";
 import type { GroupMemberDto, GroupQualificationDto, MemberQualificationDto } from "@/lib/api/groups";
 
 interface Props {
@@ -23,6 +23,8 @@ export default function QualificationsTab({
   onCreateQualification, onDeactivateQualification, onAssign, onRemove,
 }: Props) {
   const t = useTranslations("groups.qualifications_tab");
+  const locale = useLocale();
+  const isRtl = locale === "he";
   const [newQualName, setNewQualName] = useState("");
   const [newQualDesc, setNewQualDesc] = useState("");
   const [qualSaving, setQualSaving] = useState(false);
@@ -54,7 +56,7 @@ export default function QualificationsTab({
   if (loading) return <p className="text-sm text-slate-400 py-8">{t("loadingQualifications")}</p>;
 
   return (
-    <div className="space-y-6" dir="ltr">
+    <div className="space-y-6" dir={isRtl ? "rtl" : "ltr"}>
       {/* Qualification definitions */}
       <div className="bg-white border border-slate-200 rounded-2xl p-5 space-y-4">
         <h3 className="text-sm font-semibold text-slate-700">{t("title")}</h3>
@@ -113,7 +115,7 @@ export default function QualificationsTab({
             <table className="w-full text-sm border-collapse">
               <thead>
                 <tr className="bg-slate-50/80 border-b border-slate-100">
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 sticky left-0 bg-slate-50/80">{t("member")}</th>
+                  <th className={`px-4 py-3 text-xs font-semibold text-slate-500 sticky bg-slate-50/80 ${isRtl ? "text-right right-0" : "text-left left-0"}`}>{t("member")}</th>
                   {qualifications.map(q => (
                     <th key={q.id} className="px-3 py-3 text-center text-xs font-semibold text-slate-600 whitespace-nowrap">
                       {q.name}
@@ -126,7 +128,7 @@ export default function QualificationsTab({
                   const memberQuals = memberQualMap.get(m.personId) ?? new Set<string>();
                   return (
                     <tr key={m.personId} className="hover:bg-slate-50/40 transition-colors">
-                      <td className="px-4 py-3 sticky right-0 bg-white border-r border-slate-100">
+                      <td className={`px-4 py-3 sticky bg-white ${isRtl ? "right-0 border-l border-slate-100" : "left-0 border-r border-slate-100"}`}>
                         <div className="flex items-center gap-2">
                           <div className="w-7 h-7 rounded-full bg-blue-500 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
                             {m.fullName.charAt(0)}

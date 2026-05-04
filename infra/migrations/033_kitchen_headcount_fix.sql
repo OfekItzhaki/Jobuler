@@ -1,15 +1,7 @@
--- Migration 033: Fix kitchen task required_headcount to 2
--- The kitchen task (מטבח) should require 2 people per shift, not 1.
--- Uses byte-safe matching to avoid encoding issues on Windows terminals.
--- Targets only the seed space kitchen task by matching the Hebrew name bytes.
-
-UPDATE tasks
-SET    required_headcount = 2
-WHERE  encode(name::bytea, 'escape') = '\327\236\327\230\327\221\327\227'
-AND    required_headcount = 1;
-
--- Fallback: also match ASCII 'kitchen' for non-Hebrew seed data
-UPDATE tasks
-SET    required_headcount = 2
-WHERE  LOWER(name) = 'kitchen'
-AND    required_headcount = 1;
+-- Migration 033: Kitchen headcount — intentionally 1 person per shift
+-- The kitchen task (מטבח) requires 1 person per shift by design.
+-- This migration is a no-op / documentation record.
+-- The two-shift display seen previously was caused by the 23h55m solver time
+-- window limit, not a headcount misconfiguration.
+-- No data changes needed.
+SELECT 1; -- no-op

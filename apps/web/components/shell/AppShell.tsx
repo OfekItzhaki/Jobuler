@@ -153,19 +153,21 @@ export default function AppShell({ children }: AppShellProps) {
       }}
         className={`${sidebarOpen ? "" : "max-md:hidden"}`}
       >
-        <Link href="/spaces" style={S.logo}>
-          <div style={S.logoIcon}>
-            <svg width="18" height="18" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M9 12 C9 9.5 11 8 15 8 C19 8 21 9.5 21 12 C21 14.5 19 15 15 15 C11 15 9 16.5 9 19 C9 21.5 11 23 15 23 C19 23 21 21.5 21 19"
-                stroke="white" strokeWidth="2.5" strokeLinecap="round" fill="none"/>
-            </svg>
-          </div>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ color: "white", fontWeight: 700, fontSize: 14, lineHeight: 1.2 }}>Shifter</div>
-            {currentSpaceName && <div style={{ color: "#64748b", fontSize: 11, marginTop: 1 }}>{currentSpaceName}</div>}
-          </div>
-        </Link>
-        <NotificationBell />
+        <div style={{ ...S.logo, textDecoration: "none" }}>
+          <Link href="/spaces" style={{ display: "flex", alignItems: "center", gap: 10, textDecoration: "none", flex: 1, minWidth: 0 }}>
+            <div style={S.logoIcon}>
+              <svg width="18" height="18" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M9 12 C9 9.5 11 8 15 8 C19 8 21 9.5 21 12 C21 14.5 19 15 15 15 C11 15 9 16.5 9 19 C9 21.5 11 23 15 23 C19 23 21 21.5 21 19"
+                  stroke="white" strokeWidth="2.5" strokeLinecap="round" fill="none"/>
+              </svg>
+            </div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ color: "white", fontWeight: 700, fontSize: 14, lineHeight: 1.2 }}>Shifter</div>
+              {currentSpaceName && <div style={{ color: "#64748b", fontSize: 11, marginTop: 1 }}>{currentSpaceName}</div>}
+            </div>
+          </Link>
+          <NotificationBell />
+        </div>
 
         <nav style={S.nav}>
           <NavItem href="/profile" label={t("nav.myProfile")} icon={ic("M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z")} />
