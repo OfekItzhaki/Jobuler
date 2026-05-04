@@ -99,8 +99,12 @@ export default function AppShell({ children }: AppShellProps) {
   const [resolvedName, setResolvedName] = useState<string | null>(storedDisplayName);
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
-  // Always fetch display name from API on mount to stay fresh across tab changes
+  // Fetch display name from API on mount, but only if not already in store
   useEffect(() => {
+    if (storedDisplayName) {
+      setResolvedName(storedDisplayName);
+      return;
+    }
     getMe().then(me => {
       if (me.displayName) setResolvedName(me.displayName);
     }).catch(() => {
@@ -160,8 +164,8 @@ export default function AppShell({ children }: AppShellProps) {
             <div style={{ color: "white", fontWeight: 700, fontSize: 14, lineHeight: 1.2 }}>Shifter</div>
             {currentSpaceName && <div style={{ color: "#64748b", fontSize: 11, marginTop: 1 }}>{currentSpaceName}</div>}
           </div>
-          <NotificationBell />
         </Link>
+        <NotificationBell />
 
         <nav style={S.nav}>
           <NavItem href="/profile" label={t("nav.myProfile")} icon={ic("M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z")} />

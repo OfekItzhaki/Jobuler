@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useTranslations } from "next-intl";
 import { useSpaceStore } from "@/lib/store/spaceStore";
 import { useDateFormat } from "@/lib/hooks/useDateFormat";
 import {
@@ -10,6 +11,7 @@ import {
 } from "@/lib/query/hooks/useNotifications";
 
 export default function NotificationBell({ variant = "dark" }: { variant?: "light" | "dark" }) {
+  const t = useTranslations("notifications");
   const { currentSpaceId } = useSpaceStore();
   const { fDateTime } = useDateFormat();
   const [open, setOpen] = useState(false);
@@ -73,19 +75,19 @@ export default function NotificationBell({ variant = "dark" }: { variant?: "ligh
           onClick={e => e.stopPropagation()}
         >
           <div className="flex items-center justify-between px-4 py-3 border-b">
-            <span className="text-sm font-semibold">התראות</span>
+            <span className="text-sm font-semibold">{t("title")}</span>
             {unreadCount > 0 && (
               <button
                 onClick={(e) => { e.preventDefault(); e.stopPropagation(); dismissAll.mutate(); }}
                 className="text-xs text-blue-600 hover:underline">
-                סמן הכל כנקרא
+                {t("markAllRead")}
               </button>
             )}
           </div>
 
           <div className="max-h-80 overflow-y-auto divide-y divide-gray-100">
             {notifications.length === 0 ? (
-              <p className="text-xs text-gray-400 text-center py-6">אין התראות</p>
+              <p className="text-xs text-gray-400 text-center py-6">{t("noNotifications")}</p>
             ) : notifications.map(n => (
               <div key={n.id}
                 className={`px-4 py-3 flex gap-3 ${n.isRead ? "opacity-50" : "bg-blue-50/40"}`}>

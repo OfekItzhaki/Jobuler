@@ -61,7 +61,7 @@ function LoginForm() {
               <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="#16a34a" strokeWidth={2} style={{ flexShrink: 0 }}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
-              <p style={{ fontSize: "0.875rem", color: "#15803d", margin: 0 }}>החשבון נוצר בהצלחה! התחבר כדי להמשיך.</p>
+              <p style={{ fontSize: "0.875rem", color: "#15803d", margin: 0 }}>{t("accountCreated")}</p>
             </div>
           )}
 
@@ -70,7 +70,7 @@ function LoginForm() {
               <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="#16a34a" strokeWidth={2} style={{ flexShrink: 0 }}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
-              <p style={{ fontSize: "0.875rem", color: "#15803d", margin: 0 }}>הסיסמה אופסה בהצלחה! התחבר עם הסיסמה החדשה.</p>
+              <p style={{ fontSize: "0.875rem", color: "#15803d", margin: 0 }}>{t("passwordResetSuccess")}</p>
             </div>
           )}
 
@@ -124,7 +124,7 @@ function LoginForm() {
 
             <div style={{ textAlign: "left" }}>
               <Link href="/forgot-password" style={{ fontSize: "0.75rem", color: "#3b82f6", textDecoration: "none" }}>
-                שכחת סיסמה?
+                {t("forgotPassword")}?
               </Link>
             </div>
 
@@ -142,14 +142,14 @@ function LoginForm() {
               disabled={loading}
               style={{ width: "100%", background: loading ? "#93c5fd" : "#3b82f6", color: "white", border: "none", borderRadius: "10px", padding: "0.75rem", fontSize: "0.875rem", fontWeight: 600, cursor: loading ? "not-allowed" : "pointer", marginTop: "0.5rem" }}
             >
-              {loading ? "מתחבר..." : t("loginButton")}
+              {loading ? t("signingIn") : t("loginButton")}
             </button>
           </form>
 
           <p style={{ textAlign: "center", fontSize: "0.875rem", color: "#64748b", marginTop: "1.25rem" }}>
-            אין לך חשבון?{" "}
+            {t("noAccount")}{" "}
             <Link href="/register" style={{ color: "#3b82f6", fontWeight: 500, textDecoration: "none" }}>
-              הירשם
+              {t("registerButton")}
             </Link>
           </p>
         </div>

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
+import { useTranslations } from "next-intl";
 import AppShell from "@/components/shell/AppShell";
 import {
   getPersonDetail, addRestriction, getSpaceRoles, assignRole, removeRole,
@@ -22,6 +23,8 @@ function fmt(dt: string) {
 export default function PersonDetailPage() {
   const { personId } = useParams<{ personId: string }>();
   const { currentSpaceId } = useSpaceStore();
+  const t = useTranslations("personDetail");
+  const tCommon = useTranslations("common");
   const [person, setPerson] = useState<PersonDetailDto | null>(null);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState<string | null>(null);
@@ -89,8 +92,8 @@ export default function PersonDetailPage() {
         effectiveFrom, effectiveUntil || null, note || null, null);
       await reload();
       setShowRestriction(false);
-      setMessage("הגבלה נוספה בהצלחה.");
-    } catch { setMessage("שגיאה בהוספת הגבלה."); }
+      setMessage(t("restrictionAdded"));
+    } catch { setMessage(t("errorAddRestriction")); }
     finally { setSaving(false); }
   }
 
@@ -101,8 +104,8 @@ export default function PersonDetailPage() {
       await assignRole(currentSpaceId, personId, selectedRoleId);
       await reload();
       setSelectedRoleId("");
-      setMessage("תפקיד הוקצה בהצלחה.");
-    } catch { setMessage("שגיאה בהקצאת תפקיד."); }
+      setMessage(t("roleAssigned"));
+    } catch { setMessage(t("errorAssignRole")); }
     finally { setRoleWorking(false); }
   }
 
@@ -112,8 +115,8 @@ export default function PersonDetailPage() {
     try {
       await removeRole(currentSpaceId, personId, roleId);
       await reload();
-      setMessage("תפקיד הוסר.");
-    } catch { setMessage("שגיאה בהסרת תפקיד."); }
+      setMessage(t("roleRemoved"));
+    } catch { setMessage(t("errorRemoveRole")); }
     finally { setRoleWorking(false); }
   }
 
@@ -127,8 +130,8 @@ export default function PersonDetailPage() {
       await reload();
       setShowAvailForm(false);
       setAvailStart(""); setAvailEnd(""); setAvailNote("");
-      setMessage("חלון זמינות נוסף.");
-    } catch { setMessage("שגיאה בהוספת חלון זמינות."); }
+      setMessage(t("availabilityAdded"));
+    } catch { setMessage(t("errorAddAvailability")); }
     finally { setSavingAvail(false); }
   }
 
@@ -142,8 +145,8 @@ export default function PersonDetailPage() {
       await reload();
       setShowPresenceForm(false);
       setPresenceStart(""); setPresenceEnd(""); setPresenceNote("");
-      setMessage("חלון נוכחות נוסף.");
-    } catch { setMessage("שגיאה בהוספת חלון נוכחות."); }
+      setMessage(t("presenceAdded"));
+    } catch { setMessage(t("errorAddPresence")); }
     finally { setSavingPresence(false); }
   }
 
@@ -157,16 +160,16 @@ export default function PersonDetailPage() {
       });
       await reload();
       setNewQual(""); setShowQualForm(false);
-      setMessage("כישור נוסף בהצלחה");
-    } catch { setMessage("שגיאה בהוספת כישור"); }
+      setMessage(t("qualificationAdded"));
+    } catch { setMessage(t("errorAddQualification")); }
     finally { setSavingQual(false); }
   }
 
   const assignedRoleIds = new Set(person?.roles?.map(r => r.roleId) ?? []);
   const availableRoles = allRoles.filter(r => !assignedRoleIds.has(r.id));
 
-  if (loading) return <AppShell><p className="text-gray-400 text-sm">טוען...</p></AppShell>;
-  if (!person) return <AppShell><p className="text-gray-500 text-sm">אדם לא נמצא.</p></AppShell>;
+  if (loading) return <AppShell><p className="text-gray-400 text-sm">{tCommon("loading")}</p></AppShell>;
+  if (!person) return <AppShell><p className="text-gray-500 text-sm">{t("notFound")}</p></AppShell>;
 
   return (
     <AppShell>
@@ -180,17 +183,17 @@ export default function PersonDetailPage() {
 
         {/* Roles */}
         <div className="bg-white border border-gray-200 rounded-xl p-4 space-y-3">
-          <h2 className="text-xs font-semibold text-gray-500 uppercase">תפקידים</h2>
+          <h2 className="text-xs font-semibold text-gray-500 uppercase">{t("roles")}</h2>
           <div className="flex flex-wrap gap-1 min-h-[24px]">
             {(person.roles ?? []).length === 0
-              ? <p className="text-xs text-gray-400">אין תפקידים מוקצים</p>
+              ? <p className="text-xs text-gray-400">{t("noRoles")}</p>
               : (person.roles ?? []).map(r => (
                 <span key={r.roleId}
                   className="inline-flex items-center gap-1 bg-blue-50 text-blue-700 text-xs px-2 py-0.5 rounded-full">
                   {r.name}
                   <button onClick={() => handleRemoveRole(r.roleId)} disabled={roleWorking}
                     className="text-blue-400 hover:text-red-500 disabled:opacity-40 leading-none"
-                    aria-label={`הסר תפקיד ${r.name}`}>×</button>
+                    aria-label={`${t("removeRole")} ${r.name}`}>×</button>
                 </span>
               ))}
           </div>
@@ -198,14 +201,14 @@ export default function PersonDetailPage() {
             <div className="flex gap-2 items-center border-t pt-3">
               <select value={selectedRoleId} onChange={e => setSelectedRoleId(e.target.value)}
                 className="flex-1 border rounded-lg px-3 py-1.5 text-sm">
-                <option value="">בחר תפקיד להקצאה...</option>
+                <option value="">{t("selectRole")}</option>
                 {availableRoles.map(r => (
                   <option key={r.id} value={r.id}>{r.name}</option>
                 ))}
               </select>
               <button onClick={handleAssignRole} disabled={!selectedRoleId || roleWorking}
                 className="bg-blue-600 text-white text-xs px-3 py-1.5 rounded-lg hover:bg-blue-700 disabled:opacity-50">
-                {roleWorking ? "…" : "הקצה"}
+                {roleWorking ? "…" : t("assign")}
               </button>
             </div>
           )}
@@ -213,9 +216,9 @@ export default function PersonDetailPage() {
 
         {/* Groups */}
         <div className="bg-white border border-gray-200 rounded-xl p-4">
-          <h2 className="text-xs font-semibold text-gray-500 uppercase mb-2">קבוצות</h2>
+          <h2 className="text-xs font-semibold text-gray-500 uppercase mb-2">{t("groups")}</h2>
           {person.groupNames.length === 0
-            ? <p className="text-xs text-gray-400">לא משויך לקבוצות</p>
+            ? <p className="text-xs text-gray-400">{t("noGroups")}</p>
             : person.groupNames.map(g => (
               <span key={g} className="inline-block bg-gray-100 text-gray-700 text-xs px-2 py-0.5 rounded-full me-1 mb-1">{g}</span>
             ))}
@@ -224,22 +227,22 @@ export default function PersonDetailPage() {
         {/* Qualifications */}
         <div className="bg-white border border-gray-200 rounded-xl p-4 space-y-3">
           <div className="flex items-center justify-between">
-            <h2 className="text-xs font-semibold text-gray-500 uppercase">כישורים</h2>
+            <h2 className="text-xs font-semibold text-gray-500 uppercase">{t("qualifications")}</h2>
             <button onClick={() => setShowQualForm(!showQualForm)}
-              className="text-xs text-blue-600 hover:underline">+ הוסף</button>
+              className="text-xs text-blue-600 hover:underline">+ {tCommon("add")}</button>
           </div>
           {showQualForm && (
             <form onSubmit={handleAddQualification} className="flex gap-2 border-t pt-3">
               <input value={newQual} onChange={e => setNewQual(e.target.value)} required
-                placeholder="לדוגמה: חובש, נהג" className="flex-1 border rounded-lg px-3 py-1.5 text-sm" />
+                placeholder={t("qualificationPlaceholder")} className="flex-1 border rounded-lg px-3 py-1.5 text-sm" />
               <button type="submit" disabled={savingQual}
                 className="bg-green-600 text-white text-xs px-3 py-1.5 rounded-lg hover:bg-green-700 disabled:opacity-50">
-                {savingQual ? "..." : "שמור"}
+                {savingQual ? "..." : tCommon("save")}
               </button>
             </form>
           )}
           {person.qualifications.length === 0
-            ? <p className="text-xs text-gray-400">אין כישורים</p>
+            ? <p className="text-xs text-gray-400">{t("noQualifications")}</p>
             : person.qualifications.map(q => (
               <span key={q} className="inline-block bg-green-50 text-green-700 text-xs px-2 py-0.5 rounded-full me-1 mb-1">{q}</span>
             ))}
@@ -248,39 +251,39 @@ export default function PersonDetailPage() {
         {/* Availability Windows */}
         <div className="bg-white border border-gray-200 rounded-xl p-4 space-y-3">
           <div className="flex items-center justify-between">
-            <h2 className="text-xs font-semibold text-gray-500 uppercase">חלונות זמינות</h2>
+            <h2 className="text-xs font-semibold text-gray-500 uppercase">{t("availabilityWindows")}</h2>
             <button onClick={() => setShowAvailForm(!showAvailForm)}
-              className="text-xs text-blue-600 hover:underline">+ הוסף</button>
+              className="text-xs text-blue-600 hover:underline">+ {tCommon("add")}</button>
           </div>
           {showAvailForm && (
             <form onSubmit={handleAddAvailability} className="space-y-3 border-t pt-3">
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="text-xs text-gray-500">מתאריך</label>
+                  <label className="text-xs text-gray-500">{t("from")}</label>
                   <input type="datetime-local" value={availStart}
                     onChange={e => setAvailStart(e.target.value)} required
                     className="w-full border rounded-lg px-3 py-2 text-sm mt-1" />
                 </div>
                 <div>
-                  <label className="text-xs text-gray-500">עד תאריך</label>
+                  <label className="text-xs text-gray-500">{t("until")}</label>
                   <input type="datetime-local" value={availEnd}
                     onChange={e => setAvailEnd(e.target.value)} required
                     className="w-full border rounded-lg px-3 py-2 text-sm mt-1" />
                 </div>
                 <div className="col-span-2">
-                  <label className="text-xs text-gray-500">הערה (אופציונלי)</label>
+                  <label className="text-xs text-gray-500">{t("noteOptional")}</label>
                   <input value={availNote} onChange={e => setAvailNote(e.target.value)}
-                    className="w-full border rounded-lg px-3 py-2 text-sm mt-1" placeholder="הערה אופציונלית" />
+                    className="w-full border rounded-lg px-3 py-2 text-sm mt-1" placeholder={t("noteOptional")} />
                 </div>
               </div>
               <button type="submit" disabled={savingAvail}
                 className="bg-blue-600 text-white text-xs px-3 py-1.5 rounded-lg hover:bg-blue-700 disabled:opacity-50">
-                {savingAvail ? "..." : "שמור"}
+                {savingAvail ? "..." : tCommon("save")}
               </button>
             </form>
           )}
           {availability.length === 0
-            ? <p className="text-xs text-gray-400">אין חלונות זמינות</p>
+            ? <p className="text-xs text-gray-400">{t("noAvailabilityWindows")}</p>
             : availability.map(a => (
               <div key={a.id} className="text-sm border-t pt-2">
                 <span className="font-medium">{fmt(a.startsAt)}</span>
@@ -294,56 +297,56 @@ export default function PersonDetailPage() {
         {/* Presence Windows */}
         <div className="bg-white border border-gray-200 rounded-xl p-4 space-y-3">
           <div className="flex items-center justify-between">
-            <h2 className="text-xs font-semibold text-gray-500 uppercase">חלונות נוכחות</h2>
+            <h2 className="text-xs font-semibold text-gray-500 uppercase">{t("presenceWindows")}</h2>
             <button onClick={() => setShowPresenceForm(!showPresenceForm)}
-              className="text-xs text-blue-600 hover:underline">+ הוסף</button>
+              className="text-xs text-blue-600 hover:underline">+ {tCommon("add")}</button>
           </div>
           {showPresenceForm && (
             <form onSubmit={handleAddPresence} className="space-y-3 border-t pt-3">
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="text-xs text-gray-500">מצב</label>
+                  <label className="text-xs text-gray-500">{t("presenceState")}</label>
                   <select value={presenceState}
                     onChange={e => setPresenceState(e.target.value as "at_home" | "free_in_base")}
                     className="w-full border rounded-lg px-3 py-2 text-sm mt-1">
-                    <option value="at_home">לא זמין</option>
-                    <option value="free_in_base">זמין חלקית</option>
+                    <option value="at_home">{t("atHome")}</option>
+                    <option value="free_in_base">{t("freeInBase")}</option>
                   </select>
                 </div>
                 <div />
                 <div>
-                  <label className="text-xs text-gray-500">מתאריך</label>
+                  <label className="text-xs text-gray-500">{t("from")}</label>
                   <input type="datetime-local" value={presenceStart}
                     onChange={e => setPresenceStart(e.target.value)} required
                     className="w-full border rounded-lg px-3 py-2 text-sm mt-1" />
                 </div>
                 <div>
-                  <label className="text-xs text-gray-500">עד תאריך</label>
+                  <label className="text-xs text-gray-500">{t("until")}</label>
                   <input type="datetime-local" value={presenceEnd}
                     onChange={e => setPresenceEnd(e.target.value)} required
                     className="w-full border rounded-lg px-3 py-2 text-sm mt-1" />
                 </div>
                 <div className="col-span-2">
-                  <label className="text-xs text-gray-500">הערה (אופציונלי)</label>
+                  <label className="text-xs text-gray-500">{t("noteOptional")}</label>
                   <input value={presenceNote} onChange={e => setPresenceNote(e.target.value)}
-                    className="w-full border rounded-lg px-3 py-2 text-sm mt-1" placeholder="הערה אופציונלית" />
+                    className="w-full border rounded-lg px-3 py-2 text-sm mt-1" placeholder={t("noteOptional")} />
                 </div>
               </div>
               <button type="submit" disabled={savingPresence}
                 className="bg-blue-600 text-white text-xs px-3 py-1.5 rounded-lg hover:bg-blue-700 disabled:opacity-50">
-                {savingPresence ? "..." : "שמור"}
+                {savingPresence ? "..." : tCommon("save")}
               </button>
             </form>
           )}
           {presence.length === 0
-            ? <p className="text-xs text-gray-400">אין חלונות נוכחות</p>
+            ? <p className="text-xs text-gray-400">{t("noPresenceWindows")}</p>
             : presence.map(p => (
               <div key={p.id} className="text-sm border-t pt-2">
                 <span className="inline-block bg-purple-50 text-purple-700 text-xs px-2 py-0.5 rounded-full me-2">
-                  {p.state === "at_home" ? "לא זמין" : "זמין חלקית"}
+                  {p.state === "at_home" ? t("atHome") : t("freeInBase")}
                 </span>
                 <span className="text-gray-500 text-xs">{fmt(p.startsAt)} → {fmt(p.endsAt)}</span>
-                {p.isDerived && <span className="text-xs text-gray-400 ms-2">(נגזר)</span>}
+                {p.isDerived && <span className="text-xs text-gray-400 ms-2">({t("derived")})</span>}
                 {p.note && <p className="text-xs text-gray-500 mt-0.5">{p.note}</p>}
               </div>
             ))}
@@ -352,52 +355,52 @@ export default function PersonDetailPage() {
         {/* Restrictions */}
         <div className="bg-white border border-gray-200 rounded-xl p-4 space-y-3">
           <div className="flex items-center justify-between">
-            <h2 className="text-xs font-semibold text-gray-500 uppercase">הגבלות</h2>
+            <h2 className="text-xs font-semibold text-gray-500 uppercase">{t("restrictions")}</h2>
             <button onClick={() => setShowRestriction(!showRestriction)}
-              className="text-xs text-blue-600 hover:underline">+ הוסף</button>
+              className="text-xs text-blue-600 hover:underline">+ {tCommon("add")}</button>
           </div>
           {showRestriction && (
             <form onSubmit={handleAddRestriction} className="space-y-3 border-t pt-3">
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="text-xs text-gray-500">סוג</label>
+                  <label className="text-xs text-gray-500">{t("restrictionType")}</label>
                   <select value={restrictionType} onChange={e => setRestrictionType(e.target.value)}
                     className="w-full border rounded-lg px-3 py-2 text-sm mt-1">
-                    <option value="no_task_type_restriction">ללא משימה ספציפית</option>
-                    <option value="no_night">ללא משמרות לילה</option>
-                    <option value="no_kitchen">ללא מטבח</option>
-                    <option value="medical_leave">חופשת מחלה</option>
+                    <option value="no_task_type_restriction">{t("restrictionNoTask")}</option>
+                    <option value="no_night">{t("restrictionNoNight")}</option>
+                    <option value="no_kitchen">{t("restrictionNoKitchen")}</option>
+                    <option value="medical_leave">{t("restrictionMedicalLeave")}</option>
                   </select>
                 </div>
                 <div>
-                  <label className="text-xs text-gray-500">מתאריך</label>
+                  <label className="text-xs text-gray-500">{t("from")}</label>
                   <input type="date" value={effectiveFrom} onChange={e => setEffectiveFrom(e.target.value)}
                     required className="w-full border rounded-lg px-3 py-2 text-sm mt-1" />
                 </div>
                 <div>
-                  <label className="text-xs text-gray-500">עד תאריך (אופציונלי)</label>
+                  <label className="text-xs text-gray-500">{t("untilOptional")}</label>
                   <input type="date" value={effectiveUntil} onChange={e => setEffectiveUntil(e.target.value)}
                     className="w-full border rounded-lg px-3 py-2 text-sm mt-1" />
                 </div>
                 <div>
-                  <label className="text-xs text-gray-500">הערה</label>
+                  <label className="text-xs text-gray-500">{t("note")}</label>
                   <input value={note} onChange={e => setNote(e.target.value)}
-                    className="w-full border rounded-lg px-3 py-2 text-sm mt-1" placeholder="הערה אופציונלית" />
+                    className="w-full border rounded-lg px-3 py-2 text-sm mt-1" placeholder={t("noteOptional")} />
                 </div>
               </div>
               <button type="submit" disabled={saving}
                 className="bg-blue-600 text-white text-xs px-3 py-1.5 rounded-lg hover:bg-blue-700 disabled:opacity-50">
-                {saving ? "..." : "שמור הגבלה"}
+                {saving ? "..." : t("saveRestriction")}
               </button>
             </form>
           )}
           {person.restrictions.length === 0
-            ? <p className="text-xs text-gray-400">אין הגבלות</p>
+            ? <p className="text-xs text-gray-400">{t("noRestrictions")}</p>
             : person.restrictions.map(r => (
               <div key={r.id} className="text-sm border-t pt-2">
                 <span className="font-medium">{r.restrictionType}</span>
                 <span className="text-gray-400 text-xs ms-2">
-                  {r.effectiveFrom} {r.effectiveUntil ? `→ ${r.effectiveUntil}` : "ואילך"}
+                  {r.effectiveFrom} {r.effectiveUntil ? `→ ${r.effectiveUntil}` : t("onwards")}
                 </span>
                 {r.operationalNote && <p className="text-xs text-gray-500 mt-0.5">{r.operationalNote}</p>}
               </div>

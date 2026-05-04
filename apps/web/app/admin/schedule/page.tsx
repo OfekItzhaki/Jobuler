@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useTranslations } from "next-intl";
 import AppShell from "@/components/shell/AppShell";
 import ScheduleTable2D from "@/components/schedule/ScheduleTable2D";
 import OverrideModal, { OverridePerson } from "@/components/schedule/OverrideModal";
@@ -50,16 +51,17 @@ interface VersionListSidebarProps {
 }
 
 function VersionListSidebar({ versions, selectedId, loading, onSelect }: VersionListSidebarProps) {
+  const t = useTranslations("admin");
   return (
     <div className="space-y-3">
-      <h2 className="text-xs font-semibold text-slate-500 uppercase tracking-wider">גרסאות</h2>
+      <h2 className="text-xs font-semibold text-slate-500 uppercase tracking-wider">{t("versions")}</h2>
       {loading && (
         <div className="flex items-center gap-2 text-slate-400 text-sm py-4">
           <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
             <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
             <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
           </svg>
-          טוען...
+          {t("loading")}
         </div>
       )}
       <div className="space-y-1.5">
@@ -91,6 +93,7 @@ interface InfeasibilityBannerProps {
 }
 
 function InfeasibilityBanner({ summaryJson }: InfeasibilityBannerProps) {
+  const t = useTranslations("admin");
   if (!summaryJson) return null;
   let summary: {
     feasible?: boolean;
@@ -113,7 +116,7 @@ function InfeasibilityBanner({ summaryJson }: InfeasibilityBannerProps) {
         <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
           <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
         </svg>
-        הסידור לא ניתן לביצוע
+        {t("infeasible")}
       </div>
       {reasons.length > 0 && (
         <ul className="list-disc list-inside space-y-0.5 text-red-700">
@@ -127,13 +130,11 @@ function InfeasibilityBanner({ summaryJson }: InfeasibilityBannerProps) {
       )}
       {(conflicts > 0 || uncovered > 0) && (
         <p className="text-red-600 text-xs">
-          {conflicts > 0 && `${conflicts} אילוצים קשים לא ניתנים לסיפוק. `}
-          {uncovered > 0 && `${uncovered} משמרות ללא כיסוי מספיק.`}
+          {conflicts > 0 && t("infeasibleHardConflicts", { count: conflicts }) + " "}
+          {uncovered > 0 && t("infeasibleUncovered", { count: uncovered })}
         </p>
       )}
-      <p className="text-red-600 text-xs mt-1">
-        ניתן לפתור על ידי: הוספת חברים נוספים, הרחבת אופק הזמן, או הקלת אילוצים.
-      </p>
+      <p className="text-red-600 text-xs mt-1">{t("infeasibleSolution")}</p>
     </div>
   );
 }
@@ -149,6 +150,7 @@ interface VersionDetailPanelProps {
 }
 
 function VersionDetailPanel({ selected, actionLoading, spaceId, onPublish, onRollback, onCellClick }: VersionDetailPanelProps) {
+  const t = useTranslations("admin");
   const today = new Date().toISOString().split("T")[0];
   const [selectedDate, setSelectedDate] = useState(today);
 
@@ -165,12 +167,12 @@ function VersionDetailPanel({ selected, actionLoading, spaceId, onPublish, onRol
   }
 
   function formatDateLabel(dateStr: string): string {
-    if (dateStr === today) return "היום";
+    if (dateStr === today) return t("today");
     const yesterday = new Date(Date.now() - 86400000).toISOString().split("T")[0];
     const tomorrow = new Date(Date.now() + 86400000).toISOString().split("T")[0];
-    if (dateStr === yesterday) return "אתמול";
-    if (dateStr === tomorrow) return "מחר";
-    return new Date(dateStr + "T00:00:00").toLocaleDateString("he-IL", { day: "numeric", month: "short" });
+    if (dateStr === yesterday) return t("yesterday");
+    if (dateStr === tomorrow) return t("tomorrow");
+    return new Date(dateStr + "T00:00:00").toLocaleDateString(undefined, { day: "numeric", month: "short" });
   }
 
   return (
@@ -179,7 +181,7 @@ function VersionDetailPanel({ selected, actionLoading, spaceId, onPublish, onRol
       <div className="flex items-center gap-2 flex-wrap">
         <div className="flex items-center gap-2 me-2">
           <span className="text-sm font-medium text-slate-700">
-            גרסה {selected.version.versionNumber}
+            {t("version")} {selected.version.versionNumber}
           </span>
           <StatusBadge status={selected.version.status} />
         </div>
@@ -193,7 +195,7 @@ function VersionDetailPanel({ selected, actionLoading, spaceId, onPublish, onRol
             <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
             </svg>
-            פרסם
+            {t("publish")}
           </button>
         )}
 
@@ -206,7 +208,7 @@ function VersionDetailPanel({ selected, actionLoading, spaceId, onPublish, onRol
             <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
             </svg>
-            שחזר
+            {t("rollback")}
           </button>
         )}
 
@@ -250,7 +252,7 @@ function VersionDetailPanel({ selected, actionLoading, spaceId, onPublish, onRol
             selectedDate === today ? "bg-blue-500 text-white border-blue-500" : "border-slate-200 text-slate-600 hover:bg-slate-50"
           }`}
         >
-          היום
+          {t("today")}
         </button>
         <button onClick={nextDay} className="p-2 rounded-lg border border-slate-200 hover:bg-slate-50 transition-colors">
           <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -272,6 +274,7 @@ function VersionDetailPanel({ selected, actionLoading, spaceId, onPublish, onRol
 
 // ── AdminSchedulePage ────────────────────────────────────────────────────────
 export default function AdminSchedulePage() {
+  const t = useTranslations("admin");
   const { currentSpaceId } = useSpaceStore();
   const { isAdminMode } = useAuthStore();
 
@@ -321,10 +324,10 @@ export default function AdminSchedulePage() {
     setActionLoading(true);
     try {
       const { runId } = await triggerSolve(currentSpaceId);
-      setMessage({ text: `סולבר הופעל. מזהה: ${runId}`, type: "success" });
+      setMessage({ text: t("solverStarted", { runId }), type: "success" });
       setTimeout(loadVersions, 3000);
     } catch {
-      setMessage({ text: "שגיאה בהפעלת הסולבר.", type: "error" });
+      setMessage({ text: t("errorSolver"), type: "error" });
     } finally { setActionLoading(false); }
   }
 
@@ -333,10 +336,10 @@ export default function AdminSchedulePage() {
     setActionLoading(true);
     try {
       const { runId } = await triggerSolve(currentSpaceId, "emergency");
-      setMessage({ text: `סולבר חירום הופעל. מזהה: ${runId}`, type: "success" });
+      setMessage({ text: t("emergencyStarted", { runId }), type: "success" });
       setTimeout(loadVersions, 3000);
     } catch {
-      setMessage({ text: "שגיאה בהפעלת סולבר חירום.", type: "error" });
+      setMessage({ text: t("errorEmergencySolver"), type: "error" });
     } finally { setActionLoading(false); }
   }
 
@@ -388,17 +391,17 @@ export default function AdminSchedulePage() {
       `${a.slotStartsAt}|${a.slotEndsAt}` === slotKey
     )?.taskSlotId;
     if (!slotId) {
-      setOverrideError("לא ניתן למצוא את המשמרת");
+      setOverrideError("Shift not found");
       setOverrideSaving(false);
       return;
     }
     try {
       await applyManualOverride(currentSpaceId, slotId, newPersonIds);
-      setMessage({ text: "עקיפה הוחלה בהצלחה — טיוטה עודכנה", type: "success" });
+      setMessage({ text: "Override applied — draft updated", type: "success" });
       setOverrideCell(null);
       await loadVersions();
     } catch {
-      setOverrideError("שגיאה בהחלת העקיפה");
+      setOverrideError("Error applying override");
     } finally {
       setOverrideSaving(false);
     }
@@ -412,17 +415,17 @@ export default function AdminSchedulePage() {
       `${a.slotStartsAt}|${a.slotEndsAt}` === slotKey
     )?.taskSlotId;
     if (!slotId) {
-      setOverrideError("לא ניתן למצוא את המשמרת");
+      setOverrideError("Shift not found");
       setOverrideSaving(false);
       return;
     }
     try {
       await removeManualOverride(currentSpaceId, slotId);
-      setMessage({ text: "המשמרת נוקתה — טיוטה עודכנה", type: "success" });
+      setMessage({ text: "Shift cleared — draft updated", type: "success" });
       setOverrideCell(null);
       await loadVersions();
     } catch {
-      setOverrideError("שגיאה בניקוי המשמרת");
+      setOverrideError("Error clearing shift");
     } finally {
       setOverrideSaving(false);
     }
@@ -435,7 +438,7 @@ export default function AdminSchedulePage() {
           <svg className="w-12 h-12 text-slate-200 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
           </svg>
-          <p className="text-slate-500 text-sm">יש להיכנס למצב מנהל כדי לנהל סידורים.</p>
+          <p className="text-slate-500 text-sm">{t("adminRequired")}</p>
         </div>
       </AppShell>
     );
@@ -447,8 +450,8 @@ export default function AdminSchedulePage() {
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-slate-900">ניהול סידור</h1>
-            <p className="text-sm text-slate-500 mt-1">ניהול ופרסום גרסאות סידור</p>
+            <h1 className="text-2xl font-bold text-slate-900">{t("title")}</h1>
+            <p className="text-sm text-slate-500 mt-1">{t("manageScheduleSubtitle")}</p>
           </div>
           <div className="flex items-center gap-2">
             <button
@@ -459,7 +462,7 @@ export default function AdminSchedulePage() {
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
               </svg>
-              סידור חירום
+              {t("runEmergency")}
             </button>
             <button
               onClick={handleTrigger}
@@ -476,7 +479,7 @@ export default function AdminSchedulePage() {
                   <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
                 </svg>
               )}
-              הפעל סולבר
+              {t("runSolver")}
             </button>
           </div>
         </div>
@@ -521,7 +524,7 @@ export default function AdminSchedulePage() {
               <svg className="w-10 h-10 text-slate-200 mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
               </svg>
-              <p className="text-slate-400 text-sm">בחר גרסה לצפייה בפרטים.</p>
+              <p className="text-slate-400 text-sm">{t("selectVersion")}</p>
             </div>
           )}
         </div>

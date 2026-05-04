@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useTranslations } from "next-intl";
 import type { GroupMemberDto, GroupRoleDto } from "@/lib/api/groups";
 
 interface DraftVersion { id: string; status: string; }
@@ -75,6 +76,9 @@ export default function SettingsTab({
   const [editRoleError, setEditRoleError] = useState<string | null>(null);
   const [confirmDeactivateRole, setConfirmDeactivateRole] = useState<string | null>(null);
 
+  const t = useTranslations("groups.settings_tab");
+  const tCommon = useTranslations("common");
+
   async function handleCreateRole(e: React.FormEvent) {
     e.preventDefault();
     if (!newRoleName.trim()) return;
@@ -86,7 +90,7 @@ export default function SettingsTab({
       setNewRoleDesc("");
       setNewRolePermLevel("view");
     } catch {
-      setRoleFormError("שגיאה ביצירת תפקיד");
+      setRoleFormError(t("errorCreateRole"));
     } finally {
       setRoleFormSaving(false);
     }
@@ -100,7 +104,7 @@ export default function SettingsTab({
       await onUpdateRole(roleId, editRoleName.trim(), editRoleDesc.trim() || null, editRolePermLevel);
       setEditingRoleId(null);
     } catch {
-      setEditRoleError("שגיאה בעדכון תפקיד");
+      setEditRoleError(t("errorUpdateRole"));
     } finally {
       setEditRoleSaving(false);
     }
@@ -109,7 +113,7 @@ export default function SettingsTab({
   if (!isAdmin) {
     return (
       <div className="flex flex-col items-center justify-center py-16 text-center bg-white rounded-xl border border-slate-200">
-        <p className="text-slate-400 text-sm">הגדרות זמינות למנהלים בלבד</p>
+        <p className="text-slate-400 text-sm">{t("adminOnly")}</p>
       </div>
     );
   }
@@ -117,7 +121,7 @@ export default function SettingsTab({
   return (
     <div className="space-y-6">
       {/* Rename */}
-      <Section title="שם הקבוצה">
+      <Section title={t("groupName")}>
         <div className="flex gap-2">
           <input
             type="text"
@@ -126,17 +130,17 @@ export default function SettingsTab({
             className="flex-1 border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
           <button onClick={onRenameGroup} disabled={renameSaving} className="bg-blue-500 hover:bg-blue-600 text-white text-sm font-medium px-4 py-2.5 rounded-xl disabled:opacity-50 transition-colors">
-            {renameSaving ? "שומר..." : "שמור"}
+            {renameSaving ? t("saving") : t("save")}
           </button>
         </div>
         {renameError && <p className="text-sm text-red-600 mt-2">{renameError}</p>}
       </Section>
 
       {/* Solver horizon */}
-      <Section title="אופק תכנון">
+      <Section title={t("planningHorizon")}>
         <div className="space-y-3">
           <div className="flex items-center justify-between">
-            <span className="text-sm text-slate-600">ימים קדימה: <strong>{solverHorizon}</strong></span>
+            <span className="text-sm text-slate-600">{t("daysAhead")}: <strong>{solverHorizon}</strong></span>
           </div>
           <input
             type="range"
@@ -147,20 +151,20 @@ export default function SettingsTab({
             className="w-full accent-blue-500"
           />
           <button onClick={onSaveSettings} disabled={savingSettings} className="bg-blue-500 hover:bg-blue-600 text-white text-sm font-medium px-4 py-2.5 rounded-xl disabled:opacity-50 transition-colors">
-            {savingSettings ? "שומר..." : "שמור הגדרות"}
+            {savingSettings ? t("saving") : t("saveSettings")}
           </button>
           {settingsError && <p className="text-sm text-red-600">{settingsError}</p>}
-          {settingsSaved && <p className="text-sm text-emerald-600">ההגדרות נשמרו ✓</p>}
+          {settingsSaved && <p className="text-sm text-emerald-600">{t("save")} ✓</p>}
         </div>
       </Section>
 
       {/* Trigger solver */}
-      <Section title="הפעלת סידור">
+      <Section title={t("runSchedule")}>
         <div className="space-y-3">
           {draftVersion && (
             <div className="flex items-center gap-2 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">
-              <span className="text-sm text-amber-800">יש טיוטה ממתינה לפרסום</span>
-              <button onClick={onOpenDraftModal} className="text-xs text-amber-700 border border-amber-300 hover:bg-amber-100 px-3 py-1.5 rounded-lg transition-colors font-medium">צפה בטיוטה</button>
+              <span className="text-sm text-amber-800">{t("draftPending")}</span>
+              <button onClick={onOpenDraftModal} className="text-xs text-amber-700 border border-amber-300 hover:bg-amber-100 px-3 py-1.5 rounded-lg transition-colors font-medium">{t("viewDraft")}</button>
             </div>
           )}
           <button
@@ -171,15 +175,13 @@ export default function SettingsTab({
             {solverPolling ? (
               <>
                 <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>
-                מחשב סידור...
+                {t("running")}
               </>
-            ) : "הפעל סידור"}
+            ) : t("runSchedule")}
           </button>
           {solverStatus && (
             <p className={`text-sm ${solverStatus === "Completed" ? "text-emerald-600" : solverStatus === "Failed" ? "text-red-600" : "text-slate-600"}`}>
-              {solverStatus === "Completed" ? "✓ הסידור הושלם — בדוק את לשונית הסידור"
-               : solverStatus === "Failed" ? "✗ הסידור נכשל"
-               : `סטטוס: ${solverStatus}`}
+              {solverStatus}
             </p>
           )}
           {solverError && (
@@ -191,9 +193,9 @@ export default function SettingsTab({
       </Section>
 
       {/* Roles management */}
-      <Section title="תפקידים">
+      <Section title={t("roles")}>
         {groupRolesLoading ? (
-          <p className="text-sm text-slate-400">טוען תפקידים...</p>
+          <p className="text-sm text-slate-400">{t("loadingRoles")}</p>
         ) : (
           <div className="space-y-3">
             {/* Existing roles list */}
@@ -208,37 +210,38 @@ export default function SettingsTab({
                           value={editRoleName}
                           onChange={e => setEditRoleName(e.target.value)}
                           className="w-full border border-slate-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                          placeholder="שם תפקיד"
+                          placeholder={t("addRole")}
                         />
                         <input
                           type="text"
                           value={editRoleDesc}
                           onChange={e => setEditRoleDesc(e.target.value)}
                           className="w-full border border-slate-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                          placeholder="תיאור (אופציונלי)"
+                          placeholder={t("roleDescription")}
                         />
                         <select
                           value={editRolePermLevel}
                           onChange={e => setEditRolePermLevel(e.target.value)}
                           className="w-full border border-slate-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                         >
-                          <option value="view">צפייה בלבד</option>
-                          <option value="ViewAndEdit">צפייה + עריכה</option>
-                          <option value="Owner">בעלים</option>
-                        </select>                        {editRoleError && <p className="text-xs text-red-600">{editRoleError}</p>}
+                          <option value="view">{t("viewOnly")}</option>
+                          <option value="ViewAndEdit">{t("viewAndEdit")}</option>
+                          <option value="Owner">{t("ownerRole")}</option>
+                        </select>
+                        {editRoleError && <p className="text-xs text-red-600">{editRoleError}</p>}
                         <div className="flex gap-2">
                           <button
                             onClick={() => handleUpdateRole(role.id)}
                             disabled={editRoleSaving}
                             className="bg-blue-500 hover:bg-blue-600 text-white text-xs font-medium px-3 py-1.5 rounded-lg disabled:opacity-50 transition-colors"
                           >
-                            {editRoleSaving ? "שומר..." : "שמור"}
+                            {editRoleSaving ? t("saving") : t("save")}
                           </button>
                           <button
                             onClick={() => setEditingRoleId(null)}
                             className="text-xs text-slate-500 border border-slate-200 px-3 py-1.5 rounded-lg hover:bg-slate-50 transition-colors"
                           >
-                            ביטול
+                            {t("cancel")}
                           </button>
                         </div>
                       </div>
@@ -257,8 +260,8 @@ export default function SettingsTab({
                               role.permissionLevel === "ViewAndEdit" ? "bg-blue-100 text-blue-700" :
                               "bg-slate-100 text-slate-500"
                             }`}>
-                              {role.permissionLevel === "Owner" ? "בעלים" :
-                               role.permissionLevel === "ViewAndEdit" ? "צפייה + עריכה" : "צפייה"}
+                              {role.permissionLevel === "Owner" ? t("ownerRole") :
+                               role.permissionLevel === "ViewAndEdit" ? t("viewAndEdit") : t("viewOnly")}
                             </span>
                           )}
                         </div>
@@ -274,20 +277,20 @@ export default function SettingsTab({
                               }}
                               className="text-xs text-slate-500 border border-slate-200 hover:bg-slate-50 px-2.5 py-1 rounded-lg transition-colors"
                             >
-                              ערוך
+                              {t("edit")}
                             </button>
                             {confirmDeactivateRole === role.id ? (
                               <>
-                                <span className="text-xs text-slate-600">לבטל?</span>
-                                <button onClick={() => { setConfirmDeactivateRole(null); onDeactivateRole(role.id); }} className="text-xs text-white bg-red-500 hover:bg-red-600 px-2.5 py-1 rounded-lg transition-colors">אישור</button>
-                                <button onClick={() => setConfirmDeactivateRole(null)} className="text-xs text-slate-500 border border-slate-200 px-2.5 py-1 rounded-lg hover:bg-slate-50 transition-colors">ביטול</button>
+                                <span className="text-xs text-slate-600">{t("deactivateConfirm")}</span>
+                                <button onClick={() => { setConfirmDeactivateRole(null); onDeactivateRole(role.id); }} className="text-xs text-white bg-red-500 hover:bg-red-600 px-2.5 py-1 rounded-lg transition-colors">{t("confirm")}</button>
+                                <button onClick={() => setConfirmDeactivateRole(null)} className="text-xs text-slate-500 border border-slate-200 px-2.5 py-1 rounded-lg hover:bg-slate-50 transition-colors">{t("cancel")}</button>
                               </>
                             ) : (
                               <button
                                 onClick={() => setConfirmDeactivateRole(role.id)}
                                 className="text-xs text-red-500 border border-red-100 hover:bg-red-50 px-2.5 py-1 rounded-lg transition-colors"
                               >
-                                בטל
+                                {t("deactivate")}
                               </button>
                             )}
                           </div>
@@ -306,7 +309,7 @@ export default function SettingsTab({
                   type="text"
                   value={newRoleName}
                   onChange={e => setNewRoleName(e.target.value)}
-                  placeholder="שם תפקיד חדש"
+                  placeholder={t("addRole")}
                   className="flex-1 border border-slate-200 rounded-xl px-3.5 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
                 <button
@@ -314,14 +317,14 @@ export default function SettingsTab({
                   disabled={roleFormSaving || !newRoleName.trim()}
                   className="bg-blue-500 hover:bg-blue-600 text-white text-sm font-medium px-4 py-2 rounded-xl disabled:opacity-50 transition-colors"
                 >
-                  {roleFormSaving ? "..." : "הוסף"}
+                  {roleFormSaving ? "..." : t("add")}
                 </button>
               </div>
               <input
                 type="text"
                 value={newRoleDesc}
                 onChange={e => setNewRoleDesc(e.target.value)}
-                placeholder="תיאור (אופציונלי)"
+                placeholder={t("roleDescription")}
                 className="w-full border border-slate-200 rounded-xl px-3.5 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
               <select
@@ -329,9 +332,9 @@ export default function SettingsTab({
                 onChange={e => setNewRolePermLevel(e.target.value)}
                 className="w-full border border-slate-200 rounded-xl px-3.5 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
-                <option value="view">צפייה בלבד</option>
-                <option value="ViewAndEdit">צפייה + עריכה</option>
-                <option value="Owner">בעלים</option>
+                <option value="view">{t("viewOnly")}</option>
+                <option value="ViewAndEdit">{t("viewAndEdit")}</option>
+                <option value="Owner">{t("ownerRole")}</option>
               </select>
               {roleFormError && <p className="text-xs text-red-600">{roleFormError}</p>}
             </form>
@@ -339,12 +342,12 @@ export default function SettingsTab({
         )}
       </Section>
 
-      {/* Ownership transfer */}      <Section title="העברת בעלות">
+      {/* Ownership transfer */}      <Section title={t("ownershipTransfer")}>
         {hasPendingTransfer ? (
           <div className="space-y-2">
-            <p className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">יש בקשת העברה ממתינה</p>
+            <p className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">{t("pendingTransfer")}</p>
             <button onClick={onCancelTransfer} disabled={cancelTransferSaving} className="text-sm text-red-600 border border-red-200 hover:bg-red-50 px-4 py-2 rounded-xl disabled:opacity-50 transition-colors">
-              {cancelTransferSaving ? "מבטל..." : "בטל העברה"}
+              {cancelTransferSaving ? t("transferring") : t("cancelTransfer")}
             </button>
           </div>
         ) : (
@@ -354,13 +357,13 @@ export default function SettingsTab({
               onChange={e => onTransferPersonChange(e.target.value)}
               className="flex-1 border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
-              <option value="">בחר חבר...</option>
+              <option value="">{t("selectMember")}</option>
               {members.map(m => (
                 <option key={m.personId} value={m.personId}>{m.displayName ?? m.fullName}</option>
               ))}
             </select>
             <button onClick={onInitiateTransfer} disabled={transferSaving || !transferPersonId} className="bg-amber-500 hover:bg-amber-600 text-white text-sm font-medium px-4 py-2.5 rounded-xl disabled:opacity-50 transition-colors">
-              {transferSaving ? "שולח..." : "העבר"}
+              {transferSaving ? t("transferring") : t("transfer")}
             </button>
           </div>
         )}
@@ -368,21 +371,21 @@ export default function SettingsTab({
       </Section>
 
       {/* Delete group */}
-      <Section title="מחיקת קבוצה">
+      <Section title={t("deleteGroup")}>
         {showDeleteConfirm ? (
           <div className="bg-red-50 border border-red-200 rounded-xl p-4 space-y-3">
-            <p className="text-sm text-red-700">האם אתה בטוח? הקבוצה תועבר לארכיון ותוכל לשחזרה מאוחר יותר.</p>
+            <p className="text-sm text-red-700">{t("deleteConfirm")}</p>
             <div className="flex gap-2">
               <button onClick={onDeleteGroup} disabled={deleteSaving} className="bg-red-500 hover:bg-red-600 text-white text-sm font-medium px-4 py-2 rounded-xl disabled:opacity-50 transition-colors">
-                {deleteSaving ? "מוחק..." : "כן, מחק"}
+                {deleteSaving ? t("deleting") : t("yesDelete")}
               </button>
-              <button onClick={() => onShowDeleteConfirm(false)} className="text-sm text-slate-500 border border-slate-200 px-4 py-2 rounded-xl hover:bg-slate-50 transition-colors">ביטול</button>
+              <button onClick={() => onShowDeleteConfirm(false)} className="text-sm text-slate-500 border border-slate-200 px-4 py-2 rounded-xl hover:bg-slate-50 transition-colors">{t("cancel")}</button>
             </div>
             {deleteError && <p className="text-sm text-red-600">{deleteError}</p>}
           </div>
         ) : (
           <button onClick={() => onShowDeleteConfirm(true)} className="text-sm text-red-600 border border-red-200 hover:bg-red-50 px-4 py-2.5 rounded-xl transition-colors">
-            מחק קבוצה
+            {t("deleteGroup")}
           </button>
         )}
       </Section>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useTranslations } from "next-intl";
 import { useDateFormat } from "@/lib/hooks/useDateFormat";
 import type { ScheduleAssignment } from "../types";
 import ScheduleTaskTable from "@/components/schedule/ScheduleTaskTable";
@@ -13,6 +14,7 @@ interface Props {
   scheduleData: ScheduleAssignment[] | null;
   scheduleLoading: boolean;
   scheduleError: string | null;
+  scheduleIsOffline?: boolean;
   draftVersion: DraftVersion | null;
   lastRunSummary: string | null;
   isAdmin: boolean;
@@ -26,7 +28,7 @@ interface Props {
   onDiscard: () => Promise<void>;
 }
 
-const DAY_NAMES = ["ראשון", "שני", "שלישי", "רביעי", "חמישי", "שישי", "שבת"];
+const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 function getWeekDates(fromDate: string): string[] {
   const dates: string[] = [];
@@ -41,11 +43,13 @@ function getWeekDates(fromDate: string): string[] {
 }
 
 export default function ScheduleTab({
-  solverHorizonDays, scheduleData, scheduleLoading, scheduleError,
+  solverHorizonDays, scheduleData, scheduleLoading, scheduleError, scheduleIsOffline = false,
   draftVersion, lastRunSummary, isAdmin, publishSaving, discardSaving, scheduleVersionError,
   currentUserName, groupName,
   onOpenDraftModal, onPublish, onDiscard,
 }: Props) {
+  const t = useTranslations("groups.schedule_tab");
+  const tCommon = useTranslations("common");
   const today = new Date().toISOString().split("T")[0];
   const minDate = new Date(Date.now() - 2 * 86400000).toISOString().split("T")[0];
   const maxDate = new Date(Date.now() + solverHorizonDays * 86400000).toISOString().split("T")[0];
@@ -106,16 +110,16 @@ export default function ScheduleTab({
 
       // Task header
       rows.push([taskName]);
-      rows.push(["תאריך", "שעת התחלה", "שעת סיום", "ממונה 1", "ממונה 2", "ממונה 3"]);
+      rows.push(["Date", "Start Time", "End Time", "Assignee 1", "Assignee 2", "Assignee 3"]);
 
       // Group by slot key
       const slotMap = new Map<string, { date: string; startTime: string; endTime: string; people: string[] }>();
       for (const a of taskAssignments) {
         const key = `${a.slotStartsAt}|${a.slotEndsAt}`;
         const slot = slotMap.get(key) ?? {
-          date: new Date(a.slotStartsAt).toLocaleDateString("he-IL", { weekday: "long", day: "numeric", month: "long" }),
-          startTime: new Date(a.slotStartsAt).toLocaleTimeString("he-IL", { hour: "2-digit", minute: "2-digit" }),
-          endTime: new Date(a.slotEndsAt).toLocaleTimeString("he-IL", { hour: "2-digit", minute: "2-digit" }),
+          date: new Date(a.slotStartsAt).toLocaleDateString(undefined, { weekday: "long", day: "numeric", month: "long" }),
+          startTime: new Date(a.slotStartsAt).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" }),
+          endTime: new Date(a.slotEndsAt).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" }),
           people: [],
         };
         slot.people.push(a.personName);
@@ -174,9 +178,9 @@ export default function ScheduleTab({
                   <svg className="w-5 h-5 text-red-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
                   </svg>
-                  <span className="text-sm font-semibold text-red-800">לא ניתן היה ליצור סידור</span>
+                  <span className="text-sm font-semibold text-red-800">{t("infeasible")}</span>
                 </div>
-                <p className="text-sm text-red-700">הסולבר לא הצליח לבנות סידור עם האילוצים הנוכחיים.</p>
+                <p className="text-sm text-red-700">{t("infeasibleDesc")}</p>
                 {conflicts.length > 0 && (
                   <ul className="space-y-1">
                     {conflicts.map((c, i) => (
@@ -188,7 +192,7 @@ export default function ScheduleTab({
                   </ul>
                 )}
                 <p className="text-xs text-red-600 mt-1">
-                  ניתן לפתור על ידי: הוספת חברים נוספים, הרחבת אופק הזמן, או הקלת אילוצים.
+                  {t("infeasibleSolution")}
                 </p>
               </div>
             );
@@ -202,30 +206,30 @@ export default function ScheduleTab({
         <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4">
           <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-2">
-              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-800 border border-amber-300">טיוטה</span>
-              <span className="text-sm text-amber-800">סידור טיוטה מוכן לעיון ופרסום</span>
+              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-800 border border-amber-300">{t("draftBadge")}</span>
+              <span className="text-sm text-amber-800">{t("draftReady")}</span>
             </div>
             <div className="flex items-center gap-2 flex-shrink-0">
               <button onClick={onOpenDraftModal} className="text-xs text-amber-800 border border-amber-300 hover:bg-amber-100 px-3 py-1.5 rounded-lg transition-colors font-medium">
-                👁 צפה בטיוטה
+                {t("viewDraft")}
               </button>
               <button onClick={onPublish} disabled={publishSaving || discardSaving} className="bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-medium px-3 py-1.5 rounded-lg disabled:opacity-50 transition-colors">
-                {publishSaving ? "מפרסם..." : "פרסם סידור"}
+                {publishSaving ? t("publishing") : t("publishSchedule")}
               </button>
               <button onClick={() => setShowDiscardConfirm(true)} disabled={publishSaving || discardSaving} className="text-xs text-red-600 border border-red-200 hover:bg-red-50 px-3 py-1.5 rounded-lg disabled:opacity-50 transition-colors">
-                בטל טיוטה
+                {t("cancelDraft")}
               </button>
             </div>
           </div>
           {scheduleVersionError && <p className="text-xs text-red-600 mt-2">{scheduleVersionError}</p>}
           {showDiscardConfirm && (
             <div className="mt-3 bg-red-50 border border-red-200 rounded-xl p-3 space-y-2">
-              <p className="text-sm text-red-700">האם אתה בטוח שברצונך לבטל את הטיוטה? פעולה זו אינה הפיכה.</p>
+              <p className="text-sm text-red-700">{t("discardConfirmText")}</p>
               <div className="flex gap-2">
                 <button onClick={() => { onDiscard(); setShowDiscardConfirm(false); }} disabled={discardSaving} className="bg-red-500 hover:bg-red-600 text-white text-xs font-medium px-3 py-1.5 rounded-lg disabled:opacity-50 transition-colors">
-                  {discardSaving ? "מבטל..." : "כן, בטל טיוטה"}
+                  {discardSaving ? t("discarding") : t("yesDiscard")}
                 </button>
-                <button onClick={() => setShowDiscardConfirm(false)} className="text-xs text-slate-500 hover:text-slate-700 px-2">ביטול</button>
+                <button onClick={() => setShowDiscardConfirm(false)} className="text-xs text-slate-500 hover:text-slate-700 px-2">{t("cancel")}</button>
               </div>
             </div>
           )}
@@ -239,7 +243,7 @@ export default function ScheduleTab({
             type="text"
             value={personFilter}
             onChange={e => setPersonFilter(e.target.value)}
-            placeholder="סנן לפי שם..."
+            placeholder={t("filterByName")}
             className="w-full border border-slate-200 rounded-xl px-3.5 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 pr-9"
           />
           <svg className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400" width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -250,12 +254,12 @@ export default function ScheduleTab({
           <button
             onClick={exportCSV}
             className="flex items-center gap-1.5 text-xs text-slate-600 border border-slate-200 bg-white hover:bg-slate-50 px-3 py-2 rounded-xl transition-colors flex-shrink-0"
-            title="ייצא לקובץ CSV"
+            title={t("exportCsv") ?? "Export CSV"}
           >
             <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
             </svg>
-            ייצא CSV
+            {t("exportCsv")}
           </button>
         )}
       </div>
@@ -273,7 +277,7 @@ export default function ScheduleTab({
             weekDates.includes(today) ? "bg-blue-500 text-white border-blue-500" : "border-slate-200 text-slate-600 hover:bg-slate-50"
           }`}
         >
-          השבוע
+          {t("thisWeek")}
         </button>
         <button onClick={nextWeek} className="p-2 rounded-lg border border-slate-200 hover:bg-slate-50 transition-colors">
           <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -311,17 +315,17 @@ export default function ScheduleTab({
             <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
             <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
           </svg>
-          טוען...
+          {tCommon("loading")}
         </div>
       )}
       {scheduleError && (
         <div className={`flex items-center gap-2 px-4 py-3 rounded-xl text-sm border ${
-          scheduleError.includes("אין חיבור")
+          scheduleIsOffline
             ? "bg-amber-50 border-amber-200 text-amber-800"
             : "bg-red-50 border-red-200 text-red-700"
         }`}>
           <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            {scheduleError.includes("אין חיבור")
+            {scheduleIsOffline
               ? <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
               : <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
             }

@@ -59,9 +59,9 @@ export default function TasksPage() {
       setTaskTypes(updated);
       setTypeName(""); setTypeDesc(""); setBurden("Neutral"); setPriority(5); setAllowsOverlap(false);
       setShowTypeForm(false);
-      setSuccess("סוג המשימה נוצר בהצלחה");
+      setSuccess("Task type created successfully");
     } catch (err: any) {
-      setError(err?.response?.data?.message || "שגיאה ביצירת סוג משימה");
+      setError(err?.response?.data?.message || "Error creating task type");
     } finally { setSavingType(false); }
   }
 
@@ -77,9 +77,9 @@ export default function TasksPage() {
       setSlots(updated);
       setSlotStart(""); setSlotEnd(""); setHeadcount(1); setLocation(""); setSlotTypeId("");
       setShowSlotForm(false);
-      setSuccess("חלון המשימה נוצר בהצלחה");
+      setSuccess("Task slot created successfully");
     } catch (err: any) {
-      setError(err?.response?.data?.message || "שגיאה ביצירת חלון משימה");
+      setError(err?.response?.data?.message || "Error creating task slot");
     } finally { setSavingSlot(false); }
   }
 
@@ -90,7 +90,10 @@ export default function TasksPage() {
   const inp = "w-full border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent";
 
   const burdenLabels: Record<string, string> = {
-    Favorable: "נוח", Neutral: "ניטרלי", Disliked: "לא אהוב", Hated: "שנוא"
+    Favorable: t("burden.Favorable"),
+    Neutral: t("burden.Neutral"),
+    Disliked: t("burden.Disliked"),
+    Hated: t("burden.Hated"),
   };
   const burdenColors: Record<string, string> = {
     Favorable: "bg-emerald-50 text-emerald-700 border-emerald-200",
@@ -104,7 +107,7 @@ export default function TasksPage() {
       <div className="max-w-4xl space-y-6">
         <div>
           <h1 className="text-2xl font-bold text-slate-900">{t("tasks")}</h1>
-          <p className="text-sm text-slate-500 mt-1">ניהול סוגי משימות וחלונות זמן</p>
+          <p className="text-sm text-slate-500 mt-1">{t("manageTasksSubtitle")}</p>
         </div>
 
         {/* Tabs + context button */}
@@ -146,11 +149,11 @@ export default function TasksPage() {
         {/* Task type form */}
         {tab === "types" && showTypeForm && (
           <form onSubmit={handleCreateType} className="bg-white border border-slate-200 rounded-2xl p-5 space-y-4 shadow-sm">
-            <h2 className="text-sm font-semibold text-slate-900">סוג משימה חדש</h2>
+            <h2 className="text-sm font-semibold text-slate-900">{t("newTaskType")}</h2>
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-xs font-medium text-slate-500 mb-1.5">{t("name")} *</label>
-                <input value={typeName} onChange={e => setTypeName(e.target.value)} required className={inp} placeholder="לדוגמה: עמדה 1" />
+                <input value={typeName} onChange={e => setTypeName(e.target.value)} required className={inp} placeholder={t("name")} />
               </div>
               <div>
                 <label className="block text-xs font-medium text-slate-500 mb-1.5">{t("burdenLevel")}</label>
@@ -162,7 +165,7 @@ export default function TasksPage() {
               </div>
               <div>
                 <label className="block text-xs font-medium text-slate-500 mb-1.5">{t("description")}</label>
-                <input value={typeDesc} onChange={e => setTypeDesc(e.target.value)} className={inp} placeholder="אופציונלי" />
+                <input value={typeDesc} onChange={e => setTypeDesc(e.target.value)} className={inp} placeholder={t("optional")} />
               </div>
               <div>
                 <label className="block text-xs font-medium text-slate-500 mb-1.5">{t("priority")} (1–10)</label>
@@ -176,7 +179,7 @@ export default function TasksPage() {
             <div className="flex gap-2">
               <button type="submit" disabled={savingType}
                 className="bg-blue-500 hover:bg-blue-600 text-white text-sm font-medium px-4 py-2.5 rounded-xl disabled:opacity-50 transition-colors">
-                {savingType ? "שומר..." : t("save")}
+                {savingType ? t("saving") : t("save")}
               </button>
               <button type="button" onClick={() => setShowTypeForm(false)}
                 className="text-sm text-slate-500 hover:text-slate-700 px-3">{t("cancel")}</button>
@@ -187,12 +190,12 @@ export default function TasksPage() {
         {/* Task slot form */}
         {tab === "slots" && showSlotForm && (
           <form onSubmit={handleCreateSlot} className="bg-white border border-slate-200 rounded-2xl p-5 space-y-4 shadow-sm">
-            <h2 className="text-sm font-semibold text-slate-900">חלון משימה חדש</h2>
+            <h2 className="text-sm font-semibold text-slate-900">{t("newTaskSlot")}</h2>
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-xs font-medium text-slate-500 mb-1.5">{t("taskType")} *</label>
                 <select value={slotTypeId} onChange={e => setSlotTypeId(e.target.value)} required className={inp}>
-                  <option value="">בחר סוג...</option>
+                  <option value="">{t("taskType")}...</option>
                   {taskTypes.map(tt => <option key={tt.id} value={tt.id}>{tt.name}</option>)}
                 </select>
               </div>
@@ -210,7 +213,7 @@ export default function TasksPage() {
               </div>
               <div>
                 <label className="block text-xs font-medium text-slate-500 mb-1.5">{t("location")}</label>
-                <input value={location} onChange={e => setLocation(e.target.value)} className={inp} placeholder="אופציונלי" />
+                <input value={location} onChange={e => setLocation(e.target.value)} className={inp} placeholder={t("optional")} />
               </div>
               <div>
                 <label className="block text-xs font-medium text-slate-500 mb-1.5">{t("priority")} (1–10)</label>
@@ -220,7 +223,7 @@ export default function TasksPage() {
             <div className="flex gap-2">
               <button type="submit" disabled={savingSlot}
                 className="bg-emerald-500 hover:bg-emerald-600 text-white text-sm font-medium px-4 py-2.5 rounded-xl disabled:opacity-50 transition-colors">
-                {savingSlot ? "שומר..." : t("save")}
+                {savingSlot ? t("saving") : t("save")}
               </button>
               <button type="button" onClick={() => setShowSlotForm(false)}
                 className="text-sm text-slate-500 hover:text-slate-700 px-3">{t("cancel")}</button>
@@ -228,7 +231,7 @@ export default function TasksPage() {
           </form>
         )}
 
-        {loading && <p className="text-slate-400 text-sm py-8">טוען...</p>}
+        {loading && <p className="text-slate-400 text-sm py-8">{t("loading")}</p>}
 
         {/* Task types table */}
         {tab === "types" && !loading && (
@@ -252,7 +255,7 @@ export default function TasksPage() {
                       </span>
                     </td>
                     <td className="px-4 py-3.5 text-slate-500">{tt.defaultPriority}</td>
-                    <td className="px-4 py-3.5 text-slate-500">{tt.allowsOverlap ? "כן" : "לא"}</td>
+                    <td className="px-4 py-3.5 text-slate-500">{tt.allowsOverlap ? t("yes") : t("no")}</td>
                   </tr>
                 ))}
                 {taskTypes.length === 0 && (
@@ -280,8 +283,8 @@ export default function TasksPage() {
                 {slots.map(s => (
                   <tr key={s.id} className="hover:bg-slate-50/60">
                     <td className="px-4 py-3.5 font-medium text-slate-900">{s.taskTypeName}</td>
-                    <td className="px-4 py-3.5 text-slate-500 text-xs">{new Date(s.startsAt).toLocaleString("he-IL")}</td>
-                    <td className="px-4 py-3.5 text-slate-500 text-xs">{new Date(s.endsAt).toLocaleString("he-IL")}</td>
+                    <td className="px-4 py-3.5 text-slate-500 text-xs">{new Date(s.startsAt).toLocaleString(undefined)}</td>
+                    <td className="px-4 py-3.5 text-slate-500 text-xs">{new Date(s.endsAt).toLocaleString(undefined)}</td>
                     <td className="px-4 py-3.5 text-slate-500">{s.requiredHeadcount}</td>
                     <td className="px-4 py-3.5 text-slate-500">{s.status}</td>
                   </tr>

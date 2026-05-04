@@ -12,7 +12,7 @@ interface Props { people: PersonBurdenStats[]; }
 
 function formatDate(d: string | null): string {
   if (!d) return "—";
-  try { return new Date(d).toLocaleDateString("he-IL", { day: "numeric", month: "short", year: "numeric" }); }
+  try { return new Date(d).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" }); }
   catch { return d; }
 }
 
@@ -53,14 +53,14 @@ export default function StatsPeopleTable({ people }: Props) {
         <thead>
           <tr style={{ background: "#f8fafc" }}>
             {([
-              ["displayName", "שם"],
-              ["totalAssignmentsAllTime", "סה״כ"],
-              ["hatedTasksAllTime", "שנואות"],
-              ["dislikedTasksAllTime", "לא אהובות"],
-              ["favorableTasksAllTime", "מועדפות"],
-              ["burdenScoreAllTime", "ציון עומס"],
-              ["burdenBalance", "איזון"],
-              ["lastAssignmentDate", "שיבוץ אחרון"],
+              ["displayName", "Name"],
+              ["totalAssignmentsAllTime", "Total"],
+              ["hatedTasksAllTime", "Hated"],
+              ["dislikedTasksAllTime", "Disliked"],
+              ["favorableTasksAllTime", "Favorable"],
+              ["burdenScoreAllTime", "Burden Score"],
+              ["burdenBalance", "Balance"],
+              ["lastAssignmentDate", "Last Assignment"],
             ] as [SortKey, string][]).map(([k, label]) => (
               <th key={k} style={th} onClick={() => handleSort(k)}>
                 {label}<SortIcon k={k} />

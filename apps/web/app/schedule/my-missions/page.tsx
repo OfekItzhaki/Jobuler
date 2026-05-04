@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useTranslations } from "next-intl";
 import AppShell from "@/components/shell/AppShell";
 import ScheduleTaskTable, { type TaskAssignment } from "@/components/schedule/ScheduleTaskTable";
 import { apiClient } from "@/lib/api/client";
@@ -20,15 +21,6 @@ interface MyAssignmentDto {
 
 type Range = "today" | "week" | "month" | "year";
 
-const RANGE_LABELS: Record<Range, string> = {
-  today: "היום",
-  week: "השבוע",
-  month: "החודש",
-  year: "השנה",
-};
-
-const DAY_NAMES_HE = ["ראשון", "שני", "שלישי", "רביעי", "חמישי", "שישי", "שבת"];
-
 function getCurrentWeekDays(): string[] {
   const today = new Date();
   const dayOfWeek = today.getUTCDay();
@@ -41,6 +33,8 @@ function getCurrentWeekDays(): string[] {
 }
 
 export default function MyMissionsPage() {
+  const t = useTranslations("schedule");
+  const tMy = useTranslations("schedule.myMissions");
   const { currentSpaceId } = useSpaceStore();
   const { displayName } = useAuthStore();
   const { fDateLong } = useDateFormat();
@@ -52,6 +46,15 @@ export default function MyMissionsPage() {
 
   const todayStr = new Date().toISOString().split("T")[0];
   const weekDays = getCurrentWeekDays();
+
+  const RANGE_LABELS: Record<Range, string> = {
+    today: tMy("rangeToday"),
+    week: tMy("rangeWeek"),
+    month: tMy("rangeMonth"),
+    year: tMy("rangeYear"),
+  };
+
+  const DAY_NAMES = tMy.raw("dayNames") as string[];
 
   useEffect(() => {
     if (!currentSpaceId) { setLoading(false); return; }
@@ -75,7 +78,7 @@ export default function MyMissionsPage() {
 
   // For the per-task table: convert to TaskAssignment shape
   const tableAssignments: TaskAssignment[] = filtered.map(a => ({
-    personName: displayName ?? "אני",
+    personName: displayName ?? "me",
     taskTypeName: `${a.taskTypeName} (${a.groupName})`,
     slotStartsAt: a.slotStartsAt,
     slotEndsAt: a.slotEndsAt,
@@ -91,8 +94,8 @@ export default function MyMissionsPage() {
     <AppShell>
       <div className="max-w-3xl space-y-6">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">המשימות שלי</h1>
-          <p className="text-sm text-slate-500 mt-1">כל המשימות שלך בכל הקבוצות</p>
+          <h1 className="text-2xl font-bold text-slate-900">{tMy("title")}</h1>
+          <p className="text-sm text-slate-500 mt-1">{tMy("subtitle")}</p>
         </div>
 
         {/* Range selector */}
@@ -128,7 +131,7 @@ export default function MyMissionsPage() {
                       : "bg-white text-slate-500 border-slate-200"
                   }`}
                 >
-                  {DAY_NAMES_HE[i]}
+                  {DAY_NAMES[i]}
                   {hasMissions && !isSelected && (
                     <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-emerald-500 border-2 border-white" />
                   )}
@@ -147,19 +150,19 @@ export default function MyMissionsPage() {
           <input
             value={search}
             onChange={e => setSearch(e.target.value)}
-            placeholder="חיפוש לפי סוג משימה או קבוצה..."
+            placeholder={tMy("searchPlaceholder")}
             className="w-full border border-slate-200 rounded-xl pl-9 pr-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
         </div>
 
         {loading ? (
-          <p className="text-slate-400 text-sm py-8">טוען...</p>
+          <p className="text-slate-400 text-sm py-8">{t("loading")}</p>
         ) : filtered.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16 text-center bg-white rounded-xl border border-slate-200">
             <svg className="w-10 h-10 text-slate-200 mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
             </svg>
-            <p className="text-slate-400 text-sm">אין משימות ב{RANGE_LABELS[range]}</p>
+            <p className="text-slate-400 text-sm">{tMy("noMissionsInRange", { range: RANGE_LABELS[range] })}</p>
           </div>
         ) : range === "week" ? (
           // Week view: show selected day's per-task table

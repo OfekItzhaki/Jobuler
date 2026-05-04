@@ -13,6 +13,7 @@ interface GroupDto { id: string; name: string; }
 
 export default function TodayPage() {
   const t = useTranslations("schedule");
+  const tNav = useTranslations("nav");
   const { currentSpaceId } = useSpaceStore();
   const { displayName } = useAuthStore();
   const [assignments, setAssignments] = useState<TaskAssignment[]>([]);
@@ -22,9 +23,13 @@ export default function TodayPage() {
   const [groupsLoading, setGroupsLoading] = useState(true);
 
   const today = new Date().toISOString().split("T")[0];
-  const todayLabel = new Date().toLocaleDateString("he-IL", {
-    weekday: "long", year: "numeric", month: "long", day: "numeric"
-  });
+  const [todayLabel, setTodayLabel] = useState("");
+
+  useEffect(() => {
+    setTodayLabel(new Date().toLocaleDateString(undefined, {
+      weekday: "long", year: "numeric", month: "long", day: "numeric"
+    }));
+  }, []);
 
   useEffect(() => {
     if (!currentSpaceId) { setGroupsLoading(false); return; }
@@ -56,7 +61,7 @@ export default function TodayPage() {
       <div className="max-w-4xl space-y-6">
         <div className="flex items-start justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-slate-900">{t("title")} — היום</h1>
+            <h1 className="text-2xl font-bold text-slate-900">{t("title")} — {tNav("today")}</h1>
             <p className="text-sm text-slate-500 mt-1 capitalize">{todayLabel}</p>
           </div>
           <div className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 border border-blue-100 rounded-full">

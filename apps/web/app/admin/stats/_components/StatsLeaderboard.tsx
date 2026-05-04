@@ -23,7 +23,7 @@ export default function StatsLeaderboard({ title, entries, valueColor = "#0f172a
         {title}
       </h3>
       {entries.length === 0 ? (
-        <p style={{ fontSize: "0.8125rem", color: "#94a3b8", margin: 0 }}>אין נתונים</p>
+        <p style={{ fontSize: "0.8125rem", color: "#94a3b8", margin: 0 }}>No data</p>
       ) : (
         <ol style={{ margin: 0, padding: 0, listStyle: "none", display: "flex", flexDirection: "column", gap: 6 }}>
           {entries.map((e, i) => (

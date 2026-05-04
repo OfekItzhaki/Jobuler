@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useTranslations } from "next-intl";
 import AppShell from "@/components/shell/AppShell";
 import Modal from "@/components/Modal";
 import { getMe, updateMe, MeDto } from "@/lib/api/auth";
@@ -19,7 +20,7 @@ function formatBirthday(dateStr: string | null): string {
   if (!dateStr) return "—";
   try {
     const d = new Date(dateStr);
-    return d.toLocaleDateString("he-IL", { day: "numeric", month: "long", year: "numeric" });
+    return d.toLocaleDateString(undefined, { day: "numeric", month: "long", year: "numeric" });
   } catch {
     return dateStr;
   }
@@ -28,7 +29,7 @@ function formatBirthday(dateStr: string | null): string {
 function formatMemberSince(dateStr: string): string {
   try {
     const d = new Date(dateStr);
-    return d.toLocaleDateString("he-IL", { day: "numeric", month: "long", year: "numeric" });
+    return d.toLocaleDateString(undefined, { day: "numeric", month: "long", year: "numeric" });
   } catch {
     return dateStr;
   }
@@ -73,6 +74,7 @@ const inputStyle: React.CSSProperties = {
 };
 
 export default function ProfilePage() {
+  const t = useTranslations("profile");
   const [me, setMe] = useState<MeDto | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -93,7 +95,7 @@ export default function ProfilePage() {
           birthday: data.birthday ? data.birthday.split("T")[0] : "",
         });
       })
-      .catch(() => setError("שגיאה בטעינת הפרופיל"))
+      .catch(() => setError("Error loading profile"))
       .finally(() => setLoading(false));
   }, []);
 
@@ -129,7 +131,7 @@ export default function ProfilePage() {
       } : prev);
       setEditOpen(false);
     } catch (err: any) {
-      setSaveError(err?.response?.data?.message ?? "שגיאה בשמירת הפרופיל");
+      setSaveError(err?.response?.data?.message ?? "Error saving profile");
     } finally {
       setSaving(false);
     }
@@ -143,7 +145,7 @@ export default function ProfilePage() {
             <circle style={{ opacity: 0.25 }} cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
             <path style={{ opacity: 0.75 }} fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
           </svg>
-          טוען...
+          Loading...
         </div>
       </AppShell>
     );
@@ -152,7 +154,7 @@ export default function ProfilePage() {
   if (error || !me) {
     return (
       <AppShell>
-        <p style={{ color: "#dc2626", fontSize: "0.875rem" }}>{error ?? "שגיאה בטעינת הפרופיל"}</p>
+        <p style={{ color: "#dc2626", fontSize: "0.875rem" }}>{error ?? "Error loading profile"}</p>
       </AppShell>
     );
   }
@@ -195,7 +197,7 @@ export default function ProfilePage() {
                 color: "#374151", cursor: "pointer", flexShrink: 0,
               }}
             >
-              עריכה
+              {t("edit")}
             </button>
           </div>
         </div>
@@ -204,10 +206,10 @@ export default function ProfilePage() {
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
           {/* Contact info */}
           <div style={cardStyle}>
-            <h2 style={{ fontSize: "0.875rem", fontWeight: 600, color: "#0f172a", margin: "0 0 1rem" }}>פרטי קשר</h2>
+            <h2 style={{ fontSize: "0.875rem", fontWeight: 600, color: "#0f172a", margin: "0 0 1rem" }}>{t("contactInfo")}</h2>
             <div style={{ display: "flex", flexDirection: "column", gap: "0.875rem" }}>
               <div>
-                <p style={labelStyle}>טלפון</p>
+                <p style={labelStyle}>{t("phone")}</p>
                 <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
                   <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="#94a3b8" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
@@ -216,7 +218,7 @@ export default function ProfilePage() {
                 </div>
               </div>
               <div>
-                <p style={labelStyle}>אימייל</p>
+                <p style={labelStyle}>{t("email")}</p>
                 <p style={valueStyle}>{me.email}</p>
               </div>
             </div>
@@ -224,14 +226,14 @@ export default function ProfilePage() {
 
           {/* Personal info */}
           <div style={cardStyle}>
-            <h2 style={{ fontSize: "0.875rem", fontWeight: 600, color: "#0f172a", margin: "0 0 1rem" }}>פרטים אישיים</h2>
+            <h2 style={{ fontSize: "0.875rem", fontWeight: 600, color: "#0f172a", margin: "0 0 1rem" }}>{t("personalInfo")}</h2>
             <div style={{ display: "flex", flexDirection: "column", gap: "0.875rem" }}>
               <div>
-                <p style={labelStyle}>תאריך לידה</p>
+                <p style={labelStyle}>{t("birthday")}</p>
                 <p style={valueStyle}>{formatBirthday(me.birthday)}</p>
               </div>
               <div>
-                <p style={labelStyle}>חבר מאז</p>
+                <p style={labelStyle}>{t("memberSince")}</p>
                 <p style={valueStyle}>{formatMemberSince(me.createdAt)}</p>
               </div>
             </div>
@@ -240,44 +242,43 @@ export default function ProfilePage() {
       </div>
 
       {/* Edit Profile Modal */}
-      <Modal open={editOpen} onClose={() => { setEditOpen(false); setSaveError(null); }} title="עריכת פרופיל" maxWidth={480}>
+      <Modal open={editOpen} onClose={() => { setEditOpen(false); setSaveError(null); }} title={t("edit")} maxWidth={480}>
         <form onSubmit={handleSave} style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
           <div>
-            <label style={labelStyle}>שם תצוגה</label>
+            <label style={labelStyle}>{t("displayName")}</label>
             <input
               type="text"
               value={form.displayName}
               onChange={e => setForm(f => ({ ...f, displayName: e.target.value }))}
               style={inputStyle}
-              placeholder="שם תצוגה"
+              placeholder={t("displayName")}
             />
           </div>
 
           <div>
-            <label style={labelStyle}>מספר טלפון</label>
+            <label style={labelStyle}>{t("phone")}</label>
             <input
               type="tel"
               value={form.phoneNumber}
               onChange={e => setForm(f => ({ ...f, phoneNumber: e.target.value }))}
               style={{ ...inputStyle, direction: "ltr", textAlign: "left" }}
-              placeholder="050-0000000"
+              placeholder="+1 555 000 0000"
             />
           </div>
 
           <div>
-            <label style={labelStyle}>תמונת פרופיל</label>
+            <label style={labelStyle}>{t("profileImage")}</label>
             <ImageUpload
               value={form.profileImageUrl || null}
               onChange={url => setForm(f => ({ ...f, profileImageUrl: url }))}
               shape="circle"
               size={80}
-              label="העלה תמונה"
               disabled={saving}
             />
           </div>
 
           <div>
-            <label style={labelStyle}>תאריך לידה</label>
+            <label style={labelStyle}>{t("birthday")}</label>
             <input
               type="date"
               value={form.birthday}
@@ -301,7 +302,7 @@ export default function ProfilePage() {
                 fontWeight: 600, cursor: saving ? "not-allowed" : "pointer",
               }}
             >
-              {saving ? "שומר..." : "שמור"}
+              {saving ? t("saving") : t("save")}
             </button>
             <button
               type="button"
@@ -312,7 +313,7 @@ export default function ProfilePage() {
                 color: "#64748b", cursor: "pointer",
               }}
             >
-              ביטול
+              {t("cancel")}
             </button>
           </div>
         </form>

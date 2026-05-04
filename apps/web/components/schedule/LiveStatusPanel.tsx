@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import { useTranslations } from "next-intl";
 import { getGroupLiveStatus, MemberLiveStatusDto } from "@/lib/api/groups";
 
 interface LiveStatusPanelProps {
@@ -8,26 +9,27 @@ interface LiveStatusPanelProps {
   groupId: string;
 }
 
-const STATUS_CONFIG: Record<
-  MemberLiveStatusDto["status"],
-  { label: string; dot: string; badge: string }
-> = {
-  on_mission:   { label: "במשימה",    dot: "bg-blue-500",    badge: "bg-blue-50 text-blue-700 border-blue-200" },
-  at_home:      { label: "בבית",      dot: "bg-amber-400",   badge: "bg-amber-50 text-amber-700 border-amber-200" },
-  blocked:      { label: "לא זמין",   dot: "bg-red-500",     badge: "bg-red-50 text-red-700 border-red-200" },
-  free_in_base: { label: "פנוי בבסיס", dot: "bg-emerald-500", badge: "bg-emerald-50 text-emerald-700 border-emerald-200" },
-};
-
 function formatTime(iso: string | null): string {
   if (!iso) return "";
-  return new Date(iso).toLocaleTimeString("he-IL", { hour: "2-digit", minute: "2-digit" });
+  return new Date(iso).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
 }
 
 export default function LiveStatusPanel({ spaceId, groupId }: LiveStatusPanelProps) {
+  const t = useTranslations("liveStatus");
   const [statuses, setStatuses] = useState<MemberLiveStatusDto[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+
+  const STATUS_CONFIG: Record<
+    MemberLiveStatusDto["status"],
+    { label: string; dot: string; badge: string }
+  > = {
+    on_mission:   { label: t("onMission"),   dot: "bg-blue-500",    badge: "bg-blue-50 text-blue-700 border-blue-200" },
+    at_home:      { label: t("atHome"),      dot: "bg-amber-400",   badge: "bg-amber-50 text-amber-700 border-amber-200" },
+    blocked:      { label: t("blocked"),     dot: "bg-red-500",     badge: "bg-red-50 text-red-700 border-red-200" },
+    free_in_base: { label: t("freeInBase"),  dot: "bg-emerald-500", badge: "bg-emerald-50 text-emerald-700 border-emerald-200" },
+  };
 
   const fetchStatus = useCallback(async () => {
     try {
@@ -36,7 +38,7 @@ export default function LiveStatusPanel({ spaceId, groupId }: LiveStatusPanelPro
       setLastUpdated(new Date());
       setError(null);
     } catch {
-      setError("שגיאה בטעינת הסטטוס");
+      setError(t("errorLoading"));
     } finally {
       setLoading(false);
     }
@@ -56,7 +58,7 @@ export default function LiveStatusPanel({ spaceId, groupId }: LiveStatusPanelPro
           <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
           <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
         </svg>
-        טוען סטטוס...
+        {t("loading")}
       </div>
     );
   }
@@ -86,26 +88,26 @@ export default function LiveStatusPanel({ spaceId, groupId }: LiveStatusPanelPro
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-          <span className="text-sm font-medium text-slate-700">סטטוס נוכחי</span>
+          <span className="text-sm font-medium text-slate-700">{t("currentStatus")}</span>
         </div>
         <div className="flex items-center gap-2">
           {lastUpdated && (
             <span className="text-xs text-slate-400">
-              עודכן: {lastUpdated.toLocaleTimeString("he-IL", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
+              {t("updated")}: {lastUpdated.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
             </span>
           )}
           <button
             onClick={fetchStatus}
             className="text-xs text-blue-600 hover:text-blue-700 border border-blue-200 bg-blue-50 hover:bg-blue-100 px-2.5 py-1 rounded-lg transition-colors"
           >
-            רענן
+            {t("refresh")}
           </button>
         </div>
       </div>
 
       {statuses.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-12 text-center bg-white rounded-xl border border-slate-200">
-          <p className="text-sm text-slate-400">אין חברים בקבוצה</p>
+          <p className="text-sm text-slate-400">{t("noMembers")}</p>
         </div>
       ) : (
         <div className="space-y-4">
@@ -138,7 +140,7 @@ export default function LiveStatusPanel({ spaceId, groupId }: LiveStatusPanelPro
                             <p className="text-xs text-slate-500 truncate">
                               {m.taskName}
                               {m.slotEndsAt && (
-                                <span className="text-slate-400"> · עד {formatTime(m.slotEndsAt)}</span>
+                                <span className="text-slate-400"> · {t("until")} {formatTime(m.slotEndsAt)}</span>
                               )}
                             </p>
                           )}

@@ -21,7 +21,7 @@ export default function StatsTab({ spaceId, groupId }: Props) {
     // Pass groupId so the backend only returns stats for this group's members
     getBurdenStats(spaceId, groupId)
       .then(setStats)
-      .catch(() => setError("שגיאה בטעינת הסטטיסטיקות"))
+      .catch(() => setError("Error loading statistics"))
       .finally(() => setLoading(false));
   }, [spaceId, groupId]);
 
@@ -32,7 +32,7 @@ export default function StatsTab({ spaceId, groupId }: Props) {
           <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
           <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
         </svg>
-        טוען סטטיסטיקות...
+        Loading statistics...
       </div>
     );
   }
@@ -42,8 +42,8 @@ export default function StatsTab({ spaceId, groupId }: Props) {
   if (!stats || stats.people.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-16 bg-white rounded-xl border border-slate-200">
-        <p className="text-slate-400 text-sm">אין נתוני סטטיסטיקה לקבוצה זו</p>
-        <p className="text-slate-300 text-xs mt-1">פרסם סידור כדי לראות נתונים</p>
+        <p className="text-slate-400 text-sm">No statistics for this group</p>
+        <p className="text-slate-300 text-xs mt-1">Publish a schedule to see data</p>
       </div>
     );
   }
@@ -54,14 +54,14 @@ export default function StatsTab({ spaceId, groupId }: Props) {
   const totalHated = stats.people.reduce((s, p) => s + p.hatedTasksAllTime, 0);
 
   return (
-    <div className="space-y-5" dir="rtl">
+    <div className="space-y-5">
       {/* Summary — group-scoped totals */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         {[
-          { label: "חברים פעילים", value: stats.people.length },
-          { label: "שיבוצים סה״כ", value: totalAssignments },
-          { label: "ממוצע לאדם", value: avgPerPerson },
-          { label: "משימות שנואות", value: totalHated },
+          { label: "Active Members", value: stats.people.length },
+          { label: "Total Assignments", value: totalAssignments },
+          { label: "Avg per Person", value: avgPerPerson },
+          { label: "Hated Tasks", value: totalHated },
         ].map(c => (
           <div key={c.label} className="bg-white border border-slate-200 rounded-xl p-4">
             <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-1">{c.label}</p>
@@ -72,15 +72,15 @@ export default function StatsTab({ spaceId, groupId }: Props) {
 
       {/* Leaderboards */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <StatsLeaderboard title="הכי הרבה שיבוצים" entries={stats.mostAssignments} />
-        <StatsLeaderboard title="הכי הרבה משימות שנואות" entries={stats.mostHatedTasks} valueColor="#dc2626" />
-        <StatsLeaderboard title="ציון עומס גבוה ביותר" entries={stats.highestBurdenScore} valueColor="#d97706" />
-        <StatsLeaderboard title="איזון עומס הטוב ביותר" entries={stats.bestBurdenBalance} valueColor="#16a34a" />
+        <StatsLeaderboard title="Most Assignments" entries={stats.mostAssignments} />
+        <StatsLeaderboard title="Most Hated Tasks" entries={stats.mostHatedTasks} valueColor="#dc2626" />
+        <StatsLeaderboard title="Highest Burden Score" entries={stats.highestBurdenScore} valueColor="#d97706" />
+        <StatsLeaderboard title="Best Burden Balance" entries={stats.bestBurdenBalance} valueColor="#16a34a" />
       </div>
 
       {/* People table */}
       <div>
-        <h2 className="text-sm font-semibold text-slate-700 mb-3">פירוט לפי אדם</h2>
+        <h2 className="text-sm font-semibold text-slate-700 mb-3">Detail by Person</h2>
         <StatsPeopleTable people={stats.people} />
       </div>
     </div>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useTranslations } from "next-intl";
 import { apiClient } from "@/lib/api/client";
 import { useDateFormat } from "@/lib/hooks/useDateFormat";
 import ScheduleTaskTable from "@/components/schedule/ScheduleTaskTable";
@@ -27,8 +28,6 @@ interface Props {
   onRunAgain: () => void;
 }
 
-const DAY_NAMES = ["ראשון", "שני", "שלישי", "רביעי", "חמישי", "שישי", "שבת"];
-
 function getWeekDates(anchor: string): string[] {
   // Parse as UTC to avoid timezone shifting the date
   const parts = anchor.split("-").map(Number);
@@ -47,6 +46,8 @@ export default function DraftScheduleModal({
   open, onClose, spaceId, draftVersionId, groupMemberIds,
   isAdmin, onPublish, onDiscard, onRunAgain,
 }: Props) {
+  const t = useTranslations("draftModal");
+  const tSchedule = useTranslations("schedule");
   const [assignments, setAssignments] = useState<Assignment[]>([]);
   const [loading, setLoading] = useState(false);
   const [publishing, setPublishing] = useState(false);
@@ -58,6 +59,8 @@ export default function DraftScheduleModal({
   const today = new Date().toISOString().split("T")[0];
   const [weekAnchor, setWeekAnchor] = useState(today);
   const [selectedDay, setSelectedDay] = useState(new Date().getUTCDay());
+
+  const DAY_NAMES = t.raw("dayNames") as string[];
 
   useEffect(() => {
     if (!open || !draftVersionId) return;
@@ -89,8 +92,9 @@ export default function DraftScheduleModal({
             const parts = firstDate.split("-").map(Number);
             setSelectedDay(new Date(Date.UTC(parts[0], parts[1] - 1, parts[2])).getUTCDay());
           }
-        }      })
-      .catch(() => setError("שגיאה בטעינת הטיוטה"))
+        }
+      })
+      .catch(() => setError(t("errorLoading")))
       .finally(() => setLoading(false));
   }, [open, draftVersionId, spaceId]);
 
@@ -98,7 +102,7 @@ export default function DraftScheduleModal({
     setPublishing(true);
     setError(null);
     try { await onPublish(); onClose(); }
-    catch (e: any) { setError(e?.response?.data?.error ?? "שגיאה בפרסום"); }
+    catch (e: any) { setError(e?.response?.data?.error ?? t("errorPublish")); }
     finally { setPublishing(false); }
   }
 
@@ -106,7 +110,7 @@ export default function DraftScheduleModal({
     setDiscarding(true);
     setError(null);
     try { await onDiscard(); onClose(); }
-    catch (e: any) { setError(e?.response?.data?.error ?? "שגיאה בביטול"); }
+    catch (e: any) { setError(e?.response?.data?.error ?? t("errorDiscard")); }
     finally { setDiscarding(false); setShowDiscardConfirm(false); }
   }
 
@@ -131,7 +135,7 @@ export default function DraftScheduleModal({
     setWeekAnchor(d.toISOString().split("T")[0]);
   }
 
-  // Convert to ScheduleTable2D format
+  // Convert to ScheduleTaskTable format
   const tableAssignments = assignments.map(a => ({
     id: a.id,
     personId: a.personId,
@@ -159,7 +163,6 @@ export default function DraftScheduleModal({
           width: "100%", maxWidth: 900,
           maxHeight: "90vh",
           display: "flex", flexDirection: "column",
-          direction: "rtl",
         }}
         onClick={e => e.stopPropagation()}
       >
@@ -174,9 +177,9 @@ export default function DraftScheduleModal({
             <span style={{
               background: "#fef3c7", color: "#92400e", border: "1px solid #fde68a",
               borderRadius: 999, padding: "2px 10px", fontSize: 12, fontWeight: 700,
-            }}>טיוטה</span>
+            }}>{t("draftBadge")}</span>
             <h2 style={{ fontSize: "1rem", fontWeight: 700, color: "#0f172a", margin: 0 }}>
-              תצוגה מקדימה של הסידור
+              {t("title")}
             </h2>
           </div>
           <button onClick={onClose} style={{ background: "none", border: "none", cursor: "pointer", color: "#94a3b8", padding: 4 }}>
@@ -199,12 +202,12 @@ export default function DraftScheduleModal({
             <p style={{ color: "#dc2626", fontSize: 14, textAlign: "center", padding: "2rem 0" }}>{error}</p>
           ) : assignments.length === 0 ? (
             <div style={{ textAlign: "center", padding: "2rem 0" }}>
-              <p style={{ color: "#94a3b8", fontSize: 14, marginBottom: 12 }}>הסידור ריק — לא נמצאו שיבוצים בטיוטה זו.</p>
-              <p style={{ color: "#64748b", fontSize: 13, marginBottom: 16 }}>ייתכן שהסולבר לא הצליח לבנות סידור עם האילוצים הנוכחיים.</p>
+              <p style={{ color: "#94a3b8", fontSize: 14, marginBottom: 12 }}>{t("emptyDraft")}</p>
+              <p style={{ color: "#64748b", fontSize: 13, marginBottom: 16 }}>{t("emptyDraftHint")}</p>
               {isAdmin && (
                 <button onClick={() => { onClose(); onRunAgain(); }}
                   style={{ background: "#3b82f6", color: "white", border: "none", borderRadius: 10, padding: "9px 20px", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
-                  🔄 הרץ שוב
+                  🔄 {t("runAgain")}
                 </button>
               )}
             </div>
@@ -219,14 +222,14 @@ export default function DraftScheduleModal({
                 </button>
                 <button onClick={() => { setWeekAnchor(today); setSelectedDay(new Date().getDay()); }}
                   className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${weekDates.includes(today) ? "bg-blue-500 text-white border-blue-500" : "border-slate-200 text-slate-600 hover:bg-slate-50"}`}>
-                  השבוע
+                  {tSchedule("thisWeek")}
                 </button>
                 <button onClick={nextWeek} className="p-2 rounded-lg border border-slate-200 hover:bg-slate-50 transition-colors">
                   <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
                   </svg>
                 </button>
-                <span className="text-xs text-slate-500 mr-1">{weekLabel}</span>
+                <span className="text-xs text-slate-500 ml-1">{weekLabel}</span>
               </div>
 
               {/* Day tabs */}
@@ -262,29 +265,29 @@ export default function DraftScheduleModal({
           }}>
             {showDiscardConfirm ? (
               <>
-                <p style={{ fontSize: 13, color: "#dc2626", flex: 1, margin: 0 }}>האם לבטל את הטיוטה? פעולה זו אינה הפיכה.</p>
+                <p style={{ fontSize: 13, color: "#dc2626", flex: 1, margin: 0 }}>{t("discardConfirmText")}</p>
                 <button onClick={handleDiscard} disabled={discarding}
                   style={{ background: "#ef4444", color: "white", border: "none", borderRadius: 10, padding: "8px 16px", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
-                  {discarding ? "מבטל..." : "כן, בטל"}
+                  {discarding ? t("discarding") : t("yesDiscard")}
                 </button>
                 <button onClick={() => setShowDiscardConfirm(false)}
                   style={{ background: "none", border: "1px solid #e2e8f0", borderRadius: 10, padding: "8px 14px", fontSize: 13, color: "#64748b", cursor: "pointer" }}>
-                  חזור
+                  {t("back")}
                 </button>
               </>
             ) : (
               <>
                 <button onClick={handlePublish} disabled={publishing || discarding || loading}
                   style={{ background: "#10b981", color: "white", border: "none", borderRadius: 10, padding: "9px 20px", fontSize: 13, fontWeight: 600, cursor: "pointer", opacity: publishing ? 0.6 : 1 }}>
-                  {publishing ? "מפרסם..." : "✓ פרסם סידור"}
+                  {publishing ? t("publishing") : `✓ ${t("publish")}`}
                 </button>
                 <button onClick={() => { onClose(); onRunAgain(); }} disabled={publishing || discarding}
                   style={{ background: "#3b82f6", color: "white", border: "none", borderRadius: 10, padding: "9px 20px", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
-                  🔄 הרץ שוב
+                  🔄 {t("runAgain")}
                 </button>
                 <button onClick={() => setShowDiscardConfirm(true)} disabled={publishing || discarding}
-                  style={{ background: "none", border: "1px solid #fca5a5", color: "#dc2626", borderRadius: 10, padding: "9px 16px", fontSize: 13, cursor: "pointer", marginRight: "auto" }}>
-                  ✕ בטל טיוטה
+                  style={{ background: "none", border: "1px solid #fca5a5", color: "#dc2626", borderRadius: 10, padding: "9px 16px", fontSize: 13, cursor: "pointer", marginLeft: "auto" }}>
+                  ✕ {t("discardDraft")}
                 </button>
                 {error && <p style={{ fontSize: 12, color: "#dc2626", margin: 0 }}>{error}</p>}
               </>

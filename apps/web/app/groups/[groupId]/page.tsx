@@ -3,6 +3,7 @@
 import React, { useEffect, useState, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 import AppShell from "@/components/shell/AppShell";
 import Modal from "@/components/Modal";
 import DraftScheduleModal from "@/components/DraftScheduleModal";
@@ -59,18 +60,20 @@ const DEFAULT_TASK_FORM: TaskForm = {
 };
 
 // ── Tab labels ───────────────────────────────────────────────────────────────
-const TAB_LABELS: Record<ActiveTab, string> = {
-  schedule: "סידור",
-  members: "חברים",
-  qualifications: "כישורים",
-  alerts: "התראות",
-  messages: "הודעות",
-  tasks: "משימות",
-  constraints: "אילוצים",
-  settings: "הגדרות",
-  stats: "סטטיסטיקות",
-  "live-status": "סטטוס נוכחי",
-};
+function getTabLabels(t: (key: string) => string): Record<ActiveTab, string> {
+  return {
+    schedule: t("tabs.schedule"),
+    members: t("tabs.members"),
+    qualifications: t("tabs.qualifications"),
+    alerts: t("tabs.alerts"),
+    messages: t("tabs.messages"),
+    tasks: t("tabs.tasks"),
+    constraints: t("tabs.constraints"),
+    settings: t("tabs.settings"),
+    stats: t("tabs.stats"),
+    "live-status": t("tabs.liveStatus"),
+  };
+}
 
 const ALL_TABS: ActiveTab[] = ["schedule", "live-status", "members", "qualifications", "alerts", "messages", "tasks", "constraints", "stats", "settings"];
 
@@ -82,6 +85,9 @@ export default function GroupDetailPage() {
   const { currentSpaceId } = useSpaceStore();
   const { userId, displayName, isAdminForGroup, adminGroupId, enterAdminMode, exitAdminMode } = useAuthStore();
   const refetchNotifications = useRefetchNotifications(currentSpaceId);
+  const tGroups = useTranslations("groups");
+  const tErrors = useTranslations("errors");
+  const TAB_LABELS = getTabLabels(tGroups);
 
   // ── Group / header state ─────────────────────────────────────────────────
   const [group, setGroup] = useState<GroupWithMemberCountDto | null>(null);
@@ -93,6 +99,7 @@ export default function GroupDetailPage() {
   const [scheduleData, setScheduleData] = useState<ScheduleAssignment[] | null>(null);
   const [scheduleLoading, setScheduleLoading] = useState(false);
   const [scheduleError, setScheduleError] = useState<string | null>(null);
+  const [scheduleIsOffline, setScheduleIsOffline] = useState(false);
   const [draftVersion, setDraftVersion] = useState<{ id: string; status: string } | null>(null);
   const [lastRunSummary, setLastRunSummary] = useState<string | null>(null);
   const [showDraftModal, setShowDraftModal] = useState(false);
@@ -245,6 +252,7 @@ export default function GroupDetailPage() {
     if (!currentSpaceId || !groupId || activeTab !== "schedule") return;
     setScheduleLoading(true);
     setScheduleError(null);
+    setScheduleIsOffline(false);
 
     const cacheKey = `schedule:${currentSpaceId}:${groupId}`;
 
@@ -277,17 +285,20 @@ export default function GroupDetailPage() {
             if (Array.isArray(cachedAssignments)) {
               setScheduleData(cachedAssignments);
               const cachedDate = cachedAt
-                ? new Date(cachedAt).toLocaleDateString("he-IL", { day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" })
+                ? new Date(cachedAt).toLocaleDateString(undefined, { day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" })
                 : "";
-              setScheduleError(`אין חיבור לאינטרנט — מציג סידור שמור מ-${cachedDate}`);
+              setScheduleIsOffline(true);
+              setScheduleError(tErrors("offlineWithCache", { date: cachedDate }));
             } else {
-              setScheduleError("אין חיבור לאינטרנט ואין סידור שמור");
+              setScheduleIsOffline(true);
+              setScheduleError(tErrors("offlineNoCache"));
             }
           } else {
-            setScheduleError("אין חיבור לאינטרנט ואין סידור שמור");
+            setScheduleIsOffline(true);
+            setScheduleError(tErrors("offlineNoCache"));
           }
         } catch {
-          setScheduleError("שגיאה בטעינת הסידור");
+          setScheduleError(tErrors("errorLoadSchedule"));
         }
       }
 
@@ -309,17 +320,18 @@ export default function GroupDetailPage() {
           if (Array.isArray(cachedAssignments)) {
             setScheduleData(cachedAssignments);
             const cachedDate = cachedAt
-              ? new Date(cachedAt).toLocaleDateString("he-IL", { day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" })
+              ? new Date(cachedAt).toLocaleDateString(undefined, { day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" })
               : "";
-            setScheduleError(`אין חיבור לאינטרנט — מציג סידור שמור מ-${cachedDate}`);
+            setScheduleIsOffline(true);
+            setScheduleError(tErrors("offlineWithCache", { date: cachedDate }));
           } else {
-            setScheduleError("שגיאה בטעינת הסידור");
+            setScheduleError(tErrors("errorLoadSchedule"));
           }
         } else {
-          setScheduleError("שגיאה בטעינת הסידור");
+          setScheduleError(tErrors("errorLoadSchedule"));
         }
       } catch {
-        setScheduleError("שגיאה בטעינת הסידור");
+        setScheduleError(tErrors("errorLoadSchedule"));
       }
     })
     .finally(() => setScheduleLoading(false));
@@ -334,7 +346,7 @@ export default function GroupDetailPage() {
     setMembersError(null);
     getGroupMembers(currentSpaceId, groupId)
       .then(setMembers)
-      .catch(() => setMembersError("שגיאה בטעינת חברים"))
+      .catch(() => setMembersError(tErrors("errorLoadMembers")))
       .finally(() => setMembersLoading(false));
   }, [currentSpaceId, groupId, activeTab]);
 
@@ -354,7 +366,7 @@ export default function GroupDetailPage() {
     setAlertsError(null);
     getGroupAlerts(currentSpaceId, groupId)
       .then(setAlerts)
-      .catch(() => setAlertsError("שגיאה בטעינת התראות"))
+      .catch(() => setAlertsError(tErrors("errorLoadAlerts")))
       .finally(() => setAlertsLoading(false));
   }, [currentSpaceId, groupId, activeTab]);
 
@@ -371,7 +383,7 @@ export default function GroupDetailPage() {
         const data = Array.isArray(res.data) ? res.data : [];
         setMessages(data);
       })
-      .catch(() => setMessagesError("שגיאה בטעינת הודעות"))
+      .catch(() => setMessagesError(tErrors("errorLoadMessages")))
       .finally(() => setMessagesLoading(false));
   }, [currentSpaceId, groupId, activeTab]);
 
@@ -453,7 +465,7 @@ export default function GroupDetailPage() {
     // wasn't set yet during the initial render (Zustand hydration lag).
     const spaceId = useSpaceStore.getState().currentSpaceId ?? currentSpaceId;
     if (!spaceId || !draftVersion) {
-      setScheduleVersionError("לא ניתן לפרסם — נסה לרענן את הדף");
+      setScheduleVersionError("Cannot publish — try refreshing the page");
       return;
     }
     setPublishSaving(true);
@@ -475,7 +487,7 @@ export default function GroupDetailPage() {
       const drafts = Array.isArray(draftRes?.data) ? draftRes.data : [];
       setDraftVersion(drafts.length > 0 ? drafts[0] : null);
     } catch (err) {
-      setScheduleVersionError("שגיאה בפרסום הסידור");
+      setScheduleVersionError(tErrors("errorPublish"));
       throw err; // re-throw so DraftScheduleModal can show the error too
     } finally {
       setPublishSaving(false);
@@ -490,7 +502,7 @@ export default function GroupDetailPage() {
       await apiClient.delete(`/spaces/${currentSpaceId}/schedule-versions/${draftVersion.id}`);
       setDraftVersion(null);
     } catch {
-      setScheduleVersionError("שגיאה בביטול הטיוטה");
+      setScheduleVersionError(tErrors("errorDiscard"));
     } finally {
       setDiscardSaving(false);
     }
@@ -503,7 +515,7 @@ export default function GroupDetailPage() {
       await removeGroupMember(currentSpaceId, groupId, personId);
       setMembers(prev => prev.filter(m => m.personId !== personId));
     } catch {
-      setRemoveErrors(prev => ({ ...prev, [personId]: "שגיאה בהסרת חבר" }));
+      setRemoveErrors(prev => ({ ...prev, [personId]: tErrors("errorRemoveMember") }));
     }
   }
 
@@ -527,7 +539,7 @@ export default function GroupDetailPage() {
             p.fullName.toLowerCase() === addMemberName.trim().toLowerCase()
           );
           if (!match) {
-            setAddMemberError("כבר קיים אדם בשם זה. נסה שם מדויק יותר.");
+            setAddMemberError("Person already exists with that name. Try a more exact name.");
             return;
           }
           personId = match.id;
@@ -548,7 +560,7 @@ export default function GroupDetailPage() {
       const updated = await getGroupMembers(currentSpaceId, groupId);
       setMembers(updated);
     } catch {
-      setAddMemberError("שגיאה בהוספת חבר");
+      setAddMemberError(tErrors("errorAddMember"));
     } finally {
       setAddMemberSaving(false);
     }
@@ -576,7 +588,7 @@ export default function GroupDetailPage() {
       if (updatedMember) setSelectedMember(updatedMember);
       setMemberEditForm(null);
     } catch {
-      setMemberEditError("שגיאה בשמירת פרטים");
+      setMemberEditError(tErrors("errorSaveDetails"));
     } finally {
       setMemberEditSaving(false);
     }
@@ -598,7 +610,7 @@ export default function GroupDetailPage() {
       setNewAlertTitle(""); setNewAlertBody(""); setNewAlertSeverity("info");
       setShowAlertForm(false);
     } catch {
-      setAlertSubmitError("שגיאה ביצירת התראה");
+      setAlertSubmitError(tErrors("errorCreateAlert"));
     } finally {
       setAlertSubmitting(false);
     }
@@ -610,7 +622,7 @@ export default function GroupDetailPage() {
       await deleteGroupAlert(currentSpaceId, groupId, id);
       setAlerts(prev => prev.filter(a => a.id !== id));
     } catch {
-      setAlertDeleteErrors(prev => ({ ...prev, [id]: "שגיאה במחיקת התראה" }));
+      setAlertDeleteErrors(prev => ({ ...prev, [id]: tErrors("errorDeleteAlert") }));
     }
   }
 
@@ -625,7 +637,7 @@ export default function GroupDetailPage() {
       setAlerts(prev => prev.map(a => a.id === id ? { ...a, title: editAlertTitle, body: editAlertBody, severity: editAlertSeverity as "info" | "warning" | "critical" } : a));
       setEditingAlertId(null);
     } catch {
-      setEditAlertError("שגיאה בעדכון התראה");
+      setEditAlertError(tErrors("errorUpdateAlert"));
     } finally {
       setEditAlertSaving(false);
     }
@@ -649,7 +661,7 @@ export default function GroupDetailPage() {
       );
       setMessages(Array.isArray(res.data) ? res.data : []);
     } catch {
-      setMessageError("שגיאה בשליחת הודעה");
+      setMessageError("Error sending message");
     } finally {
       setMessageSending(false);
     }
@@ -661,7 +673,7 @@ export default function GroupDetailPage() {
       await pinGroupMessage(currentSpaceId, groupId, id, isPinned);
       setMessages(prev => prev.map(m => m.id === id ? { ...m, isPinned } : m));
     } catch {
-      setMessagePinErrors(prev => ({ ...prev, [id]: "שגיאה בנעיצת הודעה" }));
+      setMessagePinErrors(prev => ({ ...prev, [id]: "Error pinning message" }));
     }
   }
 
@@ -674,7 +686,7 @@ export default function GroupDetailPage() {
       setMessages(prev => prev.map(m => m.id === id ? { ...m, content: editMessageContent } : m));
       setEditingMessageId(null);
     } catch {
-      setEditMessageError("שגיאה בעדכון הודעה");
+      setEditMessageError("Error updating message");
     } finally {
       setEditMessageSaving(false);
     }
@@ -707,14 +719,14 @@ export default function GroupDetailPage() {
 
       // Guard: endsAt must be strictly after startsAt
       if (new Date(endsAtRaw) <= new Date(startsAt)) {
-        setTaskError("תאריך הסיום חייב להיות אחרי תאריך ההתחלה");
+        setTaskError("End date must be after start date");
         setTaskSaving(false);
         return;
       }
 
       // Guard: daily time window — both or neither
       if (!!taskForm.dailyStartTime !== !!taskForm.dailyEndTime) {
-        setTaskError("יש להגדיר שעת התחלה וסיום יומית יחד, או להשאיר שניהם ריקים");
+        setTaskError("Set both daily start and end time, or leave both empty");
         setTaskSaving(false);
         return;
       }
@@ -744,7 +756,7 @@ export default function GroupDetailPage() {
       setEditingTask(null);
       setTaskForm(DEFAULT_TASK_FORM);
     } catch {
-      setTaskError("שגיאה בשמירת משימה");
+      setTaskError(tErrors("generic"));
     } finally {
       setTaskSaving(false);
     }
@@ -782,7 +794,7 @@ export default function GroupDetailPage() {
       setNewConstraintFrom("");
       setNewConstraintUntil("");
     } catch {
-      setConstraintError("שגיאה ביצירת אילוץ");
+      setConstraintError(tErrors("errorCreateConstraint"));
     } finally {
       setConstraintSaving(false);
     }
@@ -794,7 +806,7 @@ export default function GroupDetailPage() {
       await deleteConstraint(currentSpaceId, id);
       setConstraints(prev => prev.filter(c => c.id !== id));
     } catch {
-      setConstraintDeleteErrors(prev => ({ ...prev, [id]: "שגיאה במחיקת אילוץ" }));
+      setConstraintDeleteErrors(prev => ({ ...prev, [id]: tErrors("errorDeleteConstraint") }));
     }
   }
 
@@ -812,7 +824,7 @@ export default function GroupDetailPage() {
       setConstraints(prev => prev.map(c => c.id === id ? { ...c, severity: editConstraintSeverity, rulePayloadJson: editConstraintPayload, effectiveFrom: editConstraintFrom || null, effectiveUntil: editConstraintUntil || null } : c));
       setEditingConstraintId(null);
     } catch {
-      setEditConstraintError("שגיאה בעדכון אילוץ");
+      setEditConstraintError(tErrors("generic"));
     } finally {
       setEditConstraintSaving(false);
     }
@@ -886,7 +898,7 @@ export default function GroupDetailPage() {
       await renameGroup(currentSpaceId, groupId, newGroupName);
       setGroup(prev => prev ? { ...prev, name: newGroupName } : prev);
     } catch {
-      setRenameError("שגיאה בשינוי שם");
+      setRenameError(tErrors("generic"));
     } finally {
       setRenameSaving(false);
     }
@@ -903,7 +915,7 @@ export default function GroupDetailPage() {
       setSettingsSaved(true);
       setTimeout(() => setSettingsSaved(false), 3000);
     } catch {
-      setSettingsError("שגיאה בשמירת הגדרות");
+      setSettingsError(tErrors("generic"));
     } finally {
       setSavingSettings(false);
     }
@@ -932,7 +944,7 @@ export default function GroupDetailPage() {
           if (pollingRef.current) clearInterval(pollingRef.current);
           setSolverPolling(false);
           setSolverStatus("TimedOut");
-          setSolverError("הסולבר לא הגיב בזמן סביר. בדוק שהשירות פועל.");
+          setSolverError("Solver did not respond in time. Check that the service is running.");
           return;
         }
 
@@ -986,12 +998,12 @@ export default function GroupDetailPage() {
         } catch {
           if (pollingRef.current) clearInterval(pollingRef.current);
           setSolverPolling(false);
-          setSolverError("שגיאה בבדיקת סטטוס");
+          setSolverError("Error checking status");
         }
       }, 3000);
     } catch {
       setSolverPolling(false);
-      setSolverError("שגיאה בהפעלת הסולבר");
+      setSolverError("Error starting solver");
     }
   }
 
@@ -1012,7 +1024,7 @@ export default function GroupDetailPage() {
       setHasPendingTransfer(true);
       setTransferPersonId("");
     } catch {
-      setTransferError("שגיאה בהעברת בעלות");
+      setTransferError(tErrors("generic"));
     } finally {
       setTransferSaving(false);
     }
@@ -1036,7 +1048,7 @@ export default function GroupDetailPage() {
       await softDeleteGroup(currentSpaceId, groupId);
       router.push("/groups");
     } catch {
-      setDeleteError("שגיאה במחיקת קבוצה");
+      setDeleteError(tErrors("generic"));
     } finally {
       setDeleteSaving(false);
     }
@@ -1080,7 +1092,7 @@ export default function GroupDetailPage() {
           </div>
           <div className="flex-1">
             <h1 className="text-xl font-bold text-slate-900">{group.name}</h1>
-            <p className="text-sm text-slate-400">{group.memberCount ?? 0} חברים</p>
+            <p className="text-sm text-slate-400">{group.memberCount ?? 0} {tGroups("members")}</p>
           </div>
           {/* Admin mode toggle — always visible to group owner */}
           <button
@@ -1102,7 +1114,7 @@ export default function GroupDetailPage() {
             <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
             </svg>
-            {isAdmin ? "יציאה ממצב ניהול" : "כניסה למצב ניהול"}
+            {isAdmin ? tGroups("exitAdminMode") : tGroups("enterAdminMode")}
           </button>
         </div>
 
@@ -1132,6 +1144,7 @@ export default function GroupDetailPage() {
               scheduleData={scheduleData}
               scheduleLoading={scheduleLoading}
               scheduleError={scheduleError}
+              scheduleIsOffline={scheduleIsOffline}
               draftVersion={draftVersion}
               lastRunSummary={lastRunSummary}
               isAdmin={isAdmin}
@@ -1309,7 +1322,7 @@ export default function GroupDetailPage() {
                       ?.response?.data?.error ??
                     (err as { response?: { data?: { error?: string; message?: string } } })
                       ?.response?.data?.message ??
-                    "שגיאה ביצירת אילוץ";
+                    tErrors("errorCreateConstraint");
                   throw new Error(apiMsg);
                 }
                 const updated = await getConstraints(currentSpaceId);
@@ -1401,32 +1414,32 @@ export default function GroupDetailPage() {
       )}
 
       {/* Add member modal */}
-      <Modal title="הוסף חבר חדש" open={showAddMember} onClose={() => { setShowAddMember(false); setAddMemberName(""); setAddMemberPhone(""); setAddMemberEmail(""); setAddMemberError(null); }}>
+      <Modal title={tGroups("members_tab.addMember")} open={showAddMember} onClose={() => { setShowAddMember(false); setAddMemberName(""); setAddMemberPhone(""); setAddMemberEmail(""); setAddMemberError(null); }}>
         <form onSubmit={handleAddMember} className="space-y-4">
           <div>
-            <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">שם מלא *</label>
+            <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">{tGroups("members_tab.fullName")} *</label>
             <input
               type="text"
               value={addMemberName}
               onChange={e => setAddMemberName(e.target.value)}
-              placeholder="שם מלא"
+              placeholder={tGroups("members_tab.fullName")}
               required
               className="w-full border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
           <div>
-            <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">מספר טלפון <span className="text-slate-400 normal-case font-normal">(אופציונלי — לשליחת הזמנה)</span></label>
+            <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">{tGroups("members_tab.phone")} <span className="text-slate-400 normal-case font-normal">({tGroups("members_tab.optionalInvite")})</span></label>
             <input
               type="tel"
               value={addMemberPhone}
               onChange={e => setAddMemberPhone(e.target.value)}
-              placeholder="+972..."
+              placeholder="+1..."
               dir="ltr"
               className="w-full border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
           <div>
-            <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">אימייל <span className="text-slate-400 normal-case font-normal">(אופציונלי — לשליחת הזמנה)</span></label>
+            <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">{tGroups("members_tab.email")} <span className="text-slate-400 normal-case font-normal">({tGroups("members_tab.optionalInvite")})</span></label>
             <input
               type="email"
               value={addMemberEmail}
@@ -1439,7 +1452,7 @@ export default function GroupDetailPage() {
           {addMemberError && <p className="text-sm text-red-600">{addMemberError}</p>}
           <button type="submit" disabled={addMemberSaving}
             className="w-full bg-blue-500 hover:bg-blue-600 text-white text-sm font-medium px-4 py-2.5 rounded-xl disabled:opacity-50 transition-colors">
-            {addMemberSaving ? "מוסיף..." : "הוסף חבר"}
+            {addMemberSaving ? tGroups("members_tab.adding") : tGroups("members_tab.addMember")}
           </button>
         </form>
       </Modal>

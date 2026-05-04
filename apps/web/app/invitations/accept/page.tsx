@@ -1,12 +1,14 @@
 "use client";
 
 import { useEffect, useState, Suspense } from "react";
+import { useTranslations } from "next-intl";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useAuthStore } from "@/lib/store/authStore";
 import { apiClient } from "@/lib/api/client";
 
 function AcceptInvitationContent() {
+  const t = useTranslations("invitations");
   const searchParams = useSearchParams();
   const token = searchParams.get("token") ?? "";
   const { isAuthenticated } = useAuthStore();
@@ -24,7 +26,7 @@ function AcceptInvitationContent() {
         const msg =
           err?.response?.data?.message ??
           err?.response?.data?.title ??
-          "אירעה שגיאה בעת אישור ההזמנה.";
+          t("errorAccepting");
         setErrorMessage(msg);
         setStatus("error");
       });
@@ -33,7 +35,7 @@ function AcceptInvitationContent() {
   if (!token) {
     return (
       <div style={styles.card}>
-        <p style={styles.errorText}>קישור ההזמנה אינו תקין — חסר טוקן.</p>
+        <p style={styles.errorText}>{t("invalidLink")}</p>
       </div>
     );
   }
@@ -42,9 +44,9 @@ function AcceptInvitationContent() {
     const redirectUrl = `/invitations/accept?token=${encodeURIComponent(token)}`;
     return (
       <div style={styles.card}>
-        <p style={styles.bodyText}>יש להתחבר כדי לאשר את ההזמנה.</p>
+        <p style={styles.bodyText}>{t("loginRequired")}</p>
         <Link href={`/login?redirect=${encodeURIComponent(redirectUrl)}`} style={styles.link}>
-          התחבר
+          {t("login")}
         </Link>
       </div>
     );
@@ -54,7 +56,7 @@ function AcceptInvitationContent() {
     return (
       <div style={styles.card}>
         <div style={styles.spinner} />
-        <p style={styles.bodyText}>מאשר הזמנה…</p>
+        <p style={styles.bodyText}>{t("accepting")}</p>
       </div>
     );
   }
@@ -63,9 +65,9 @@ function AcceptInvitationContent() {
     return (
       <div style={styles.card}>
         <div style={styles.successIcon}>✓</div>
-        <p style={styles.successText}>ההזמנה אושרה בהצלחה! ברוך הבא לקבוצה.</p>
+        <p style={styles.successText}>{t("successMessage")}</p>
         <Link href="/groups" style={styles.link}>
-          עבור לקבוצות
+          {t("goToGroups")}
         </Link>
       </div>
     );
@@ -76,7 +78,7 @@ function AcceptInvitationContent() {
       <div style={styles.card}>
         <p style={styles.errorText}>{errorMessage}</p>
         <Link href="/groups" style={styles.link}>
-          חזור לקבוצות
+          {t("backToGroups")}
         </Link>
       </div>
     );
@@ -102,7 +104,6 @@ const styles = {
     alignItems: "center",
     justifyContent: "center",
     background: "#f8fafc",
-    direction: "rtl" as const,
   },
   card: {
     background: "white",

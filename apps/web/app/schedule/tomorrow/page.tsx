@@ -13,6 +13,7 @@ interface GroupDto { id: string; name: string; }
 
 export default function TomorrowPage() {
   const t = useTranslations("schedule");
+  const tNav = useTranslations("nav");
   const { currentSpaceId } = useSpaceStore();
   const { displayName } = useAuthStore();
   const [assignments, setAssignments] = useState<TaskAssignment[]>([]);
@@ -24,9 +25,15 @@ export default function TomorrowPage() {
   const tomorrow = new Date();
   tomorrow.setDate(tomorrow.getDate() + 1);
   const tomorrowStr = tomorrow.toISOString().split("T")[0];
-  const tomorrowLabel = tomorrow.toLocaleDateString("he-IL", {
-    weekday: "long", year: "numeric", month: "long", day: "numeric"
-  });
+  const [tomorrowLabel, setTomorrowLabel] = useState("");
+
+  useEffect(() => {
+    const d = new Date();
+    d.setDate(d.getDate() + 1);
+    setTomorrowLabel(d.toLocaleDateString(undefined, {
+      weekday: "long", year: "numeric", month: "long", day: "numeric"
+    }));
+  }, []);
 
   useEffect(() => {
     if (!currentSpaceId) { setGroupsLoading(false); return; }
@@ -57,7 +64,7 @@ export default function TomorrowPage() {
       <div className="max-w-4xl space-y-6">
         <div className="flex items-start justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-slate-900">{t("title")} — מחר</h1>
+            <h1 className="text-2xl font-bold text-slate-900">{t("title")} — {tNav("tomorrow")}</h1>
             <p className="text-sm text-slate-500 mt-1 capitalize">{tomorrowLabel}</p>
           </div>
         </div>

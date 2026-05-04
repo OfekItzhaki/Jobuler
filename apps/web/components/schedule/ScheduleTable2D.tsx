@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import type { ScheduleAssignment } from "@/app/groups/[groupId]/types";
 
 /** Minimal shape required by the table — compatible with both ScheduleAssignment and AssignmentDto */
@@ -24,7 +25,7 @@ function overlapsDate(a: TableAssignment, dateStr: string): boolean {
 }
 
 function formatTime(iso: string): string {
-  return new Date(iso).toLocaleTimeString("he-IL", { hour: "2-digit", minute: "2-digit" });
+  return new Date(iso).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
 }
 
 export default function ScheduleTable2D({
@@ -33,6 +34,7 @@ export default function ScheduleTable2D({
   filterDate,
   onCellClick,
 }: ScheduleTable2DProps) {
+  const t = useTranslations("schedule");
   // Filter to the requested date if provided
   const visible = filterDate
     ? assignments.filter(a => overlapsDate(a, filterDate))
@@ -41,7 +43,7 @@ export default function ScheduleTable2D({
   if (visible.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-12 text-center bg-white rounded-xl border border-slate-200">
-        <p className="text-sm text-slate-400">אין משימות ביום זה</p>
+        <p className="text-sm text-slate-400">{t("noTasksThisDay")}</p>
       </div>
     );
   }
@@ -83,7 +85,7 @@ export default function ScheduleTable2D({
           <tr className="border-b border-slate-100 bg-slate-50/80">
             {/* Row header column */}
             <th className="px-4 py-3 text-start text-xs font-semibold text-slate-500 uppercase tracking-wider whitespace-nowrap sticky right-0 bg-slate-50/80 z-10">
-              שעות
+              {t("time")}
             </th>
             {taskNames.map(task => (
               <th

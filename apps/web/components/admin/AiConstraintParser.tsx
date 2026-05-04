@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useTranslations } from "next-intl";
 import { apiClient } from "@/lib/api/client";
 import { useSpaceStore } from "@/lib/store/spaceStore";
 
@@ -19,6 +20,7 @@ interface AiConstraintParserProps {
 }
 
 export default function AiConstraintParser({ onConfirm }: AiConstraintParserProps) {
+  const t = useTranslations("aiParser");
   const { currentSpaceId } = useSpaceStore();
   const [input, setInput] = useState("");
   const [result, setResult] = useState<ParsedConstraint | null>(null);
@@ -37,7 +39,7 @@ export default function AiConstraintParser({ onConfirm }: AiConstraintParserProp
       );
       setResult(data);
     } catch {
-      setError("שגיאה בניתוח. נסה שוב או הזן את האילוץ ידנית.");
+      setError(t("parseError"));
     } finally {
       setLoading(false);
     }
@@ -47,10 +49,10 @@ export default function AiConstraintParser({ onConfirm }: AiConstraintParserProp
     <div className="space-y-4 rounded-lg border border-blue-200 bg-blue-50 p-4">
       <div className="flex items-center gap-2">
         <span className="text-xs font-semibold text-blue-700 uppercase tracking-wide">
-          עוזר AI
+          {t("title")}
         </span>
         <span className="text-xs text-blue-500">
-          תאר אילוץ בשפה חופשית
+          {t("subtitle")}
         </span>
       </div>
 
@@ -60,7 +62,7 @@ export default function AiConstraintParser({ onConfirm }: AiConstraintParserProp
           value={input}
           onChange={e => setInput(e.target.value)}
           onKeyDown={e => e.key === "Enter" && handleParse()}
-          placeholder='לדוגמה: "אופק לא יכול לעשות מטבח 10 ימים"'
+          placeholder={t("placeholder")}
           className="flex-1 border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
         />
         <button
@@ -68,7 +70,7 @@ export default function AiConstraintParser({ onConfirm }: AiConstraintParserProp
           disabled={loading || !input.trim()}
           className="bg-blue-600 text-white text-sm px-4 py-2 rounded-lg hover:bg-blue-700 disabled:opacity-50"
         >
-          {loading ? "..." : "נתח"}
+          {loading ? "..." : t("parse")}
         </button>
       </div>
 
@@ -80,11 +82,11 @@ export default function AiConstraintParser({ onConfirm }: AiConstraintParserProp
             <>
               <div className="grid grid-cols-2 gap-2 text-sm">
                 <div>
-                  <span className="text-gray-500 text-xs">סוג כלל</span>
+                  <span className="text-gray-500 text-xs">{t("ruleType")}</span>
                   <p className="font-mono font-medium">{result.ruleType}</p>
                 </div>
                 <div>
-                  <span className="text-gray-500 text-xs">היקף</span>
+                  <span className="text-gray-500 text-xs">{t("scope")}</span>
                   <p className="font-medium">{result.scopeType} — {result.scopeHint}</p>
                 </div>
               </div>
@@ -107,19 +109,19 @@ export default function AiConstraintParser({ onConfirm }: AiConstraintParserProp
                   onClick={() => onConfirm(result)}
                   className="bg-green-600 text-white text-xs px-3 py-1.5 rounded-lg hover:bg-green-700"
                 >
-                  אשר ושמור
+                  {t("confirm")}
                 </button>
                 <button
                   onClick={() => setResult(null)}
                   className="text-xs text-gray-500 hover:underline"
                 >
-                  בטל
+                  {t("cancel")}
                 </button>
               </div>
             </>
           ) : (
             <div className="space-y-1">
-              <p className="text-sm text-amber-700">לא ניתן לנתח אוטומטית.</p>
+              <p className="text-sm text-amber-700">{t("cannotParse")}</p>
               {result.confidenceNote && (
                 <p className="text-xs text-gray-500">{result.confidenceNote}</p>
               )}

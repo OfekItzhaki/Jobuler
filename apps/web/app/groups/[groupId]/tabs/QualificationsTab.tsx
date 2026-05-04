@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useTranslations } from "next-intl";
 import type { GroupMemberDto, GroupQualificationDto, MemberQualificationDto } from "@/lib/api/groups";
 
 interface Props {
@@ -21,6 +22,7 @@ export default function QualificationsTab({
   isAdmin, members, qualifications, memberQualifications, loading,
   onCreateQualification, onDeactivateQualification, onAssign, onRemove,
 }: Props) {
+  const t = useTranslations("groups.qualifications_tab");
   const [newQualName, setNewQualName] = useState("");
   const [newQualDesc, setNewQualDesc] = useState("");
   const [qualSaving, setQualSaving] = useState(false);
@@ -43,22 +45,22 @@ export default function QualificationsTab({
       await onCreateQualification(newQualName.trim(), newQualDesc.trim() || null);
       setNewQualName(""); setNewQualDesc("");
     } catch {
-      setQualError("שגיאה ביצירת כישור");
+      setQualError(t("errorCreate"));
     } finally {
       setQualSaving(false);
     }
   }
 
-  if (loading) return <p className="text-sm text-slate-400 py-8">טוען כישורים...</p>;
+  if (loading) return <p className="text-sm text-slate-400 py-8">{t("loadingQualifications")}</p>;
 
   return (
-    <div className="space-y-6" dir="rtl">
+    <div className="space-y-6" dir="ltr">
       {/* Qualification definitions */}
       <div className="bg-white border border-slate-200 rounded-2xl p-5 space-y-4">
-        <h3 className="text-sm font-semibold text-slate-700">רשימת כישורים</h3>
+        <h3 className="text-sm font-semibold text-slate-700">{t("title")}</h3>
 
         {qualifications.length === 0 ? (
-          <p className="text-xs text-slate-400">אין כישורים מוגדרים עדיין</p>
+          <p className="text-xs text-slate-400">{t("noQualifications")}</p>
         ) : (
           <div className="flex flex-wrap gap-2">
             {qualifications.map(q => (
@@ -89,12 +91,12 @@ export default function QualificationsTab({
               type="text"
               value={newQualName}
               onChange={e => setNewQualName(e.target.value)}
-              placeholder="שם כישור חדש (נהג, צלף, מ״כ...)"
+              placeholder={t("addQualification")}
               className="flex-1 border border-slate-200 rounded-xl px-3.5 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
             <button type="submit" disabled={qualSaving || !newQualName.trim()}
               className="bg-blue-500 hover:bg-blue-600 text-white text-sm font-medium px-4 py-2 rounded-xl disabled:opacity-50 transition-colors">
-              {qualSaving ? "..." : "הוסף"}
+              {qualSaving ? "..." : t("add")}
             </button>
           </form>
         )}
@@ -105,13 +107,13 @@ export default function QualificationsTab({
       {qualifications.length > 0 && members.length > 0 && (
         <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden">
           <div className="px-5 py-4 border-b border-slate-100">
-            <h3 className="text-sm font-semibold text-slate-700">כישורי חברים</h3>
+            <h3 className="text-sm font-semibold text-slate-700">{t("memberQualifications")}</h3>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-sm border-collapse">
               <thead>
                 <tr className="bg-slate-50/80 border-b border-slate-100">
-                  <th className="px-4 py-3 text-right text-xs font-semibold text-slate-500 sticky right-0 bg-slate-50/80">חבר</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 sticky left-0 bg-slate-50/80">{t("member")}</th>
                   {qualifications.map(q => (
                     <th key={q.id} className="px-3 py-3 text-center text-xs font-semibold text-slate-600 whitespace-nowrap">
                       {q.name}
@@ -147,7 +149,7 @@ export default function QualificationsTab({
                                     ? "bg-emerald-500 border-emerald-500 text-white hover:bg-red-500 hover:border-red-500"
                                     : "border-slate-300 hover:border-blue-400 hover:bg-blue-50"
                                 }`}
-                                title={has ? `הסר ${q.name} מ-${m.displayName ?? m.fullName}` : `הוסף ${q.name} ל-${m.displayName ?? m.fullName}`}
+                                title={has ? `${t("deactivate")} ${q.name}` : `${t("add")} ${q.name}`}
                               >
                                 {has && (
                                   <svg width="10" height="10" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>

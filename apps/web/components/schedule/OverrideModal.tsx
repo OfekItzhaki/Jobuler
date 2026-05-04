@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useTranslations } from "next-intl";
 import Modal from "@/components/Modal";
 
 export interface OverridePerson {
@@ -25,13 +26,15 @@ export default function OverrideModal({
   open, slotKey, taskName, currentAssignees, eligiblePeople,
   saving, error, onConfirm, onClear, onClose,
 }: OverrideModalProps) {
+  const t = useTranslations("schedule.override");
+  const tCommon = useTranslations("common");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [showConfirmClear, setShowConfirmClear] = useState(false);
 
   // Parse time from slotKey for display
   const [startsAt, endsAt] = slotKey.split("|");
   const fmt = (iso: string) =>
-    new Date(iso).toLocaleTimeString("he-IL", { hour: "2-digit", minute: "2-digit" });
+    new Date(iso).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
   const timeLabel = startsAt && endsAt ? `${fmt(startsAt)} – ${fmt(endsAt)}` : "";
 
   function togglePerson(personId: string) {
@@ -54,7 +57,7 @@ export default function OverrideModal({
   }
 
   return (
-    <Modal title="עקיפה ידנית" open={open} onClose={onClose} maxWidth={480}>
+    <Modal title={t("title")} open={open} onClose={onClose} maxWidth={480}>
       <div className="space-y-4">
         {/* Slot info */}
         <div className="bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 space-y-1">
@@ -65,7 +68,7 @@ export default function OverrideModal({
         {/* Current assignees */}
         {currentAssignees.length > 0 && (
           <div>
-            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5">מוקצים כעת</p>
+            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5">{t("currentAssignees")}</p>
             <div className="flex flex-wrap gap-1.5">
               {currentAssignees.map(name => (
                 <span key={name} className="px-2.5 py-1 bg-blue-50 text-blue-700 border border-blue-200 rounded-full text-xs font-medium">
@@ -78,9 +81,9 @@ export default function OverrideModal({
 
         {/* Person selector */}
         <div>
-          <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5">בחר אנשים חדשים</p>
+          <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5">{t("selectPeople")}</p>
           {eligiblePeople.length === 0 ? (
-            <p className="text-sm text-slate-400">אין חברים זמינים</p>
+            <p className="text-sm text-slate-400">{t("noEligible")}</p>
           ) : (
             <div className="space-y-1 max-h-48 overflow-y-auto">
               {eligiblePeople.map(p => (
@@ -114,7 +117,7 @@ export default function OverrideModal({
             disabled={saving || selectedIds.size === 0}
             className="bg-blue-500 hover:bg-blue-600 text-white text-sm font-medium px-4 py-2.5 rounded-xl disabled:opacity-50 transition-colors"
           >
-            {saving ? "שומר..." : "החל עקיפה"}
+            {saving ? t("saving") : t("applyOverride")}
           </button>
 
           {!showConfirmClear ? (
@@ -123,23 +126,23 @@ export default function OverrideModal({
               disabled={saving}
               className="text-sm text-red-600 border border-red-200 hover:bg-red-50 px-4 py-2.5 rounded-xl disabled:opacity-50 transition-colors"
             >
-              נקה משמרת
+              {t("clearShift")}
             </button>
           ) : (
             <div className="flex items-center gap-2">
-              <span className="text-xs text-red-600">בטוח?</span>
+              <span className="text-xs text-red-600">{tCommon("confirm")}?</span>
               <button
                 onClick={handleClear}
                 disabled={saving}
                 className="bg-red-500 hover:bg-red-600 text-white text-xs font-medium px-3 py-1.5 rounded-lg disabled:opacity-50 transition-colors"
               >
-                {saving ? "..." : "כן, נקה"}
+                {saving ? "..." : t("yesClear")}
               </button>
               <button
                 onClick={() => setShowConfirmClear(false)}
                 className="text-xs text-slate-500 px-2"
               >
-                ביטול
+                {tCommon("cancel")}
               </button>
             </div>
           )}
@@ -148,7 +151,7 @@ export default function OverrideModal({
             onClick={onClose}
             className="text-sm text-slate-500 border border-slate-200 px-4 py-2.5 rounded-xl hover:bg-slate-50 transition-colors mr-auto"
           >
-            סגור
+            {tCommon("cancel")}
           </button>
         </div>
       </div>

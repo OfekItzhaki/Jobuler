@@ -1,5 +1,7 @@
 "use client";
 
+import { useTranslations } from "next-intl";
+
 /** Minimal assignment shape needed by this component */
 export interface TaskAssignment {
   personName: string;
@@ -15,7 +17,7 @@ interface Props {
 }
 
 function formatTime(iso: string): string {
-  return new Date(iso).toLocaleTimeString("he-IL", { hour: "2-digit", minute: "2-digit" });
+  return new Date(iso).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
 }
 
 function overlapsDate(a: TaskAssignment, dateStr: string): boolean {
@@ -37,6 +39,7 @@ function overlapsDate(a: TaskAssignment, dateStr: string): boolean {
  * This cleanly handles tasks with different shift times and multiple people per shift.
  */
 export default function ScheduleTaskTable({ assignments, currentUserName, filterDate }: Props) {
+  const t = useTranslations("schedule");
   const visible = filterDate
     ? assignments.filter(a => overlapsDate(a, filterDate))
     : assignments;
@@ -44,7 +47,7 @@ export default function ScheduleTaskTable({ assignments, currentUserName, filter
   if (visible.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-12 text-center bg-white rounded-xl border border-slate-200">
-        <p className="text-sm text-slate-400">אין משימות ביום זה</p>
+        <p className="text-sm text-slate-400">{t("noTasksThisDay")}</p>
       </div>
     );
   }
@@ -86,7 +89,7 @@ export default function ScheduleTaskTable({ assignments, currentUserName, filter
             <div className="flex items-center gap-2 mb-2">
               <span className="text-sm font-semibold text-slate-800">{taskName}</span>
               <span className="text-xs text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full">
-                {slots.length} משמרות
+                {slots.length} {t("shifts")}
               </span>
             </div>
 
@@ -95,11 +98,11 @@ export default function ScheduleTaskTable({ assignments, currentUserName, filter
                 <thead>
                   <tr className="border-b border-slate-100 bg-slate-50/80">
                     <th className="px-4 py-3 text-start text-xs font-semibold text-slate-500 uppercase tracking-wider whitespace-nowrap sticky right-0 bg-slate-50/80 z-10">
-                      שעות
+                      {t("time")}
                     </th>
                     {personCols.map(i => (
                       <th key={i} className="px-4 py-3 text-center text-xs font-semibold text-slate-500 uppercase tracking-wider">
-                        {maxPeople === 1 ? "ממונה" : `ממונה ${i + 1}`}
+                        {maxPeople === 1 ? t("assignee") : t("assigneeN", { n: i + 1 })}
                       </th>
                     ))}
                   </tr>
