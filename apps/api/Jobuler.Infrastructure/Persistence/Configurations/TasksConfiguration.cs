@@ -107,6 +107,15 @@ public class GroupTaskConfiguration : IEntityTypeConfiguration<GroupTask>
             .HasConversion(
                 v => v.HasValue ? v.Value.ToTimeSpan() : (TimeSpan?)null,
                 v => v.HasValue ? TimeOnly.FromTimeSpan(v.Value) : (TimeOnly?)null);
+        builder.Property(t => t.RequiredQualificationNames).HasColumnName("required_qualification_names")
+            .HasColumnType("text[]")
+            .HasConversion(
+                v => v.ToArray(),
+                v => v.ToList())
+            .Metadata.SetValueComparer(new ValueComparer<List<string>>(
+                (a, b) => a != null && b != null && a.SequenceEqual(b),
+                v => v.Aggregate(0, (h, e) => HashCode.Combine(h, e.GetHashCode())),
+                v => v.ToList()));
         builder.Property(t => t.IsActive).HasColumnName("is_active");
         builder.Property(t => t.CreatedByUserId).HasColumnName("created_by_user_id");
         builder.Property(t => t.UpdatedByUserId).HasColumnName("updated_by_user_id");

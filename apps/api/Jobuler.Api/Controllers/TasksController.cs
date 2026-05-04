@@ -88,7 +88,8 @@ public class TasksController : ControllerBase
             req.Name, req.StartsAt, req.EndsAt,
             req.ShiftDurationMinutes, req.RequiredHeadcount,
             req.BurdenLevel, req.AllowsDoubleShift, req.AllowsOverlap,
-            ParseTime(req.DailyStartTime), ParseTime(req.DailyEndTime)), ct);
+            ParseTime(req.DailyStartTime), ParseTime(req.DailyEndTime),
+            req.RequiredQualificationNames), ct);
         return Created($"/spaces/{spaceId}/groups/{groupId}/tasks/{id}", new { id });
     }
 
@@ -101,7 +102,8 @@ public class TasksController : ControllerBase
             req.Name, req.StartsAt, req.EndsAt,
             req.ShiftDurationMinutes, req.RequiredHeadcount,
             req.BurdenLevel, req.AllowsDoubleShift, req.AllowsOverlap,
-            ParseTime(req.DailyStartTime), ParseTime(req.DailyEndTime)), ct);
+            ParseTime(req.DailyStartTime), ParseTime(req.DailyEndTime),
+            req.RequiredQualificationNames), ct);
         return NoContent();
     }
 
@@ -138,7 +140,8 @@ public record CreateGroupTaskRequest(
     bool AllowsDoubleShift,
     bool AllowsOverlap,
     string? DailyStartTime = null,
-    string? DailyEndTime = null);
+    string? DailyEndTime = null,
+    List<string>? RequiredQualificationNames = null);
 
 public record UpdateGroupTaskRequest(
     string Name,
@@ -150,4 +153,5 @@ public record UpdateGroupTaskRequest(
     bool AllowsDoubleShift,
     bool AllowsOverlap,
     string? DailyStartTime = null,
-    string? DailyEndTime = null);
+    string? DailyEndTime = null,
+    List<string>? RequiredQualificationNames = null);

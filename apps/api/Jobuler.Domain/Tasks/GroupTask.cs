@@ -32,6 +32,11 @@ public class GroupTask : AuditableEntity, ITenantScoped
     public TimeOnly? DailyStartTime { get; private set; }
     /// <summary>Optional daily end time. Must be set together with DailyStartTime.</summary>
     public TimeOnly? DailyEndTime { get; private set; }
+    /// <summary>
+    /// Qualification names that at least one assignee per shift must hold.
+    /// Empty list = no qualification requirement.
+    /// </summary>
+    public List<string> RequiredQualificationNames { get; private set; } = new();
     public bool IsActive { get; private set; } = true;
     public Guid? CreatedByUserId { get; private set; }
     public Guid? UpdatedByUserId { get; private set; }
@@ -51,7 +56,8 @@ public class GroupTask : AuditableEntity, ITenantScoped
         bool allowsOverlap,
         Guid createdByUserId,
         TimeOnly? dailyStartTime = null,
-        TimeOnly? dailyEndTime = null) =>
+        TimeOnly? dailyEndTime = null,
+        List<string>? requiredQualificationNames = null) =>
         new()
         {
             SpaceId = spaceId,
@@ -66,6 +72,7 @@ public class GroupTask : AuditableEntity, ITenantScoped
             AllowsOverlap = allowsOverlap,
             DailyStartTime = dailyStartTime,
             DailyEndTime = dailyEndTime,
+            RequiredQualificationNames = requiredQualificationNames ?? new(),
             CreatedByUserId = createdByUserId
         };
 
@@ -80,7 +87,8 @@ public class GroupTask : AuditableEntity, ITenantScoped
         bool allowsOverlap,
         Guid updatedByUserId,
         TimeOnly? dailyStartTime = null,
-        TimeOnly? dailyEndTime = null)
+        TimeOnly? dailyEndTime = null,
+        List<string>? requiredQualificationNames = null)
     {
         Name = name.Trim();
         StartsAt = startsAt;
@@ -92,6 +100,7 @@ public class GroupTask : AuditableEntity, ITenantScoped
         AllowsOverlap = allowsOverlap;
         DailyStartTime = dailyStartTime;
         DailyEndTime = dailyEndTime;
+        RequiredQualificationNames = requiredQualificationNames ?? new();
         UpdatedByUserId = updatedByUserId;
         Touch();
     }

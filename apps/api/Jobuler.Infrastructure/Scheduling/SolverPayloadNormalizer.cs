@@ -230,7 +230,7 @@ public class SolverPayloadNormalizer : ISolverPayloadNormalizer
                     task.RequiredHeadcount,
                     5,
                     [],
-                    [],
+                    task.RequiredQualificationNames,
                     task.AllowsOverlap,
                     task.AllowsDoubleShift));
 

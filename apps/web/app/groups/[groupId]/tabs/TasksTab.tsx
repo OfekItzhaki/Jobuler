@@ -4,6 +4,7 @@ import Modal from "@/components/Modal";
 import { useState, useEffect } from "react";
 import { useTranslations } from "next-intl";
 import type { GroupTaskDto } from "@/lib/api/tasks";
+import type { GroupQualificationDto } from "@/lib/api/groups";
 import { burdenLabels, burdenColors } from "../types";
 
 const BURDEN_OPTIONS = ["favorable", "neutral", "disliked", "hated"];
@@ -20,12 +21,14 @@ export interface TaskForm {
   concurrentTaskIds: string[];
   dailyStartTime: string;
   dailyEndTime: string;
+  requiredQualificationNames: string[];
 }
 
 interface Props {
   isAdmin: boolean;
   groupTasks: GroupTaskDto[];
   groupTasksLoading: boolean;
+  groupQualifications: GroupQualificationDto[];
   showTaskForm: boolean;
   editingTask: GroupTaskDto | null;
   taskForm: TaskForm;
@@ -121,7 +124,7 @@ function SubShiftEditor({ totalMinutes, onChange }: { totalMinutes: number; onCh
 }
 
 export default function TasksTab({
-  isAdmin, groupTasks, groupTasksLoading, showTaskForm, editingTask, taskForm,
+  isAdmin, groupTasks, groupTasksLoading, groupQualifications, showTaskForm, editingTask, taskForm,
   taskSaving, taskError, onOpenCreate, onCloseForm, onFormChange, onFormSubmit, onEditTask, onDeleteTask,
 }: Props) {
   const t = useTranslations("groups.tasks_tab");
@@ -160,6 +163,15 @@ export default function TasksTab({
               <p className="text-xs text-slate-400">
                 {task.requiredHeadcount} {t("people")} · {minutesToHM(task.shiftDurationMinutes).hours}h {minutesToHM(task.shiftDurationMinutes).mins > 0 ? `${minutesToHM(task.shiftDurationMinutes).mins}m` : ""}
               </p>
+              {task.requiredQualificationNames?.length > 0 && (
+                <div className="flex flex-wrap gap-1 mt-1">
+                  {task.requiredQualificationNames.map(q => (
+                    <span key={q} className="inline-flex items-center px-1.5 py-0.5 rounded-md text-[10px] font-medium bg-violet-50 text-violet-700 border border-violet-200">
+                      {q}
+                    </span>
+                  ))}
+                </div>
+              )}
             </div>
             <span className={`text-xs font-medium px-2 py-0.5 rounded-full border ${burdenColors[task.burdenLevel] ?? "bg-slate-100 text-slate-500 border-slate-200"}`}>
               {burdenLabels[task.burdenLevel] ?? task.burdenLevel}
@@ -298,6 +310,34 @@ export default function TasksTab({
               </select>
             </div>
           </div>
+
+          {/* Required qualifications */}
+          {groupQualifications.length > 0 && (
+            <div>
+              <label className="block text-xs text-slate-500 mb-1">
+                Required qualifications
+                <span className="text-slate-400 ml-1">(at least one assignee per shift must hold)</span>
+              </label>
+              <div className="border border-slate-200 rounded-xl p-3 space-y-1.5 max-h-36 overflow-y-auto">
+                {groupQualifications.map(q => (
+                  <label key={q.id} className="flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={taskForm.requiredQualificationNames.includes(q.name)}
+                      onChange={e => {
+                        const names = e.target.checked
+                          ? [...taskForm.requiredQualificationNames, q.name]
+                          : taskForm.requiredQualificationNames.filter(n => n !== q.name);
+                        onFormChange({ ...taskForm, requiredQualificationNames: names });
+                      }}
+                      className="rounded"
+                    />
+                    {q.name}
+                  </label>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Concurrent tasks */}
           {concurrentOptions.length > 0 && (

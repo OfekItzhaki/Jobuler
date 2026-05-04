@@ -57,6 +57,7 @@ const DEFAULT_TASK_FORM: TaskForm = {
   concurrentTaskIds: [],
   dailyStartTime: "",
   dailyEndTime: "",
+  requiredQualificationNames: [],
 };
 
 // ── Tab labels ───────────────────────────────────────────────────────────────
@@ -391,8 +392,16 @@ export default function GroupDetailPage() {
   useEffect(() => {
     if (!currentSpaceId || !groupId || activeTab !== "tasks") return;
     setGroupTasksLoading(true);
-    listGroupTasks(currentSpaceId, groupId)
-      .then(setGroupTasks)
+    Promise.all([
+      listGroupTasks(currentSpaceId, groupId),
+      groupQualifications.length === 0
+        ? getGroupQualifications(currentSpaceId, groupId)
+        : Promise.resolve(groupQualifications),
+    ])
+      .then(([tasks, quals]) => {
+        setGroupTasks(tasks);
+        setGroupQualifications(quals);
+      })
       .catch(() => {})
       .finally(() => setGroupTasksLoading(false));
   }, [currentSpaceId, groupId, activeTab]);
@@ -742,6 +751,7 @@ export default function GroupDetailPage() {
         allowsOverlap: taskForm.allowsOverlap,
         dailyStartTime: taskForm.dailyStartTime || null,
         dailyEndTime: taskForm.dailyEndTime || null,
+        requiredQualificationNames: taskForm.requiredQualificationNames,
       };
       if (editingTask) {
         await updateGroupTask(currentSpaceId, groupId, editingTask.id, payload);
@@ -1243,6 +1253,7 @@ export default function GroupDetailPage() {
               isAdmin={isAdmin}
               groupTasks={groupTasks}
               groupTasksLoading={groupTasksLoading}
+              groupQualifications={groupQualifications}
               showTaskForm={showTaskForm}
               editingTask={editingTask}
               taskForm={taskForm}
@@ -1260,7 +1271,7 @@ export default function GroupDetailPage() {
               onCloseForm={() => { setShowTaskForm(false); setEditingTask(null); }}
               onFormChange={setTaskForm}
               onFormSubmit={handleTaskSubmit}
-              onEditTask={t => { setEditingTask(t); setTaskForm({ name: t.name, startsAt: t.startsAt?.slice(0, 16) ?? "", endsAt: t.endsAt?.slice(0, 16) ?? "", shiftDurationMinutes: t.shiftDurationMinutes, requiredHeadcount: t.requiredHeadcount, burdenLevel: t.burdenLevel, allowsDoubleShift: t.allowsDoubleShift, allowsOverlap: t.allowsOverlap, concurrentTaskIds: [], dailyStartTime: t.dailyStartTime ?? "", dailyEndTime: t.dailyEndTime ?? "" }); setShowTaskForm(true); }}
+              onEditTask={t => { setEditingTask(t); setTaskForm({ name: t.name, startsAt: t.startsAt?.slice(0, 16) ?? "", endsAt: t.endsAt?.slice(0, 16) ?? "", shiftDurationMinutes: t.shiftDurationMinutes, requiredHeadcount: t.requiredHeadcount, burdenLevel: t.burdenLevel, allowsDoubleShift: t.allowsDoubleShift, allowsOverlap: t.allowsOverlap, concurrentTaskIds: [], dailyStartTime: t.dailyStartTime ?? "", dailyEndTime: t.dailyEndTime ?? "", requiredQualificationNames: t.requiredQualificationNames ?? [] }); setShowTaskForm(true); }}
               onDeleteTask={handleDeleteTask}
             />
           )}

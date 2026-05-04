@@ -83,6 +83,7 @@ export interface GroupTaskDto {
   allowsOverlap: boolean;
   dailyStartTime: string | null;
   dailyEndTime: string | null;
+  requiredQualificationNames: string[];
   createdAt: string;
   updatedAt: string;
 }
@@ -98,6 +99,7 @@ export interface GroupTaskPayload {
   allowsOverlap: boolean;
   dailyStartTime?: string | null;
   dailyEndTime?: string | null;
+  requiredQualificationNames?: string[];
 }
 
 export async function listGroupTasks(spaceId: string, groupId: string): Promise<GroupTaskDto[]> {
