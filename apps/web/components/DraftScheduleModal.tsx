@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useTranslations } from "next-intl";
+import { useTranslations, useLocale } from "next-intl";
 import { apiClient } from "@/lib/api/client";
 import { useDateFormat } from "@/lib/hooks/useDateFormat";
 import ScheduleTaskTable from "@/components/schedule/ScheduleTaskTable";
@@ -28,6 +28,9 @@ interface Props {
   onRunAgain: () => void;
 }
 
+const DAY_NAMES_SHORT = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const DAY_NAMES_HE   = ["א׳", "ב׳", "ג׳", "ד׳", "ה׳", "ו׳", "ש׳"];
+
 function getWeekDates(anchor: string): string[] {
   // Parse as UTC to avoid timezone shifting the date
   const parts = anchor.split("-").map(Number);
@@ -48,6 +51,9 @@ export default function DraftScheduleModal({
 }: Props) {
   const t = useTranslations("draftModal");
   const tSchedule = useTranslations("schedule");
+  const tAdmin = useTranslations("admin");
+  const locale = useLocale();
+  const dayNames = locale === "he" ? DAY_NAMES_HE : DAY_NAMES_SHORT;
   const [assignments, setAssignments] = useState<Assignment[]>([]);
   const [loading, setLoading] = useState(false);
   const [publishing, setPublishing] = useState(false);
@@ -59,8 +65,6 @@ export default function DraftScheduleModal({
   const today = new Date().toISOString().split("T")[0];
   const [weekAnchor, setWeekAnchor] = useState(today);
   const [selectedDay, setSelectedDay] = useState(new Date().getUTCDay());
-
-  const DAY_NAMES = t.raw("dayNames") as string[];
 
   useEffect(() => {
     if (!open || !draftVersionId) return;
@@ -234,16 +238,49 @@ export default function DraftScheduleModal({
 
               {/* Day tabs */}
               <div className="flex gap-1 overflow-x-auto pb-1">
-                {weekDates.map((d, i) => (
-                  <button key={d} onClick={() => setSelectedDay(i)}
-                    className={`flex-shrink-0 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
-                      i === selectedDay ? "bg-blue-500 text-white shadow-sm"
-                      : d === today ? "bg-blue-50 text-blue-600 border border-blue-200"
-                      : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-                    }`}>
-                    {DAY_NAMES[i]}
-                  </button>
-                ))}
+                {weekDates.map((d, i) => {
+                  const dayNum = new Date(d + "T00:00:00").getDate();
+                  const isSelected = i === selectedDay;
+                  const isToday = d === today;
+                  return (
+                    <button
+                      key={d}
+                      onClick={() => setSelectedDay(i)}
+                      className={`flex-shrink-0 flex flex-col items-center px-3 py-2 rounded-xl text-xs font-medium transition-all min-w-[48px] ${
+                        isSelected
+                          ? "bg-blue-500 text-white shadow-sm"
+                          : isToday
+                          ? "bg-blue-50 text-blue-600 border border-blue-200"
+                          : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                      }`}
+                    >
+                      <span className={`text-[10px] font-normal mb-0.5 ${isSelected ? "text-blue-100" : "text-slate-400"}`}>
+                        {dayNames[i]}
+                      </span>
+                      <span className={`text-sm font-bold leading-none ${isToday && !isSelected ? "text-blue-600" : ""}`}>
+                        {dayNum}
+                      </span>
+                      {isToday && !isSelected && (
+                        <span className="mt-1 w-1 h-1 rounded-full bg-blue-400" />
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Selected day label */}
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-semibold text-slate-700">
+                  {new Date(selectedDate + "T00:00:00").toLocaleDateString(
+                    locale === "he" ? "he-IL" : locale === "ru" ? "ru-RU" : "en-US",
+                    { weekday: "long", day: "numeric", month: "long" }
+                  )}
+                </span>
+                {selectedDate === today && (
+                  <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-blue-100 text-blue-700 border border-blue-200">
+                    {tAdmin("today")}
+                  </span>
+                )}
               </div>
 
               {/* Per-task schedule tables */}
