@@ -7,6 +7,7 @@ import { useTranslations } from "next-intl";
 import AppShell from "@/components/shell/AppShell";
 import Modal from "@/components/Modal";
 import DraftScheduleModal from "@/components/DraftScheduleModal";
+import ImportModal from "@/components/ImportModal";
 import ScheduleTab from "./tabs/ScheduleTab";
 import MembersTab, { MemberProfileModal } from "./tabs/MembersTab";
 import AlertsTab from "./tabs/AlertsTab";
@@ -160,6 +161,10 @@ export default function GroupDetailPage() {
   const [editMessageContent, setEditMessageContent] = useState("");
   const [editMessageSaving, setEditMessageSaving] = useState(false);
   const [editMessageError, setEditMessageError] = useState<string | null>(null);
+
+  // ── Import modal state ───────────────────────────────────────────────────
+  const [showImportModal, setShowImportModal] = useState(false);
+  const [importMode, setImportMode] = useState<"members" | "tasks">("members");
 
   // ── Tasks state ──────────────────────────────────────────────────────────
   const [groupTasks, setGroupTasks] = useState<GroupTaskDto[]>([]);
@@ -1185,6 +1190,7 @@ export default function GroupDetailPage() {
               onSelectMember={m => { setSelectedMember(m); setMemberEditForm(null); }}
               onRemoveMember={handleRemoveMember}
               onOpenAddMember={() => setShowAddMember(true)}
+              onOpenImport={() => { setImportMode("members"); setShowImportModal(true); }}
               onOpenInvite={handleInvite}
               onUpdateMemberRole={handleUpdateMemberRole}
             />
@@ -1270,6 +1276,7 @@ export default function GroupDetailPage() {
                 setTaskForm({ ...DEFAULT_TASK_FORM, startsAt: defaultStart });
                 setShowTaskForm(true);
               }}
+              onOpenImport={() => { setImportMode("tasks"); setShowImportModal(true); }}
               onCloseForm={() => { setShowTaskForm(false); setEditingTask(null); }}
               onFormChange={setTaskForm}
               onFormSubmit={handleTaskSubmit}
@@ -1423,6 +1430,25 @@ export default function GroupDetailPage() {
           onPublish={async () => { await handlePublish(); setShowDraftModal(false); }}
           onDiscard={async () => { await handleDiscard(); setShowDraftModal(false); }}
           onRunAgain={() => { setShowDraftModal(false); setActiveTab("settings"); handleTriggerSolver(); }}
+        />
+      )}
+
+      {/* Import modal */}
+      {showImportModal && currentSpaceId && (
+        <ImportModal
+          open={showImportModal}
+          onClose={() => setShowImportModal(false)}
+          spaceId={currentSpaceId}
+          groupId={groupId}
+          onImported={() => {
+            setShowImportModal(false);
+            // Reload the relevant tab data
+            if (importMode === "members") {
+              getGroupMembers(currentSpaceId, groupId).then(setMembers).catch(() => {});
+            } else {
+              listGroupTasks(currentSpaceId, groupId).then(setGroupTasks).catch(() => {});
+            }
+          }}
         />
       )}
 

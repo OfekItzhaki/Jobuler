@@ -35,6 +35,7 @@ interface Props {
   taskSaving: boolean;
   taskError: string | null;
   onOpenCreate: () => void;
+  onOpenImport?: () => void;
   onCloseForm: () => void;
   onFormChange: (f: TaskForm) => void;
   onFormSubmit: (e: React.FormEvent) => void;
@@ -125,7 +126,7 @@ function SubShiftEditor({ totalMinutes, onChange }: { totalMinutes: number; onCh
 
 export default function TasksTab({
   isAdmin, groupTasks, groupTasksLoading, groupQualifications, showTaskForm, editingTask, taskForm,
-  taskSaving, taskError, onOpenCreate, onCloseForm, onFormChange, onFormSubmit, onEditTask, onDeleteTask,
+  taskSaving, taskError, onOpenCreate, onOpenImport, onCloseForm, onFormChange, onFormSubmit, onEditTask, onDeleteTask,
 }: Props) {
   const t = useTranslations("groups.tasks_tab");
   const tCommon = useTranslations("common");
@@ -142,9 +143,17 @@ export default function TasksTab({
   return (
     <div className="space-y-4">
       {isAdmin && (
-        <button onClick={onOpenCreate} className="flex items-center gap-2 text-sm font-medium text-blue-600 border border-blue-200 bg-blue-50 hover:bg-blue-100 px-4 py-2.5 rounded-xl transition-colors">
-          {t("newTask")}
-        </button>
+        <div className="flex items-center gap-2">
+          <button onClick={onOpenCreate} className="flex items-center gap-2 text-sm font-medium text-blue-600 border border-blue-200 bg-blue-50 hover:bg-blue-100 px-4 py-2.5 rounded-xl transition-colors">
+            {t("newTask")}
+          </button>
+          <button onClick={onOpenImport} className="flex items-center gap-1.5 text-sm font-medium text-slate-600 border border-slate-200 bg-white hover:bg-slate-50 px-3 py-2.5 rounded-xl transition-colors">
+            <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+            </svg>
+            📥
+          </button>
+        </div>
       )}
 
       {groupTasksLoading && <p className="text-sm text-slate-400 py-8">{t("loadingTasks")}</p>}
