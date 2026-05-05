@@ -1,22 +1,18 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useTranslations, useLocale } from "next-intl";
+import { useTranslations } from "next-intl";
 import { useAuthStore } from "@/lib/store/authStore";
 import { useSpaceStore } from "@/lib/store/spaceStore";
 import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
 import NotificationBell from "@/components/shell/NotificationBell";
+import ShifterLogo from "@/components/shell/ShifterLogo";
+import LanguageSwitcher from "@/components/LanguageSwitcher";
 import { getMySpaces } from "@/lib/api/spaces";
 import { getMe } from "@/lib/api/auth";
 
 interface AppShellProps { children: React.ReactNode; }
-
-const LOCALES = [
-  { code: "he", label: "עב", full: "עברית" },
-  { code: "en", label: "EN", full: "English" },
-  { code: "ru", label: "RU", full: "Русский" },
-] as const;
 
 const S = {
   sidebar: { width: 256, background: "#0f172a", display: "flex", flexDirection: "column" as const, height: "100vh", position: "fixed" as const, top: 0, left: 0, zIndex: 30, overflowY: "auto" as const },
@@ -49,47 +45,6 @@ function NavItem({ href, label, icon, admin }: { href: string; label: string; ic
   );
 }
 
-function LanguageSwitcher() {
-  const locale = useLocale();
-  const t = useTranslations("language");
-
-  function switchLocale(code: string) {
-    if (code === locale) return;
-    document.cookie = `locale=${code}; path=/; max-age=31536000; SameSite=Strict`;
-    window.location.reload();
-  }
-
-  return (
-    <div style={{ padding: "8px 12px", display: "flex", alignItems: "center", gap: 6 }}>
-      <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="#64748b" strokeWidth={2} style={{ flexShrink: 0 }}>
-        <path strokeLinecap="round" strokeLinejoin="round" d="M3 5h12M9 3v2m1.048 9.5A18.022 18.022 0 016.412 9m6.088 9h7M11 21l5-10 5 10M12.751 5C11.783 10.77 8.07 15.61 3 18.129" />
-      </svg>
-      <div style={{ display: "flex", gap: 2 }}>
-        {LOCALES.map(l => (
-          <button
-            key={l.code}
-            onClick={() => switchLocale(l.code)}
-            title={l.full}
-            aria-label={`Switch to ${l.full}`}
-            style={{
-              background: locale === l.code ? "rgba(59,130,246,0.2)" : "transparent",
-              border: locale === l.code ? "1px solid rgba(59,130,246,0.4)" : "1px solid transparent",
-              borderRadius: 5,
-              color: locale === l.code ? "#93c5fd" : "#64748b",
-              fontSize: 11,
-              fontWeight: locale === l.code ? 700 : 500,
-              padding: "2px 6px",
-              cursor: locale === l.code ? "default" : "pointer",
-              transition: "all 0.15s",
-            }}
-          >
-            {l.label}
-          </button>
-        ))}
-      </div>
-    </div>
-  );
-}
 
 export default function AppShell({ children }: AppShellProps) {
   const t = useTranslations();
@@ -97,9 +52,14 @@ export default function AppShell({ children }: AppShellProps) {
   const { currentSpaceId, currentSpaceName, setCurrentSpace } = useSpaceStore();
   const router = useRouter();
   const [resolvedName, setResolvedName] = useState<string | null>(storedDisplayName);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
-  // Always fetch display name from API on mount to stay fresh across tab changes
+  // Fetch display name from API on mount, but only if not already in store
   useEffect(() => {
+    if (storedDisplayName) {
+      setResolvedName(storedDisplayName);
+      return;
+    }
     getMe().then(me => {
       if (me.displayName) setResolvedName(me.displayName);
     }).catch(() => {
@@ -131,24 +91,32 @@ export default function AppShell({ children }: AppShellProps) {
 
   return (
     <div style={{ display: "flex" }}>
+      {/* Mobile overlay */}
+      {sidebarOpen && (
+        <div
+          style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 29 }}
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+
       {/* Sidebar */}
-      <aside style={S.sidebar}>
-        <Link href="/spaces" style={S.logo}>
-          <div style={S.logoIcon}>
-            <svg width="18" height="18" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M9 12 C9 9 11 8 14 8 C17 8 19 9 19 12 C19 15 17 15 14 15 C11 15 9 16 9 19 C9 22 11 23 14 23 C17 23 19 22 19 19"
-                stroke="white" strokeWidth="2.5" strokeLinecap="round" fill="none"/>
-              <circle cx="24" cy="8" r="4" fill="white" opacity="0.85"/>
-              <line x1="24" y1="8" x2="24" y2="5" stroke="#3b82f6" strokeWidth="1.5" strokeLinecap="round"/>
-              <line x1="24" y1="8" x2="26" y2="9.5" stroke="#3b82f6" strokeWidth="1.5" strokeLinecap="round"/>
-            </svg>
-          </div>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ color: "white", fontWeight: 700, fontSize: 14, lineHeight: 1.2 }}>Shifter</div>
-            {currentSpaceName && <div style={{ color: "#64748b", fontSize: 11, marginTop: 1 }}>{currentSpaceName}</div>}
-          </div>
+      <aside style={{
+        ...S.sidebar,
+        transform: sidebarOpen ? "translateX(0)" : undefined,
+      }}
+        className={`sidebar-nav ${sidebarOpen ? "sidebar-open" : ""}`}
+      >
+        <div style={{ ...S.logo, textDecoration: "none" }}>
+          <Link href="/spaces" style={{ display: "flex", alignItems: "center", gap: 10, textDecoration: "none", flex: 1, minWidth: 0 }}>
+            <ShifterLogo size={32} />
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ color: "white", fontWeight: 700, fontSize: 14, lineHeight: 1.2 }}>Shifter</div>
+              {currentSpaceName && <div style={{ color: "#64748b", fontSize: 11, marginTop: 1 }}>{currentSpaceName}</div>}
+            </div>
+          </Link>
+          {/* NotificationBell is OUTSIDE the Link so clicks don't navigate */}
           <NotificationBell />
-        </Link>
+        </div>
 
         <nav style={S.nav}>
           <NavItem href="/profile" label={t("nav.myProfile")} icon={ic("M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z")} />
@@ -182,13 +150,28 @@ export default function AppShell({ children }: AppShellProps) {
             </svg>
             {t("auth.logout")}
           </button>
+          <div style={{ padding: "4px 12px 8px", color: "#334155", fontSize: 11, opacity: 0.4, textAlign: "center" }}>
+            v{process.env.NEXT_PUBLIC_APP_VERSION ?? "1.5.0"}
+          </div>
         </div>
       </aside>
 
       {/* Main */}
-      <div style={S.main}>
-        <header style={S.topbar(false)}>
-          {/* admin mode indicator is shown per-group */}
+      <div style={S.main} className="main-content">
+        <header style={S.topbar(false)} className="mobile-topbar flex items-center gap-3 px-4">
+          <button
+            onClick={() => setSidebarOpen(o => !o)}
+            style={{ background: "none", border: "none", cursor: "pointer", padding: 4, color: "#64748b" }}
+            aria-label="Toggle menu"
+          >
+            <svg width="22" height="22" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
+            </svg>
+          </button>
+          <span style={{ fontWeight: 700, fontSize: 15, color: "#0f172a" }}>Shifter</span>
+        </header>
+        <header style={{ ...S.topbar(false), display: "none" }} className="desktop-topbar">
+          {/* desktop topbar — empty, admin mode indicator shown per-group */}
         </header>
         <main style={S.content}>{children}</main>
       </div>

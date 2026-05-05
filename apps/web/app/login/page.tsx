@@ -5,6 +5,8 @@ import { useTranslations } from "next-intl";
 import { useAuthStore } from "@/lib/store/authStore";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
+import ShifterLogo from "@/components/shell/ShifterLogo";
+import LanguageSwitcher from "@/components/LanguageSwitcher";
 
 function LoginForm() {
   const t = useTranslations("auth");
@@ -40,11 +42,7 @@ function LoginForm() {
         {/* Logo */}
         <div style={{ display: "flex", justifyContent: "center", marginBottom: "2rem" }}>
           <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
-            <div style={{ width: "40px", height: "40px", borderRadius: "10px", background: "#3b82f6", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-              <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="white" strokeWidth={2.5}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
-              </svg>
-            </div>
+            <ShifterLogo size={40} />
             <span style={{ fontSize: "1.5rem", fontWeight: 700, color: "#0f172a" }}>Shifter</span>
           </div>
         </div>
@@ -61,7 +59,7 @@ function LoginForm() {
               <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="#16a34a" strokeWidth={2} style={{ flexShrink: 0 }}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
-              <p style={{ fontSize: "0.875rem", color: "#15803d", margin: 0 }}>החשבון נוצר בהצלחה! התחבר כדי להמשיך.</p>
+              <p style={{ fontSize: "0.875rem", color: "#15803d", margin: 0 }}>{t("accountCreated")}</p>
             </div>
           )}
 
@@ -70,7 +68,7 @@ function LoginForm() {
               <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="#16a34a" strokeWidth={2} style={{ flexShrink: 0 }}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
-              <p style={{ fontSize: "0.875rem", color: "#15803d", margin: 0 }}>הסיסמה אופסה בהצלחה! התחבר עם הסיסמה החדשה.</p>
+              <p style={{ fontSize: "0.875rem", color: "#15803d", margin: 0 }}>{t("passwordResetSuccess")}</p>
             </div>
           )}
 
@@ -124,7 +122,7 @@ function LoginForm() {
 
             <div style={{ textAlign: "left" }}>
               <Link href="/forgot-password" style={{ fontSize: "0.75rem", color: "#3b82f6", textDecoration: "none" }}>
-                שכחת סיסמה?
+                {t("forgotPassword")}?
               </Link>
             </div>
 
@@ -142,16 +140,20 @@ function LoginForm() {
               disabled={loading}
               style={{ width: "100%", background: loading ? "#93c5fd" : "#3b82f6", color: "white", border: "none", borderRadius: "10px", padding: "0.75rem", fontSize: "0.875rem", fontWeight: 600, cursor: loading ? "not-allowed" : "pointer", marginTop: "0.5rem" }}
             >
-              {loading ? "מתחבר..." : t("loginButton")}
+              {loading ? t("signingIn") : t("loginButton")}
             </button>
           </form>
 
           <p style={{ textAlign: "center", fontSize: "0.875rem", color: "#64748b", marginTop: "1.25rem" }}>
-            אין לך חשבון?{" "}
+            {t("noAccount")}{" "}
             <Link href="/register" style={{ color: "#3b82f6", fontWeight: 500, textDecoration: "none" }}>
-              הירשם
+              {t("registerButton")}
             </Link>
           </p>
+
+          <div style={{ marginTop: "1.25rem", paddingTop: "1rem", borderTop: "1px solid #f1f5f9" }}>
+            <LanguageSwitcher variant="auth" />
+          </div>
         </div>
       </div>
     </main>

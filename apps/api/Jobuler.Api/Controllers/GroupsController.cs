@@ -124,7 +124,7 @@ public class GroupsController : ControllerBase
         [FromBody] AddMemberByIdRequest req, CancellationToken ct)
     {
         await _permissions.RequirePermissionAsync(CurrentUserId, spaceId, Permissions.PeopleManage, ct);
-        await _mediator.Send(new AddPersonToGroupByIdCommand(spaceId, groupId, req.PersonId, CurrentUserId), ct);
+        await _mediator.Send(new AddPersonToGroupByIdCommand(spaceId, groupId, req.PersonId, CurrentUserId, req.RoleId), ct);
         return Ok(new { personId = req.PersonId });
     }
 
@@ -134,7 +134,7 @@ public class GroupsController : ControllerBase
     {
         await _permissions.RequirePermissionAsync(CurrentUserId, spaceId, Permissions.PeopleManage, ct);
         var result = await _mediator.Send(
-            new AddPersonByEmailCommand(spaceId, groupId, req.Email, CurrentUserId), ct);
+            new AddPersonByEmailCommand(spaceId, groupId, req.Email, CurrentUserId, req.RoleId), ct);
         return Ok(result);
     }
 
@@ -144,7 +144,7 @@ public class GroupsController : ControllerBase
     {
         await _permissions.RequirePermissionAsync(CurrentUserId, spaceId, Permissions.PeopleManage, ct);
         var result = await _mediator.Send(
-            new AddPersonByPhoneCommand(spaceId, groupId, req.PhoneNumber, CurrentUserId), ct);
+            new AddPersonByPhoneCommand(spaceId, groupId, req.PhoneNumber, CurrentUserId, req.RoleId), ct);
         return Ok(result);
     }
 
@@ -153,6 +153,19 @@ public class GroupsController : ControllerBase
     {
         await _permissions.RequirePermissionAsync(CurrentUserId, spaceId, Permissions.PeopleManage, ct);
         await _mediator.Send(new RemovePersonFromGroupCommand(spaceId, groupId, personId), ct);
+        return NoContent();
+    }
+
+    /// <summary>
+    /// Assigns or replaces a member's group role. Group owner only.
+    /// Send { "roleId": null } to remove the current role assignment.
+    /// </summary>
+    [HttpPatch("spaces/{spaceId:guid}/groups/{groupId:guid}/members/{personId:guid}/role")]
+    public async Task<IActionResult> UpdateMemberRole(Guid spaceId, Guid groupId, Guid personId,
+        [FromBody] UpdateMemberRoleRequest req, CancellationToken ct)
+    {
+        await _permissions.RequirePermissionAsync(CurrentUserId, spaceId, Permissions.PeopleManage, ct);
+        await _mediator.Send(new UpdateMemberRoleCommand(spaceId, groupId, personId, req.RoleId, CurrentUserId), ct);
         return NoContent();
     }
 
@@ -269,12 +282,12 @@ public class GroupsController : ControllerBase
 
 // ── Request records ───────────────────────────────────────────────────────────
 
-public record AddMemberByIdRequest(Guid PersonId);
+public record AddMemberByIdRequest(Guid PersonId, Guid? RoleId = null);
 public record CreateGroupMessageRequest(string Content, bool IsPinned = false);
 public record CreateGroupTypeRequest(string Name, string? Description);
 public record CreateGroupRequest(Guid? GroupTypeId, string Name, string? Description);
-public record AddMemberByEmailRequest(string Email);
-public record AddMemberByPhoneRequest(string PhoneNumber);
+public record AddMemberByEmailRequest(string Email, Guid? RoleId = null);
+public record AddMemberByPhoneRequest(string PhoneNumber, Guid? RoleId = null);
 public record UpdateGroupSettingsRequest(int SolverHorizonDays);
 public record RenameGroupRequest(string Name);
 public record InitiateGroupTransferRequest(Guid ProposedPersonId);
@@ -282,3 +295,4 @@ public record CreateAlertRequest(string Title, string Body, string Severity);
 public record UpdateAlertRequest(string Title, string Body, string Severity);
 public record UpdateMessageRequest(string Content);
 public record PinMessageRequest(bool IsPinned);
+public record UpdateMemberRoleRequest(Guid? RoleId);

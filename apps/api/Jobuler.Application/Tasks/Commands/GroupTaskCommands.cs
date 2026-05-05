@@ -22,6 +22,7 @@ public record GroupTaskDto(
     bool AllowsOverlap,
     string? DailyStartTime,
     string? DailyEndTime,
+    List<string> RequiredQualificationNames,
     DateTime CreatedAt,
     DateTime UpdatedAt);
 
@@ -40,7 +41,8 @@ public record CreateGroupTaskCommand(
     bool AllowsDoubleShift,
     bool AllowsOverlap,
     TimeOnly? DailyStartTime = null,
-    TimeOnly? DailyEndTime = null) : IRequest<Guid>;
+    TimeOnly? DailyEndTime = null,
+    List<string>? RequiredQualificationNames = null) : IRequest<Guid>;
 
 public class CreateGroupTaskCommandValidator : AbstractValidator<CreateGroupTaskCommand>
 {
@@ -79,12 +81,14 @@ public class CreateGroupTaskCommandHandler : IRequestHandler<CreateGroupTaskComm
 
         var task = GroupTask.Create(
             req.SpaceId, req.GroupId, req.Name,
-            req.StartsAt, req.EndsAt, req.ShiftDurationMinutes,
+            TaskTimeHelpers.RoundToHour(req.StartsAt), TaskTimeHelpers.RoundToHour(req.EndsAt),
+            req.ShiftDurationMinutes,
             req.RequiredHeadcount,
             Enum.Parse<TaskBurdenLevel>(req.BurdenLevel, true),
             req.AllowsDoubleShift, req.AllowsOverlap,
             req.RequestingUserId,
-            req.DailyStartTime, req.DailyEndTime);
+            req.DailyStartTime, req.DailyEndTime,
+            req.RequiredQualificationNames);
 
         _db.GroupTasks.Add(task);
         await _db.SaveChangesAsync(ct);
@@ -108,7 +112,8 @@ public record UpdateGroupTaskCommand(
     bool AllowsDoubleShift,
     bool AllowsOverlap,
     TimeOnly? DailyStartTime = null,
-    TimeOnly? DailyEndTime = null) : IRequest;
+    TimeOnly? DailyEndTime = null,
+    List<string>? RequiredQualificationNames = null) : IRequest;
 
 public class UpdateGroupTaskCommandValidator : AbstractValidator<UpdateGroupTaskCommand>
 {
@@ -147,12 +152,13 @@ public class UpdateGroupTaskCommandHandler : IRequestHandler<UpdateGroupTaskComm
             ?? throw new KeyNotFoundException("Task not found.");
 
         task.Update(
-            req.Name, req.StartsAt, req.EndsAt,
+            req.Name, TaskTimeHelpers.RoundToHour(req.StartsAt), TaskTimeHelpers.RoundToHour(req.EndsAt),
             req.ShiftDurationMinutes, req.RequiredHeadcount,
             Enum.Parse<TaskBurdenLevel>(req.BurdenLevel, true),
             req.AllowsDoubleShift, req.AllowsOverlap,
             req.RequestingUserId,
-            req.DailyStartTime, req.DailyEndTime);
+            req.DailyStartTime, req.DailyEndTime,
+            req.RequiredQualificationNames);
 
         await _db.SaveChangesAsync(ct);
     }
@@ -191,3 +197,16 @@ public class DeleteGroupTaskCommandHandler : IRequestHandler<DeleteGroupTaskComm
         await _db.SaveChangesAsync(ct);
     }
 }
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+file static class TaskTimeHelpers
+{
+    /// <summary>
+    /// Rounds a DateTime down to the nearest whole hour.
+    /// Ensures task shifts always start/end on clean hour boundaries (e.g. 17:00, not 17:33).
+    /// </summary>
+    internal static DateTime RoundToHour(DateTime dt) =>
+        new(dt.Year, dt.Month, dt.Day, dt.Hour, 0, 0, dt.Kind);
+}
+

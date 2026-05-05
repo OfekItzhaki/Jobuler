@@ -5,7 +5,9 @@ public record SolverJobMessage(
     Guid SpaceId,
     string TriggerMode,
     Guid? BaselineVersionId,
-    Guid? RequestedByUserId);
+    Guid? RequestedByUserId,
+    Guid? GroupId = null,
+    DateTime? StartTime = null);
 
 /// <summary>
 /// Enqueues solver jobs via Redis. The background worker dequeues and processes them.

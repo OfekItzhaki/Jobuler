@@ -1,10 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useTranslations } from "next-intl";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 
 export default function ConfirmTransferPage() {
+  const t = useTranslations("transfer");
   const searchParams = useSearchParams();
   const token = searchParams.get("token");
   const [status, setStatus] = useState<"loading" | "success" | "error">("loading");
@@ -13,10 +15,9 @@ export default function ConfirmTransferPage() {
   useEffect(() => {
     if (!token) {
       setStatus("error");
-      setErrorMessage("טוקן חסר בקישור.");
+      setErrorMessage(t("missingToken"));
       return;
     }
-    // Use plain fetch — no auth headers needed
     fetch(`http://localhost:5000/groups/confirm-transfer?token=${encodeURIComponent(token)}`)
       .then(async res => {
         if (res.ok) {
@@ -24,12 +25,12 @@ export default function ConfirmTransferPage() {
         } else {
           const body = await res.json().catch(() => ({}));
           setStatus("error");
-          setErrorMessage(body.error ?? "הקישור אינו תקף או שפג תוקפו.");
+          setErrorMessage(body.error ?? t("invalidLink"));
         }
       })
       .catch(() => {
         setStatus("error");
-        setErrorMessage("שגיאת רשת. אנא נסה שוב.");
+        setErrorMessage(t("networkError"));
       });
   }, [token]);
 
@@ -44,7 +45,7 @@ export default function ConfirmTransferPage() {
                 <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
               </svg>
             </div>
-            <p className="text-slate-600 text-sm">מאמת העברת בעלות...</p>
+            <p className="text-slate-600 text-sm">{t("verifying")}</p>
           </>
         )}
         {status === "success" && (
@@ -54,10 +55,10 @@ export default function ConfirmTransferPage() {
                 <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
               </svg>
             </div>
-            <h1 className="text-xl font-bold text-slate-900">הבעלות הועברה בהצלחה</h1>
-            <p className="text-slate-500 text-sm">אתה כעת הבעלים של הקבוצה.</p>
+            <h1 className="text-xl font-bold text-slate-900">{t("successTitle")}</h1>
+            <p className="text-slate-500 text-sm">{t("successMessage")}</p>
             <Link href="/groups" className="inline-block mt-2 text-sm text-blue-500 hover:text-blue-700">
-              עבור לקבוצות
+              {t("goToGroups")}
             </Link>
           </>
         )}
@@ -68,10 +69,10 @@ export default function ConfirmTransferPage() {
                 <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
               </svg>
             </div>
-            <h1 className="text-xl font-bold text-slate-900">שגיאה</h1>
+            <h1 className="text-xl font-bold text-slate-900">{t("errorTitle")}</h1>
             <p className="text-slate-500 text-sm">{errorMessage}</p>
             <Link href="/groups" className="inline-block mt-2 text-sm text-blue-500 hover:text-blue-700">
-              חזרה לקבוצות
+              {t("backToGroups")}
             </Link>
           </>
         )}

@@ -71,7 +71,7 @@ public record LeaderboardEntryDto(
 
 // ── Query ─────────────────────────────────────────────────────────────────────
 
-public record GetBurdenStatsQuery(Guid SpaceId) : IRequest<BurdenStatsDto>;
+public record GetBurdenStatsQuery(Guid SpaceId, Guid? GroupId = null) : IRequest<BurdenStatsDto>;
 
 public class GetBurdenStatsQueryHandler : IRequestHandler<GetBurdenStatsQuery, BurdenStatsDto>
 {
@@ -83,9 +83,21 @@ public class GetBurdenStatsQueryHandler : IRequestHandler<GetBurdenStatsQuery, B
     {
         var spaceId = req.SpaceId;
 
-        // ── People in this space ──────────────────────────────────────────────
-        var people = await _db.People.AsNoTracking()
-            .Where(p => p.SpaceId == spaceId && p.IsActive)
+        // ── People: when group-scoped, only include group members ─────────────
+        IQueryable<Domain.People.Person> peopleQuery = _db.People.AsNoTracking()
+            .Where(p => p.SpaceId == spaceId && p.IsActive);
+
+        if (req.GroupId.HasValue)
+        {
+            var groupMemberIds = await _db.GroupMemberships.AsNoTracking()
+                .Where(m => m.GroupId == req.GroupId.Value && m.SpaceId == spaceId)
+                .Select(m => m.PersonId)
+                .ToListAsync(ct);
+            var memberIdSet = groupMemberIds.ToHashSet();
+            peopleQuery = peopleQuery.Where(p => memberIdSet.Contains(p.Id));
+        }
+
+        var people = await peopleQuery
             .Select(p => new { p.Id, p.DisplayName, p.FullName, p.ProfileImageUrl })
             .ToListAsync(ct);
 

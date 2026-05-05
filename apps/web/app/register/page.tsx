@@ -1,11 +1,16 @@
 "use client";
 
 import { useState } from "react";
+import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { register } from "@/lib/api/auth";
+import ShifterLogo from "@/components/shell/ShifterLogo";
+import ImageUpload from "@/components/ImageUpload";
+import LanguageSwitcher from "@/components/LanguageSwitcher";
 
 export default function RegisterPage() {
+  const t = useTranslations("auth");
   const router = useRouter();
 
   const [email, setEmail] = useState("");
@@ -24,11 +29,11 @@ export default function RegisterPage() {
     setError(null);
 
     if (password !== confirmPassword) {
-      setError("הסיסמאות אינן תואמות");
+      setError(t("passwordMismatch"));
       return;
     }
     if (password.length < 8) {
-      setError("הסיסמה חייבת להכיל לפחות 8 תווים");
+      setError(t("passwordTooShort"));
       return;
     }
 
@@ -39,9 +44,9 @@ export default function RegisterPage() {
     } catch (err: any) {
       const msg = err?.response?.data?.error ?? err?.response?.data?.message;
       if (msg?.toLowerCase().includes("already registered")) {
-        setError("כתובת האימייל כבר רשומה במערכת");
+        setError(t("emailAlreadyRegistered"));
       } else {
-        setError(msg ?? "שגיאה בהרשמה, נסה שוב");
+        setError(msg ?? t("registerError"));
       }
     } finally {
       setLoading(false);
@@ -68,43 +73,36 @@ export default function RegisterPage() {
         {/* Logo */}
         <div style={{ display: "flex", justifyContent: "center", marginBottom: "2rem" }}>
           <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
-            <div style={{ width: 40, height: 40, borderRadius: 10, background: "#3b82f6", display: "flex", alignItems: "center", justifyContent: "center" }}>
-              <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="white" strokeWidth={2.5}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
-              </svg>
-            </div>
-            <span style={{ fontSize: "1.5rem", fontWeight: 700, color: "#0f172a" }}>Jobuler</span>
+            <ShifterLogo size={40} />
+            <span style={{ fontSize: "1.5rem", fontWeight: 700, color: "#0f172a" }}>Shifter</span>
           </div>
         </div>
 
-        {/* Card */}
         <div style={{ background: "white", borderRadius: 16, boxShadow: "0 4px 24px rgba(0,0,0,0.08)", border: "1px solid #e2e8f0", padding: "2rem" }}>
           <div style={{ marginBottom: "1.5rem" }}>
-            <h1 style={{ fontSize: "1.25rem", fontWeight: 600, color: "#0f172a", margin: 0 }}>יצירת חשבון</h1>
-            <p style={{ fontSize: "0.875rem", color: "#64748b", marginTop: "0.25rem" }}>הצטרף ל-Jobuler</p>
+            <h1 style={{ fontSize: "1.25rem", fontWeight: 600, color: "#0f172a", margin: 0 }}>{t("register")}</h1>
+            <p style={{ fontSize: "0.875rem", color: "#64748b", marginTop: "0.25rem" }}>{t("joinShifter")}</p>
           </div>
 
-          <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: "1rem" }} dir="rtl">
+          <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
 
-            {/* Display name */}
             <div>
               <label style={{ display: "block", fontSize: "0.875rem", fontWeight: 500, color: "#374151", marginBottom: "0.375rem" }}>
-                שם מלא <span style={{ color: "#ef4444" }}>*</span>
+                {t("displayName")} <span style={{ color: "#ef4444" }}>*</span>
               </label>
               <input
                 type="text"
                 required
                 value={displayName}
                 onChange={e => setDisplayName(e.target.value)}
-                placeholder="ישראל ישראלי"
+                placeholder={t("displayName")}
                 style={{ width: "100%", border: "1px solid #e2e8f0", borderRadius: 10, padding: "0.625rem 0.875rem", fontSize: "0.875rem", color: "#0f172a", outline: "none", boxSizing: "border-box" }}
               />
             </div>
 
-            {/* Email */}
             <div>
               <label style={{ display: "block", fontSize: "0.875rem", fontWeight: 500, color: "#374151", marginBottom: "0.375rem" }}>
-                אימייל <span style={{ color: "#ef4444" }}>*</span>
+                {t("email")} <span style={{ color: "#ef4444" }}>*</span>
               </label>
               <input
                 type="email"
@@ -116,27 +114,25 @@ export default function RegisterPage() {
               />
             </div>
 
-            {/* Phone (optional) */}
             <div>
               <label style={{ display: "block", fontSize: "0.875rem", fontWeight: 500, color: "#374151", marginBottom: "0.375rem" }}>
-                מספר טלפון <span style={{ color: "#94a3b8", fontWeight: 400 }}>(אופציונלי)</span>
+                {t("phone")} <span style={{ color: "#94a3b8", fontWeight: 400 }}>({t("optional")})</span>
               </label>
               <input
                 type="tel"
                 value={phoneNumber}
                 onChange={e => setPhoneNumber(e.target.value)}
-                placeholder="050-0000000"
+                placeholder="+1 555 000 0000"
                 style={{ width: "100%", border: "1px solid #e2e8f0", borderRadius: 10, padding: "0.625rem 0.875rem", fontSize: "0.875rem", color: "#0f172a", outline: "none", boxSizing: "border-box" }}
               />
               <p style={{ fontSize: "0.75rem", color: "#94a3b8", marginTop: "0.25rem" }}>
-                יוצג לחברי הקבוצות שלך כדי שיוכלו ליצור איתך קשר
+                {t("phoneHint")}
               </p>
             </div>
 
-            {/* Birthday (optional) */}
             <div>
               <label style={{ display: "block", fontSize: "0.875rem", fontWeight: 500, color: "#374151", marginBottom: "0.375rem" }}>
-                תאריך לידה <span style={{ color: "#94a3b8", fontWeight: 400 }}>(אופציונלי)</span>
+                {t("birthday")} <span style={{ color: "#94a3b8", fontWeight: 400 }}>({t("optional")})</span>
               </label>
               <input
                 type="date"
@@ -146,24 +142,21 @@ export default function RegisterPage() {
               />
             </div>
 
-            {/* Profile image URL (optional) */}
             <div>
               <label style={{ display: "block", fontSize: "0.875rem", fontWeight: 500, color: "#374151", marginBottom: "0.375rem" }}>
-                תמונת פרופיל <span style={{ color: "#94a3b8", fontWeight: 400 }}>(URL, אופציונלי)</span>
+                {t("profileImageUrl")} <span style={{ color: "#94a3b8", fontWeight: 400 }}>({t("optional")})</span>
               </label>
-              <input
-                type="url"
-                value={profileImageUrl}
-                onChange={e => setProfileImageUrl(e.target.value)}
-                placeholder="https://example.com/photo.jpg"
-                style={{ width: "100%", border: "1px solid #e2e8f0", borderRadius: 10, padding: "0.625rem 0.875rem", fontSize: "0.875rem", color: "#0f172a", outline: "none", boxSizing: "border-box" }}
+              <ImageUpload
+                value={profileImageUrl || null}
+                onChange={url => setProfileImageUrl(url)}
+                shape="circle"
+                size={80}
               />
             </div>
 
-            {/* Password */}
             <div>
               <label style={{ display: "block", fontSize: "0.875rem", fontWeight: 500, color: "#374151", marginBottom: "0.375rem" }}>
-                סיסמה <span style={{ color: "#ef4444" }}>*</span>
+                {t("password")} <span style={{ color: "#ef4444" }}>*</span>
               </label>
               <div style={{ position: "relative" }}>
                 <input
@@ -171,32 +164,30 @@ export default function RegisterPage() {
                   required
                   value={password}
                   onChange={e => setPassword(e.target.value)}
-                  placeholder="לפחות 8 תווים"
+                  placeholder={t("passwordMinLength")}
                   style={{ width: "100%", border: "1px solid #e2e8f0", borderRadius: 10, padding: "0.625rem 2.5rem 0.625rem 0.875rem", fontSize: "0.875rem", color: "#0f172a", outline: "none", boxSizing: "border-box" }}
                 />
                 <button type="button" onClick={() => setShowPassword(!showPassword)}
-                  style={{ position: "absolute", left: "0.75rem", top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", color: "#94a3b8", padding: 0, display: "flex", alignItems: "center" }}>
+                  style={{ position: "absolute", right: "0.75rem", top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", color: "#94a3b8", padding: 0, display: "flex", alignItems: "center" }}>
                   {eyeIcon(showPassword)}
                 </button>
               </div>
             </div>
 
-            {/* Confirm password */}
             <div>
               <label style={{ display: "block", fontSize: "0.875rem", fontWeight: 500, color: "#374151", marginBottom: "0.375rem" }}>
-                אימות סיסמה <span style={{ color: "#ef4444" }}>*</span>
+                {t("confirmPassword")} <span style={{ color: "#ef4444" }}>*</span>
               </label>
               <input
                 type={showPassword ? "text" : "password"}
                 required
                 value={confirmPassword}
                 onChange={e => setConfirmPassword(e.target.value)}
-                placeholder="הזן שוב את הסיסמה"
+                placeholder={t("confirmPasswordPlaceholder")}
                 style={{ width: "100%", border: "1px solid #e2e8f0", borderRadius: 10, padding: "0.625rem 0.875rem", fontSize: "0.875rem", color: "#0f172a", outline: "none", boxSizing: "border-box" }}
               />
             </div>
 
-            {/* Error */}
             {error && (
               <div style={{ background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 10, padding: "0.625rem 0.875rem", display: "flex", alignItems: "center", gap: "0.5rem" }}>
                 <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="#ef4444" strokeWidth={2} style={{ flexShrink: 0 }}>
@@ -211,16 +202,20 @@ export default function RegisterPage() {
               disabled={loading}
               style={{ width: "100%", background: loading ? "#93c5fd" : "#3b82f6", color: "white", border: "none", borderRadius: 10, padding: "0.75rem", fontSize: "0.875rem", fontWeight: 600, cursor: loading ? "not-allowed" : "pointer", marginTop: "0.25rem" }}
             >
-              {loading ? "נרשם..." : "צור חשבון"}
+              {loading ? t("registering") : t("registerButton")}
             </button>
           </form>
 
           <p style={{ textAlign: "center", fontSize: "0.875rem", color: "#64748b", marginTop: "1.25rem" }}>
-            כבר יש לך חשבון?{" "}
+            {t("alreadyHaveAccount")}{" "}
             <Link href="/login" style={{ color: "#3b82f6", fontWeight: 500, textDecoration: "none" }}>
-              התחבר
+              {t("loginButton")}
             </Link>
           </p>
+
+          <div style={{ marginTop: "1.25rem", paddingTop: "1rem", borderTop: "1px solid #f1f5f9" }}>
+            <LanguageSwitcher variant="auth" />
+          </div>
         </div>
       </div>
     </main>

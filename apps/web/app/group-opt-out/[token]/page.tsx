@@ -1,10 +1,12 @@
 "use client";
 
 import { useState } from "react";
+import { useTranslations } from "next-intl";
 import { useParams, useRouter } from "next/navigation";
 import { apiClient } from "@/lib/api/client";
 
 export default function GroupOptOutPage() {
+  const t = useTranslations("optOut");
   const { token } = useParams<{ token: string }>();
   const router = useRouter();
   const [step, setStep] = useState<"confirm" | "loading" | "done" | "error">("confirm");
@@ -33,39 +35,37 @@ export default function GroupOptOutPage() {
         {step === "confirm" && (
           <>
             <div>
-              <h1 className="text-lg font-bold text-slate-900">עזיבת קבוצה</h1>
-              <p className="text-sm text-slate-500 mt-2">
-                האם אתה בטוח שברצונך לעזוב את הקבוצה? לאחר העזיבה תצטרך להתווסף מחדש על ידי מנהל.
-              </p>
+              <h1 className="text-lg font-bold text-slate-900">{t("title")}</h1>
+              <p className="text-sm text-slate-500 mt-2">{t("confirmText")}</p>
             </div>
             <div className="flex gap-3">
               <button onClick={() => router.push("/")}
                 className="flex-1 border border-slate-200 text-slate-600 text-sm font-medium py-2.5 rounded-xl hover:bg-slate-50">
-                ביטול
+                {t("cancel")}
               </button>
               <button onClick={handleConfirm}
                 className="flex-1 bg-red-500 hover:bg-red-600 text-white text-sm font-medium py-2.5 rounded-xl">
-                כן, עזוב
+                {t("confirm")}
               </button>
             </div>
           </>
         )}
 
         {step === "loading" && (
-          <p className="text-slate-400 text-sm">מעבד...</p>
+          <p className="text-slate-400 text-sm">{t("processing")}</p>
         )}
 
         {step === "done" && (
           <>
             <div>
-              <h1 className="text-lg font-bold text-slate-900">עזבת את הקבוצה</h1>
+              <h1 className="text-lg font-bold text-slate-900">{t("doneTitle")}</h1>
               <p className="text-sm text-slate-500 mt-2">
-                הוסרת בהצלחה{groupName ? ` מהקבוצה "${groupName}"` : ""}. תוכל להתווסף מחדש רק על ידי מנהל.
+                {groupName ? t("doneWithGroup", { group: groupName }) : t("doneText")}
               </p>
             </div>
             <button onClick={() => router.push("/")}
               className="w-full bg-blue-500 hover:bg-blue-600 text-white text-sm font-medium py-2.5 rounded-xl">
-              חזור לדף הבית
+              {t("goHome")}
             </button>
           </>
         )}
@@ -73,12 +73,12 @@ export default function GroupOptOutPage() {
         {step === "error" && (
           <>
             <div>
-              <h1 className="text-lg font-bold text-slate-900">שגיאה</h1>
-              <p className="text-sm text-slate-500 mt-2">הקישור אינו תקין או שכבר עזבת את הקבוצה.</p>
+              <h1 className="text-lg font-bold text-slate-900">{t("errorTitle")}</h1>
+              <p className="text-sm text-slate-500 mt-2">{t("errorText")}</p>
             </div>
             <button onClick={() => router.push("/")}
               className="w-full bg-slate-500 hover:bg-slate-600 text-white text-sm font-medium py-2.5 rounded-xl">
-              חזור לדף הבית
+              {t("goHome")}
             </button>
           </>
         )}

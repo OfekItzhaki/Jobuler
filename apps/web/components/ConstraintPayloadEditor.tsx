@@ -1,21 +1,35 @@
 "use client";
 
+import { useTranslations } from "next-intl";
+
 /**
  * Replaces the raw JSON textarea for constraint payloads with
  * friendly form fields based on the rule type.
  */
 
+export interface TaskOption {
+  id: string;
+  name: string;
+}
+
 interface Props {
   ruleType: string;
   value: string; // JSON string
   onChange: (json: string) => void;
+  /** Optional list of tasks for the no_task_type_restriction dropdown */
+  taskOptions?: TaskOption[];
 }
 
 function parsePayload(json: string): Record<string, unknown> {
   try { return JSON.parse(json) ?? {}; } catch { return {}; }
 }
 
-function field(label: string, key: string, payload: Record<string, unknown>, onChange: (p: Record<string, unknown>) => void, type: "number" | "text" = "number") {
+function field(
+  label: string, key: string,
+  payload: Record<string, unknown>,
+  onChange: (p: Record<string, unknown>) => void,
+  type: "number" | "text" = "number"
+) {
   return (
     <div key={key}>
       <label className="block text-xs font-medium text-slate-500 mb-1">{label}</label>
@@ -29,7 +43,8 @@ function field(label: string, key: string, payload: Record<string, unknown>, onC
   );
 }
 
-export default function ConstraintPayloadEditor({ ruleType, value, onChange }: Props) {
+export default function ConstraintPayloadEditor({ ruleType, value, onChange, taskOptions }: Props) {
+  const t = useTranslations("constraintEditor");
   const payload = parsePayload(value);
   const update = (p: Record<string, unknown>) => onChange(JSON.stringify(p));
 
@@ -37,7 +52,7 @@ export default function ConstraintPayloadEditor({ ruleType, value, onChange }: P
     case "min_rest_hours":
       return (
         <div>
-          <label className="block text-xs font-medium text-slate-500 mb-1">מינימום שעות מנוחה בין משמרות</label>
+          <label className="block text-xs font-medium text-slate-500 mb-1">{t("minRestHours")}</label>
           <div className="flex items-center gap-2">
             <input
               type="number" min={1} max={72}
@@ -45,7 +60,7 @@ export default function ConstraintPayloadEditor({ ruleType, value, onChange }: P
               onChange={e => update({ hours: Number(e.target.value) })}
               className="w-24 border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
-            <span className="text-sm text-slate-500">שעות</span>
+            <span className="text-sm text-slate-500">{t("hours")}</span>
           </div>
         </div>
       );
@@ -53,23 +68,23 @@ export default function ConstraintPayloadEditor({ ruleType, value, onChange }: P
     case "max_kitchen_per_week":
       return (
         <div className="space-y-3">
-          {field("מקסימום משמרות מטבח בשבוע", "max", payload, update)}
-          {field("שם סוג המשימה (אופציונלי)", "task_type_name", payload, update, "text")}
+          {field(t("maxKitchenPerWeek"), "max", payload, update)}
+          {field(t("taskTypeName"), "task_type_name", payload, update, "text")}
         </div>
       );
 
     case "no_consecutive_burden":
       return (
         <div>
-          <label className="block text-xs font-medium text-slate-500 mb-1">רמת עומס לא רצופה</label>
+          <label className="block text-xs font-medium text-slate-500 mb-1">{t("noConsecutiveBurden")}</label>
           <select
             value={String(payload.burden_level ?? "hated")}
             onChange={e => update({ burden_level: e.target.value })}
             className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
-            <option value="hated">שנוא</option>
-            <option value="disliked">לא אהוב</option>
-            <option value="neutral">ניטרלי</option>
+            <option value="hated">{t("hated")}</option>
+            <option value="disliked">{t("disliked")}</option>
+            <option value="neutral">{t("neutral")}</option>
           </select>
         </div>
       );
@@ -77,24 +92,40 @@ export default function ConstraintPayloadEditor({ ruleType, value, onChange }: P
     case "min_base_headcount":
       return (
         <div className="space-y-3">
-          {field("מינימום אנשים", "min", payload, update)}
-          {field("חלון זמן (שעות)", "window_hours", payload, update)}
+          {field(t("minPeople"), "min", payload, update)}
+          {field(t("windowHours"), "window_hours", payload, update)}
         </div>
       );
 
     case "no_task_type_restriction":
+      if (taskOptions && taskOptions.length > 0) {
+        return (
+          <div>
+            <label className="block text-xs font-medium text-slate-500 mb-1">{t("restrictedTaskType")}</label>
+            <select
+              value={String(payload.task_type_id ?? "")}
+              onChange={e => update({ task_type_id: e.target.value })}
+              className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="">{t("selectTask")}</option>
+              {taskOptions.map(opt => (
+                <option key={opt.id} value={opt.id}>{opt.name}</option>
+              ))}
+            </select>
+          </div>
+        );
+      }
       return (
         <div>
-          {field("מזהה סוג משימה", "task_type_id", payload, update, "text")}
+          {field(t("taskTypeId"), "task_type_id", payload, update, "text")}
         </div>
       );
 
     default:
-      // Fallback: pretty JSON editor for unknown rule types
       return (
         <div>
           <label className="block text-xs font-medium text-slate-500 mb-1">
-            פרמטרים (JSON) — סוג כלל: <code className="bg-slate-100 px-1 rounded">{ruleType}</code>
+            {t("parameters")} — {t("ruleType")}: <code className="bg-slate-100 px-1 rounded">{ruleType}</code>
           </label>
           <textarea
             value={value}

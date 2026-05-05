@@ -56,6 +56,13 @@ public class AdminManagementIntegrationTests
         return logger;
     }
 
+    private static PublishVersionCommandHandler MakePublishHandler(AppDbContext db)
+    {
+        var config = Substitute.For<Microsoft.Extensions.Configuration.IConfiguration>();
+        var logger = Substitute.For<Microsoft.Extensions.Logging.ILogger<PublishVersionCommandHandler>>();
+        return new PublishVersionCommandHandler(db, NoOpAuditLogger(), config, logger, scheduleNotifications: null);
+    }
+
     private static async Task<(Guid spaceId, Guid groupId)> SeedGroup(AppDbContext db)
     {
         var spaceId = Guid.NewGuid();
@@ -261,7 +268,7 @@ public class AdminManagementIntegrationTests
         db.ScheduleVersions.Add(version1);
         await db.SaveChangesAsync();
 
-        var publishHandler = new PublishVersionCommandHandler(db, NoOpAuditLogger());
+        var publishHandler = MakePublishHandler(db);
 
         await publishHandler.Handle(
             new PublishVersionCommand(spaceId, version1.Id, userId),
@@ -302,7 +309,7 @@ public class AdminManagementIntegrationTests
         db.ScheduleVersions.Add(version);
         await db.SaveChangesAsync();
 
-        var handler = new PublishVersionCommandHandler(db, NoOpAuditLogger());
+        var handler = MakePublishHandler(db);
 
         // Act
         var act = async () => await handler.Handle(

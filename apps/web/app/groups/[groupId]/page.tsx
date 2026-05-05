@@ -1,11 +1,13 @@
 "use client";
 
-import React, { useEffect, useState, useRef } from "react";
+import React, { useEffect, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 import AppShell from "@/components/shell/AppShell";
 import Modal from "@/components/Modal";
 import DraftScheduleModal from "@/components/DraftScheduleModal";
+import ImportModal from "@/components/ImportModal";
 import ScheduleTab from "./tabs/ScheduleTab";
 import MembersTab, { MemberProfileModal } from "./tabs/MembersTab";
 import AlertsTab from "./tabs/AlertsTab";
@@ -14,6 +16,9 @@ import TasksTab from "./tabs/TasksTab";
 import ConstraintsTab from "./tabs/ConstraintsTab";
 import SettingsTab from "./tabs/SettingsTab";
 import StatsTab from "./tabs/StatsTab";
+import QualificationsTab from "./tabs/QualificationsTab";
+import RolesTab from "./tabs/RolesTab";
+import LiveStatusPanel from "@/components/schedule/LiveStatusPanel";
 import { ActiveTab, ADMIN_ONLY_TABS, ScheduleAssignment } from "./types";
 import { useSpaceStore } from "@/lib/store/spaceStore";
 import { useAuthStore } from "@/lib/store/authStore";
@@ -26,6 +31,12 @@ import {
   getGroupAlerts, createGroupAlert, deleteGroupAlert, updateGroupAlert, GroupAlertDto,
   updateGroupMessage, deleteGroupMessage, pinGroupMessage,
   updatePersonInfo,
+  getGroupRoles, createGroupRole, updateGroupRole, deactivateGroupRole,
+  updateMemberRole,
+  getGroupSchedule,
+  getGroupQualifications, createGroupQualification, deactivateGroupQualification,
+  getMemberQualifications, assignMemberQualification, removeMemberQualification,
+  GroupQualificationDto, MemberQualificationDto,
 } from "@/lib/api/groups";
 import { getAvatarColor, getAvatarLetter } from "@/lib/utils/groupAvatar";
 import { listGroupTasks, createGroupTask, updateGroupTask, deleteGroupTask, GroupTaskDto } from "@/lib/api/tasks";
@@ -34,35 +45,25 @@ import { createPerson, invitePerson, searchPeople } from "@/lib/api/people";
 import { addGroupMemberById } from "@/lib/api/groups";
 import { apiClient } from "@/lib/api/client";
 import type { TaskForm } from "./tabs/TasksTab";
-
-// ── Task form default ────────────────────────────────────────────────────────
-const DEFAULT_TASK_FORM: TaskForm = {
-  name: "",
-  startsAt: "",
-  endsAt: "",
-  shiftDurationMinutes: 60,
-  requiredHeadcount: 1,
-  burdenLevel: "neutral",
-  allowsDoubleShift: false,
-  allowsOverlap: false,
-  concurrentTaskIds: [],
-  dailyStartTime: "",
-  dailyEndTime: "",
-};
-
+import { useGroupPageState, DEFAULT_TASK_FORM } from "./useGroupPageState";
 // ── Tab labels ───────────────────────────────────────────────────────────────
-const TAB_LABELS: Record<ActiveTab, string> = {
-  schedule: "סידור",
-  members: "חברים",
-  alerts: "התראות",
-  messages: "הודעות",
-  tasks: "משימות",
-  constraints: "אילוצים",
-  settings: "הגדרות",
-  stats: "סטטיסטיקות",
-};
+function getTabLabels(t: (key: string) => string): Record<ActiveTab, string> {
+  return {
+    schedule: t("tabs.schedule"),
+    members: t("tabs.members"),
+    qualifications: t("tabs.qualifications"),
+    roles: t("tabs.roles"),
+    alerts: t("tabs.alerts"),
+    messages: t("tabs.messages"),
+    tasks: t("tabs.tasks"),
+    constraints: t("tabs.constraints"),
+    settings: t("tabs.settings"),
+    stats: t("tabs.stats"),
+    "live-status": t("tabs.liveStatus"),
+  };
+}
 
-const ALL_TABS: ActiveTab[] = ["schedule", "members", "alerts", "messages", "tasks", "constraints", "stats", "settings"];
+const ALL_TABS: ActiveTab[] = ["schedule", "live-status", "members", "qualifications", "roles", "alerts", "messages", "tasks", "constraints", "stats", "settings"];
 
 // ── Main component ───────────────────────────────────────────────────────────
 export default function GroupDetailPage() {
@@ -70,136 +71,82 @@ export default function GroupDetailPage() {
   const router = useRouter();
   const groupId = params?.groupId as string;
   const { currentSpaceId } = useSpaceStore();
-  const { userId, isAdminForGroup, adminGroupId, enterAdminMode, exitAdminMode } = useAuthStore();
+  const { userId, displayName, isAdminForGroup, adminGroupId, enterAdminMode, exitAdminMode } = useAuthStore();
   const refetchNotifications = useRefetchNotifications(currentSpaceId);
+  const tGroups = useTranslations("groups");
+  const tErrors = useTranslations("errors");
+  const TAB_LABELS = getTabLabels(tGroups);
 
-  // ── Group / header state ─────────────────────────────────────────────────
-  const [group, setGroup] = useState<GroupWithMemberCountDto | null>(null);
-  const [groupLoading, setGroupLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<ActiveTab>("schedule");
-  const [isAdmin, setIsAdmin] = useState(false);
-
-  // ── Schedule state ───────────────────────────────────────────────────────
-  const [scheduleData, setScheduleData] = useState<ScheduleAssignment[] | null>(null);
-  const [scheduleLoading, setScheduleLoading] = useState(false);
-  const [scheduleError, setScheduleError] = useState<string | null>(null);
-  const [draftVersion, setDraftVersion] = useState<{ id: string; status: string } | null>(null);
-  const [lastRunSummary, setLastRunSummary] = useState<string | null>(null);
-  const [showDraftModal, setShowDraftModal] = useState(false);
-  const [publishSaving, setPublishSaving] = useState(false);
-  const [discardSaving, setDiscardSaving] = useState(false);
-  const [scheduleVersionError, setScheduleVersionError] = useState<string | null>(null);
-  const [solverHorizonDays, setSolverHorizonDays] = useState(14);
-
-  // ── Members state ────────────────────────────────────────────────────────
-  const [members, setMembers] = useState<GroupMemberDto[]>([]);
-  const [membersLoading, setMembersLoading] = useState(false);
-  const [membersError, setMembersError] = useState<string | null>(null);
-  const [membersSearch, setMembersSearch] = useState("");
-  const [removeErrors, setRemoveErrors] = useState<Record<string, string>>({});
-  const [selectedMember, setSelectedMember] = useState<GroupMemberDto | null>(null);
-  const [memberEditForm, setMemberEditForm] = useState<{
-    fullName: string; displayName: string; phoneNumber: string; profileImageUrl: string; birthday: string;
-  } | null>(null);
-  const [memberEditSaving, setMemberEditSaving] = useState(false);
-  const [memberEditError, setMemberEditError] = useState<string | null>(null);
-
-  // ── Add member modal ─────────────────────────────────────────────────────
-  const [showAddMember, setShowAddMember] = useState(false);
-  const [addMemberName, setAddMemberName] = useState("");
-  const [addMemberPhone, setAddMemberPhone] = useState("");
-  const [addMemberEmail, setAddMemberEmail] = useState("");
-  const [addMemberSaving, setAddMemberSaving] = useState(false);
-  const [addMemberError, setAddMemberError] = useState<string | null>(null);
-
-  // ── Alerts state ─────────────────────────────────────────────────────────
-  const [alerts, setAlerts] = useState<GroupAlertDto[]>([]);
-  const [alertsLoading, setAlertsLoading] = useState(false);
-  const [alertsError, setAlertsError] = useState<string | null>(null);
-  const [alertDeleteErrors, setAlertDeleteErrors] = useState<Record<string, string>>({});
-  const [showAlertForm, setShowAlertForm] = useState(false);
-  const [newAlertTitle, setNewAlertTitle] = useState("");
-  const [newAlertBody, setNewAlertBody] = useState("");
-  const [newAlertSeverity, setNewAlertSeverity] = useState("info");
-  const [alertSubmitting, setAlertSubmitting] = useState(false);
-  const [alertSubmitError, setAlertSubmitError] = useState<string | null>(null);
-  const [editingAlertId, setEditingAlertId] = useState<string | null>(null);
-  const [editAlertTitle, setEditAlertTitle] = useState("");
-  const [editAlertBody, setEditAlertBody] = useState("");
-  const [editAlertSeverity, setEditAlertSeverity] = useState("info");
-  const [editAlertSaving, setEditAlertSaving] = useState(false);
-  const [editAlertError, setEditAlertError] = useState<string | null>(null);
-
-  // ── Messages state ───────────────────────────────────────────────────────
-  const [messages, setMessages] = useState<{ id: string; content: string; authorName: string; createdAt: string; isPinned: boolean }[]>([]);
-  const [messagesLoading, setMessagesLoading] = useState(false);
-  const [messagesError, setMessagesError] = useState<string | null>(null);
-  const [newMessageContent, setNewMessageContent] = useState("");
-  const [messageSending, setMessageSending] = useState(false);
-  const [messageError, setMessageError] = useState<string | null>(null);
-  const [messagePinErrors, setMessagePinErrors] = useState<Record<string, string>>({});
-  const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
-  const [editMessageContent, setEditMessageContent] = useState("");
-  const [editMessageSaving, setEditMessageSaving] = useState(false);
-  const [editMessageError, setEditMessageError] = useState<string | null>(null);
-
-  // ── Tasks state ──────────────────────────────────────────────────────────
-  const [groupTasks, setGroupTasks] = useState<GroupTaskDto[]>([]);
-  const [groupTasksLoading, setGroupTasksLoading] = useState(false);
-  const [showTaskForm, setShowTaskForm] = useState(false);
-  const [editingTask, setEditingTask] = useState<GroupTaskDto | null>(null);
-  const [taskForm, setTaskForm] = useState<TaskForm>(DEFAULT_TASK_FORM);
-  const [taskSaving, setTaskSaving] = useState(false);
-  const [taskError, setTaskError] = useState<string | null>(null);
-
-  // ── Constraints state ────────────────────────────────────────────────────
-  const [constraints, setConstraints] = useState<ConstraintDto[]>([]);
-  const [constraintsLoading, setConstraintsLoading] = useState(false);
-  const [constraintDeleteErrors, setConstraintDeleteErrors] = useState<Record<string, string>>({});
-  const [showConstraintForm, setShowConstraintForm] = useState(false);
-  const [newConstraintRuleType, setNewConstraintRuleType] = useState("min_rest_hours");
-  const [newConstraintSeverity, setNewConstraintSeverity] = useState("hard");
-  const [newConstraintPayload, setNewConstraintPayload] = useState('{"hours": 8}');
-  const [newConstraintFrom, setNewConstraintFrom] = useState("");
-  const [newConstraintUntil, setNewConstraintUntil] = useState("");
-  const [constraintSaving, setConstraintSaving] = useState(false);
-  const [constraintError, setConstraintError] = useState<string | null>(null);
-  const [editingConstraintId, setEditingConstraintId] = useState<string | null>(null);
-  const [editConstraintPayload, setEditConstraintPayload] = useState("");
-  const [editConstraintFrom, setEditConstraintFrom] = useState("");
-  const [editConstraintUntil, setEditConstraintUntil] = useState("");
-  const [editConstraintSeverity, setEditConstraintSeverity] = useState("hard");
-  const [editConstraintSaving, setEditConstraintSaving] = useState(false);
-  const [editConstraintError, setEditConstraintError] = useState<string | null>(null);
-
-  // ── Settings state ───────────────────────────────────────────────────────
-  const [newGroupName, setNewGroupName] = useState("");
-  const [renameSaving, setRenameSaving] = useState(false);
-  const [renameError, setRenameError] = useState<string | null>(null);
-  const [solverHorizon, setSolverHorizon] = useState(14);
-  const [savingSettings, setSavingSettings] = useState(false);
-  const [settingsError, setSettingsError] = useState<string | null>(null);
-  const [settingsSaved, setSettingsSaved] = useState(false);
-  const [solverPolling, setSolverPolling] = useState(false);
-  const [solverStatus, setSolverStatus] = useState<string | null>(null);
-  const [solverError, setSolverError] = useState<string | null>(null);
-  const [deletedGroups, setDeletedGroups] = useState<DeletedGroupDto[]>([]);
-  const [deletedGroupsLoading, setDeletedGroupsLoading] = useState(false);
-  const [transferPersonId, setTransferPersonId] = useState("");
-  const [transferSaving, setTransferSaving] = useState(false);
-  const [transferError, setTransferError] = useState<string | null>(null);
-  const [hasPendingTransfer, setHasPendingTransfer] = useState(false);
-  const [cancelTransferSaving, setCancelTransferSaving] = useState(false);
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  const [deleteSaving, setDeleteSaving] = useState(false);
-  const [deleteError, setDeleteError] = useState<string | null>(null);
+  // ── All state via hook ───────────────────────────────────────────────────
+  const s = useGroupPageState();
+  // Destructure for convenience — keeps handler code readable
+  const {
+    group, setGroup, groupLoading, setGroupLoading, activeTab, setActiveTab, isAdmin, setIsAdmin,
+    scheduleData, setScheduleData, scheduleLoading, setScheduleLoading,
+    scheduleError, setScheduleError, scheduleIsOffline, setScheduleIsOffline,
+    draftVersion, setDraftVersion, lastRunSummary, setLastRunSummary,
+    showDraftModal, setShowDraftModal, publishSaving, setPublishSaving,
+    discardSaving, setDiscardSaving, scheduleVersionError, setScheduleVersionError,
+    solverHorizonDays, setSolverHorizonDays,
+    members, setMembers, membersLoading, setMembersLoading,
+    membersError, setMembersError, membersSearch, setMembersSearch,
+    removeErrors, setRemoveErrors, selectedMember, setSelectedMember,
+    memberEditForm, setMemberEditForm, memberEditSaving, setMemberEditSaving,
+    memberEditError, setMemberEditError,
+    showAddMember, setShowAddMember, addMemberName, setAddMemberName,
+    addMemberPhone, setAddMemberPhone, addMemberEmail, setAddMemberEmail,
+    addMemberSaving, setAddMemberSaving, addMemberError, setAddMemberError,
+    alerts, setAlerts, alertsLoading, setAlertsLoading,
+    alertsError, setAlertsError, alertDeleteErrors, setAlertDeleteErrors,
+    showAlertForm, setShowAlertForm, newAlertTitle, setNewAlertTitle,
+    newAlertBody, setNewAlertBody, newAlertSeverity, setNewAlertSeverity,
+    alertSubmitting, setAlertSubmitting, alertSubmitError, setAlertSubmitError,
+    editingAlertId, setEditingAlertId, editAlertTitle, setEditAlertTitle,
+    editAlertBody, setEditAlertBody, editAlertSeverity, setEditAlertSeverity,
+    editAlertSaving, setEditAlertSaving, editAlertError, setEditAlertError,
+    messages, setMessages, messagesLoading, setMessagesLoading,
+    messagesError, setMessagesError, newMessageContent, setNewMessageContent,
+    messageSending, setMessageSending, messageError, setMessageError,
+    messagePinErrors, setMessagePinErrors, editingMessageId, setEditingMessageId,
+    editMessageContent, setEditMessageContent, editMessageSaving, setEditMessageSaving,
+    editMessageError, setEditMessageError,
+    showImportModal, setShowImportModal, importMode, setImportMode,
+    groupTasks, setGroupTasks, groupTasksLoading, setGroupTasksLoading,
+    showTaskForm, setShowTaskForm, editingTask, setEditingTask,
+    taskForm, setTaskForm, taskSaving, setTaskSaving, taskError, setTaskError,
+    constraints, setConstraints, constraintsLoading, setConstraintsLoading,
+    constraintDeleteErrors, setConstraintDeleteErrors,
+    showConstraintForm, setShowConstraintForm,
+    newConstraintRuleType, setNewConstraintRuleType,
+    newConstraintSeverity, setNewConstraintSeverity,
+    newConstraintPayload, setNewConstraintPayload,
+    newConstraintFrom, setNewConstraintFrom, newConstraintUntil, setNewConstraintUntil,
+    constraintSaving, setConstraintSaving, constraintError, setConstraintError,
+    editingConstraintId, setEditingConstraintId,
+    editConstraintPayload, setEditConstraintPayload,
+    editConstraintFrom, setEditConstraintFrom, editConstraintUntil, setEditConstraintUntil,
+    editConstraintSeverity, setEditConstraintSeverity,
+    editConstraintSaving, setEditConstraintSaving, editConstraintError, setEditConstraintError,
+    newGroupName, setNewGroupName, renameSaving, setRenameSaving, renameError, setRenameError,
+    solverHorizon, setSolverHorizon, savingSettings, setSavingSettings,
+    settingsError, setSettingsError, settingsSaved, setSettingsSaved,
+    solverPolling, setSolverPolling, solverStatus, setSolverStatus, solverError, setSolverError,
+    deletedGroups, setDeletedGroups, deletedGroupsLoading, setDeletedGroupsLoading,
+    transferPersonId, setTransferPersonId, transferSaving, setTransferSaving,
+    transferError, setTransferError, hasPendingTransfer, setHasPendingTransfer,
+    cancelTransferSaving, setCancelTransferSaving,
+    showDeleteConfirm, setShowDeleteConfirm, deleteSaving, setDeleteSaving, deleteError, setDeleteError,
+    groupRoles, setGroupRoles, groupRolesLoading, setGroupRolesLoading,
+    constraintTaskOptions, setConstraintTaskOptions,
+    groupQualifications, setGroupQualifications,
+    memberQualifications, setMemberQualifications, qualificationsLoading, setQualificationsLoading,
+    pollingRef,
+  } = s;
 
   // ── Re-evaluate admin state when adminGroupId changes ───────────────────
   useEffect(() => {
     setIsAdmin(adminGroupId === groupId);
   }, [adminGroupId, groupId]);
-
-  const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // ── Load group ───────────────────────────────────────────────────────────
   useEffect(() => {
@@ -213,60 +160,138 @@ export default function GroupDetailPage() {
         setNewGroupName(found.name);
         setSolverHorizon(found.solverHorizonDays ?? 14);
         setSolverHorizonDays(found.solverHorizonDays ?? 14);
-        setIsAdmin(isAdminForGroup(groupId) || adminGroupId === groupId);
+        // Use adminGroupId directly — isAdminForGroup is a derived function that
+        // changes reference on every render and would cause an infinite loop in deps.
+        setIsAdmin(adminGroupId === groupId);
       })
       .catch(() => router.push("/groups"))
       .finally(() => setGroupLoading(false));
-  }, [currentSpaceId, groupId, userId, isAdminForGroup, router]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentSpaceId, groupId, userId, adminGroupId]);
 
   // ── Load schedule ────────────────────────────────────────────────────────
   useEffect(() => {
     if (!currentSpaceId || !groupId || activeTab !== "schedule") return;
     setScheduleLoading(true);
     setScheduleError(null);
-    // The schedule is space-level, not group-level.
-    // GET /spaces/{id}/schedule-versions/current returns the published version (404 if none).
-    // GET /spaces/{id}/schedule-versions?status=draft returns any pending draft.
+    setScheduleIsOffline(false);
+
+    const cacheKey = `schedule:${currentSpaceId}:${groupId}`;
+
+    // Try to fetch fresh data first. Only fall back to cache if offline/network error.
+    // Capture the error so we can distinguish server errors (5xx) from network failures.
+    let scheduleError: unknown = null;
     Promise.all([
-      apiClient.get<{ version: { id: string; status: string }; assignments: ScheduleAssignment[] }>(
-        `/spaces/${currentSpaceId}/schedule-versions/current`
-      ).catch(() => null),
+      getGroupSchedule(currentSpaceId, groupId).catch(e => { scheduleError = e; return null; }),
       apiClient.get<Array<{ id: string; status: string; summaryJson?: string | null }>>(
         `/spaces/${currentSpaceId}/schedule-versions?status=draft`
       ).catch(() => ({ data: [] as Array<{ id: string; status: string; summaryJson?: string | null }> })),
-      // Also fetch the most recent discarded version to show infeasibility reason
       apiClient.get<Array<{ id: string; status: string; summaryJson?: string | null }>>(
         `/spaces/${currentSpaceId}/schedule-versions?status=discarded`
       ).catch(() => ({ data: [] as Array<{ id: string; status: string; summaryJson?: string | null }> })),
-    ]).then(([currentRes, draftRes, discardedRes]) => {
-      const allAssignments = currentRes?.data?.assignments ?? [];
-      setScheduleData(allAssignments);
+    ]).then(([groupAssignments, draftRes, discardedRes]) => {
+      if (groupAssignments !== null) {
+        // Fresh data — update display and cache
+        setScheduleData(groupAssignments);
+        setScheduleError(null);
+        try {
+          localStorage.setItem(cacheKey, JSON.stringify({
+            assignments: groupAssignments,
+            cachedAt: new Date().toISOString(),
+          }));
+        } catch { /* storage full */ }
+      } else {
+        // Check if this was a server error (has HTTP status) vs a real network failure
+        const httpStatus = (scheduleError as { response?: { status?: number } })?.response?.status;
+        const isServerError = httpStatus !== undefined;
+
+        if (isServerError) {
+          // Server returned an error — don't show "no internet", show a real error message
+          setScheduleError(tErrors("errorLoadSchedule"));
+        } else {
+          // Network failed — try cache
+          try {
+            const cached = localStorage.getItem(cacheKey);
+            if (cached) {
+              const { assignments: cachedAssignments, cachedAt } = JSON.parse(cached);
+              if (Array.isArray(cachedAssignments)) {
+                setScheduleData(cachedAssignments);
+                const cachedDate = cachedAt
+                  ? new Date(cachedAt).toLocaleDateString(undefined, { day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" })
+                  : "";
+                setScheduleIsOffline(true);
+                setScheduleError(tErrors("offlineWithCache", { date: cachedDate }));
+              } else {
+                setScheduleIsOffline(true);
+                setScheduleError(tErrors("offlineNoCache"));
+              }
+            } else {
+              setScheduleIsOffline(true);
+              setScheduleError(tErrors("offlineNoCache"));
+            }
+          } catch {
+            setScheduleError(tErrors("errorLoadSchedule"));
+          }
+        }
+      }
+
       const drafts = Array.isArray(draftRes?.data) ? draftRes.data : [];
       setDraftVersion(drafts.length > 0 ? drafts[0] : null);
-      // Show infeasibility reason from most recent discarded version (if no draft)
       if (drafts.length === 0) {
         const discarded = Array.isArray(discardedRes?.data) ? discardedRes.data : [];
-        const latest = discarded[0];
-        setLastRunSummary(latest?.summaryJson ?? null);
+        setLastRunSummary(discarded[0]?.summaryJson ?? null);
       } else {
         setLastRunSummary(null);
       }
     })
-    .catch(() => setScheduleError("שגיאה בטעינת הסידור"))
+    .catch(() => {
+      // Full failure — try cache
+      try {
+        const cached = localStorage.getItem(cacheKey);
+        if (cached) {
+          const { assignments: cachedAssignments, cachedAt } = JSON.parse(cached);
+          if (Array.isArray(cachedAssignments)) {
+            setScheduleData(cachedAssignments);
+            const cachedDate = cachedAt
+              ? new Date(cachedAt).toLocaleDateString(undefined, { day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" })
+              : "";
+            setScheduleIsOffline(true);
+            setScheduleError(tErrors("offlineWithCache", { date: cachedDate }));
+          } else {
+            setScheduleError(tErrors("errorLoadSchedule"));
+          }
+        } else {
+          setScheduleError(tErrors("errorLoadSchedule"));
+        }
+      } catch {
+        setScheduleError(tErrors("errorLoadSchedule"));
+      }
+    })
     .finally(() => setScheduleLoading(false));
   }, [currentSpaceId, groupId, activeTab]);
 
   // ── Load members ─────────────────────────────────────────────────────────
   useEffect(() => {
-    if (!currentSpaceId || !groupId || activeTab !== "members") return;
+    if (!currentSpaceId || !groupId) return;
+    // Load members eagerly — needed for schedule tab filtering AND members tab
+    if (activeTab !== "members" && activeTab !== "schedule" && members.length > 0) return;
     setMembersLoading(true);
     setMembersError(null);
     getGroupMembers(currentSpaceId, groupId)
       .then(setMembers)
-      .catch(() => setMembersError("שגיאה בטעינת חברים"))
+      .catch(() => setMembersError(tErrors("errorLoadMembers")))
       .finally(() => setMembersLoading(false));
   }, [currentSpaceId, groupId, activeTab]);
 
+  // ── Load group roles when members tab opens (needed for role dropdown) ───
+  useEffect(() => {
+    if (!currentSpaceId || !groupId || activeTab !== "members") return;
+    if (groupRoles.length > 0) return; // already loaded
+    getGroupRoles(currentSpaceId, groupId)
+      .then(setGroupRoles)
+      .catch(() => {});
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentSpaceId, groupId, activeTab]);
   // ── Load alerts ──────────────────────────────────────────────────────────
   useEffect(() => {
     if (!currentSpaceId || !groupId || activeTab !== "alerts") return;
@@ -274,7 +299,7 @@ export default function GroupDetailPage() {
     setAlertsError(null);
     getGroupAlerts(currentSpaceId, groupId)
       .then(setAlerts)
-      .catch(() => setAlertsError("שגיאה בטעינת התראות"))
+      .catch(() => setAlertsError(tErrors("errorLoadAlerts")))
       .finally(() => setAlertsLoading(false));
   }, [currentSpaceId, groupId, activeTab]);
 
@@ -291,7 +316,7 @@ export default function GroupDetailPage() {
         const data = Array.isArray(res.data) ? res.data : [];
         setMessages(data);
       })
-      .catch(() => setMessagesError("שגיאה בטעינת הודעות"))
+      .catch(() => setMessagesError(tErrors("errorLoadMessages")))
       .finally(() => setMessagesLoading(false));
   }, [currentSpaceId, groupId, activeTab]);
 
@@ -299,20 +324,40 @@ export default function GroupDetailPage() {
   useEffect(() => {
     if (!currentSpaceId || !groupId || activeTab !== "tasks") return;
     setGroupTasksLoading(true);
-    listGroupTasks(currentSpaceId, groupId)
-      .then(setGroupTasks)
+    Promise.all([
+      listGroupTasks(currentSpaceId, groupId),
+      groupQualifications.length === 0
+        ? getGroupQualifications(currentSpaceId, groupId)
+        : Promise.resolve(groupQualifications),
+    ])
+      .then(([tasks, quals]) => {
+        setGroupTasks(tasks);
+        setGroupQualifications(quals);
+      })
       .catch(() => {})
       .finally(() => setGroupTasksLoading(false));
   }, [currentSpaceId, groupId, activeTab]);
 
-  // ── Load constraints ─────────────────────────────────────────────────────
+  // ── Load constraints (+ roles + tasks if not yet loaded) ────────────────
   useEffect(() => {
     if (!currentSpaceId || !groupId || activeTab !== "constraints") return;
     setConstraintsLoading(true);
-    getConstraints(currentSpaceId)
-      .then(setConstraints)
+    Promise.all([
+      getConstraints(currentSpaceId),
+      groupRoles.length === 0
+        ? getGroupRoles(currentSpaceId, groupId)
+        : Promise.resolve(groupRoles),
+      listGroupTasks(currentSpaceId, groupId),
+    ])
+      .then(([c, r, tasks]) => {
+        setConstraints(c);
+        setGroupRoles(r);
+        // Build task options for the no_task_type_restriction dropdown
+        setConstraintTaskOptions(tasks.map(t => ({ id: t.id, name: t.name })));
+      })
       .catch(() => {})
       .finally(() => setConstraintsLoading(false));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentSpaceId, groupId, activeTab]);
 
   // ── Load settings data ───────────────────────────────────────────────────
@@ -323,6 +368,45 @@ export default function GroupDetailPage() {
       .then(setDeletedGroups)
       .catch(() => {})
       .finally(() => setDeletedGroupsLoading(false));
+    // Also load group roles when settings tab opens
+    setGroupRolesLoading(true);
+    getGroupRoles(currentSpaceId, groupId)
+      .then(setGroupRoles)
+      .catch(() => {})
+      .finally(() => setGroupRolesLoading(false));
+  }, [currentSpaceId, groupId, activeTab]);
+
+  // ── Load qualifications ──────────────────────────────────────────────────
+  useEffect(() => {
+    if (!currentSpaceId || !groupId || activeTab !== "qualifications") return;
+    setQualificationsLoading(true);
+    Promise.all([
+      getGroupQualifications(currentSpaceId, groupId),
+      getMemberQualifications(currentSpaceId, groupId),
+    ])
+      .then(([quals, memberQuals]) => {
+        setGroupQualifications(quals);
+        setMemberQualifications(memberQuals);
+      })
+      .catch(() => {})
+      .finally(() => setQualificationsLoading(false));
+  }, [currentSpaceId, groupId, activeTab]);
+
+  // ── Load roles tab ───────────────────────────────────────────────────────
+  useEffect(() => {
+    if (!currentSpaceId || !groupId || activeTab !== "roles") return;
+    setGroupRolesLoading(true);
+    Promise.all([
+      getGroupRoles(currentSpaceId, groupId),
+      members.length === 0 ? getGroupMembers(currentSpaceId, groupId) : Promise.resolve(members),
+    ])
+      .then(([roles, m]) => {
+        setGroupRoles(roles);
+        if (members.length === 0) setMembers(m);
+      })
+      .catch(() => {})
+      .finally(() => setGroupRolesLoading(false));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentSpaceId, groupId, activeTab]);
 
   // ── Cleanup polling on unmount ───────────────────────────────────────────
@@ -339,9 +423,11 @@ export default function GroupDetailPage() {
     // wasn't set yet during the initial render (Zustand hydration lag).
     const spaceId = useSpaceStore.getState().currentSpaceId ?? currentSpaceId;
     if (!spaceId || !draftVersion) {
-      setScheduleVersionError("לא ניתן לפרסם — נסה לרענן את הדף");
+      setScheduleVersionError("Cannot publish — try refreshing the page");
       return;
     }
+    // Double-submit guard — if already saving, do nothing
+    if (publishSaving) return;
     setPublishSaving(true);
     setScheduleVersionError(null);
     try {
@@ -361,7 +447,7 @@ export default function GroupDetailPage() {
       const drafts = Array.isArray(draftRes?.data) ? draftRes.data : [];
       setDraftVersion(drafts.length > 0 ? drafts[0] : null);
     } catch (err) {
-      setScheduleVersionError("שגיאה בפרסום הסידור");
+      setScheduleVersionError(tErrors("errorPublish"));
       throw err; // re-throw so DraftScheduleModal can show the error too
     } finally {
       setPublishSaving(false);
@@ -376,7 +462,7 @@ export default function GroupDetailPage() {
       await apiClient.delete(`/spaces/${currentSpaceId}/schedule-versions/${draftVersion.id}`);
       setDraftVersion(null);
     } catch {
-      setScheduleVersionError("שגיאה בביטול הטיוטה");
+      setScheduleVersionError(tErrors("errorDiscard"));
     } finally {
       setDiscardSaving(false);
     }
@@ -389,7 +475,7 @@ export default function GroupDetailPage() {
       await removeGroupMember(currentSpaceId, groupId, personId);
       setMembers(prev => prev.filter(m => m.personId !== personId));
     } catch {
-      setRemoveErrors(prev => ({ ...prev, [personId]: "שגיאה בהסרת חבר" }));
+      setRemoveErrors(prev => ({ ...prev, [personId]: tErrors("errorRemoveMember") }));
     }
   }
 
@@ -400,27 +486,22 @@ export default function GroupDetailPage() {
     setAddMemberError(null);
     try {
       let personId: string;
-      try {
-        // Try to create a new person
+
+      // First, search for an existing person with this name to avoid a 409
+      const existingResults = await searchPeople(currentSpaceId, addMemberName.trim());
+      const existingMatch = existingResults.find(p =>
+        p.fullName.toLowerCase() === addMemberName.trim().toLowerCase()
+      );
+
+      if (existingMatch) {
+        // Person already exists in this space — use their ID directly
+        personId = existingMatch.id;
+      } else {
+        // Person doesn't exist yet — create them
         const person = await createPerson(currentSpaceId, addMemberName.trim());
         personId = person.id;
-      } catch (createErr: unknown) {
-        const status = (createErr as { response?: { status?: number } })?.response?.status;
-        if (status === 409) {
-          // Person already exists in this space — search for them and re-add
-          const results = await searchPeople(currentSpaceId, addMemberName.trim());
-          const match = results.find(p =>
-            p.fullName.toLowerCase() === addMemberName.trim().toLowerCase()
-          );
-          if (!match) {
-            setAddMemberError("כבר קיים אדם בשם זה. נסה שם מדויק יותר.");
-            return;
-          }
-          personId = match.id;
-        } else {
-          throw createErr;
-        }
       }
+
       // Add to group by ID (idempotent on the backend)
       await addGroupMemberById(currentSpaceId, groupId, personId);
       // If phone or email provided, send invitation
@@ -434,7 +515,7 @@ export default function GroupDetailPage() {
       const updated = await getGroupMembers(currentSpaceId, groupId);
       setMembers(updated);
     } catch {
-      setAddMemberError("שגיאה בהוספת חבר");
+      setAddMemberError(tErrors("errorAddMember"));
     } finally {
       setAddMemberSaving(false);
     }
@@ -462,7 +543,7 @@ export default function GroupDetailPage() {
       if (updatedMember) setSelectedMember(updatedMember);
       setMemberEditForm(null);
     } catch {
-      setMemberEditError("שגיאה בשמירת פרטים");
+      setMemberEditError(tErrors("errorSaveDetails"));
     } finally {
       setMemberEditSaving(false);
     }
@@ -484,7 +565,7 @@ export default function GroupDetailPage() {
       setNewAlertTitle(""); setNewAlertBody(""); setNewAlertSeverity("info");
       setShowAlertForm(false);
     } catch {
-      setAlertSubmitError("שגיאה ביצירת התראה");
+      setAlertSubmitError(tErrors("errorCreateAlert"));
     } finally {
       setAlertSubmitting(false);
     }
@@ -496,7 +577,7 @@ export default function GroupDetailPage() {
       await deleteGroupAlert(currentSpaceId, groupId, id);
       setAlerts(prev => prev.filter(a => a.id !== id));
     } catch {
-      setAlertDeleteErrors(prev => ({ ...prev, [id]: "שגיאה במחיקת התראה" }));
+      setAlertDeleteErrors(prev => ({ ...prev, [id]: tErrors("errorDeleteAlert") }));
     }
   }
 
@@ -511,7 +592,7 @@ export default function GroupDetailPage() {
       setAlerts(prev => prev.map(a => a.id === id ? { ...a, title: editAlertTitle, body: editAlertBody, severity: editAlertSeverity as "info" | "warning" | "critical" } : a));
       setEditingAlertId(null);
     } catch {
-      setEditAlertError("שגיאה בעדכון התראה");
+      setEditAlertError(tErrors("errorUpdateAlert"));
     } finally {
       setEditAlertSaving(false);
     }
@@ -535,7 +616,7 @@ export default function GroupDetailPage() {
       );
       setMessages(Array.isArray(res.data) ? res.data : []);
     } catch {
-      setMessageError("שגיאה בשליחת הודעה");
+      setMessageError("Error sending message");
     } finally {
       setMessageSending(false);
     }
@@ -547,7 +628,7 @@ export default function GroupDetailPage() {
       await pinGroupMessage(currentSpaceId, groupId, id, isPinned);
       setMessages(prev => prev.map(m => m.id === id ? { ...m, isPinned } : m));
     } catch {
-      setMessagePinErrors(prev => ({ ...prev, [id]: "שגיאה בנעיצת הודעה" }));
+      setMessagePinErrors(prev => ({ ...prev, [id]: "Error pinning message" }));
     }
   }
 
@@ -560,7 +641,7 @@ export default function GroupDetailPage() {
       setMessages(prev => prev.map(m => m.id === id ? { ...m, content: editMessageContent } : m));
       setEditingMessageId(null);
     } catch {
-      setEditMessageError("שגיאה בעדכון הודעה");
+      setEditMessageError("Error updating message");
     } finally {
       setEditMessageSaving(false);
     }
@@ -583,20 +664,40 @@ export default function GroupDetailPage() {
     try {
       // Default startsAt to today if empty
       const now = new Date();
-      const startsAt = taskForm.startsAt || now.toISOString().slice(0, 16);
-      // Default endsAt to startsAt + 7 days if empty (recurring task)
-      const endsAt = taskForm.endsAt || new Date(new Date(startsAt).getTime() + 7 * 86400000).toISOString().slice(0, 16);
+      const startsAt = taskForm.startsAt
+        ? new Date(taskForm.startsAt).toISOString()
+        : now.toISOString();
+      // Default endsAt to startsAt + 90 days if empty (open-ended recurring task)
+      const endsAtRaw = taskForm.endsAt
+        ? new Date(taskForm.endsAt).toISOString()
+        : new Date(new Date(startsAt).getTime() + 90 * 86400000).toISOString();
+
+      // Guard: endsAt must be strictly after startsAt
+      if (new Date(endsAtRaw) <= new Date(startsAt)) {
+        setTaskError("End date must be after start date");
+        setTaskSaving(false);
+        return;
+      }
+
+      // Guard: daily time window — both or neither
+      if (!!taskForm.dailyStartTime !== !!taskForm.dailyEndTime) {
+        setTaskError("Set both daily start and end time, or leave both empty");
+        setTaskSaving(false);
+        return;
+      }
+
       const payload = {
         name: taskForm.name,
         startsAt,
-        endsAt,
-        shiftDurationMinutes: taskForm.shiftDurationMinutes,
+        endsAt: endsAtRaw,
+        shiftDurationMinutes: Math.max(1, taskForm.shiftDurationMinutes),
         requiredHeadcount: taskForm.requiredHeadcount,
         burdenLevel: taskForm.burdenLevel,
         allowsDoubleShift: taskForm.allowsDoubleShift,
         allowsOverlap: taskForm.allowsOverlap,
         dailyStartTime: taskForm.dailyStartTime || null,
         dailyEndTime: taskForm.dailyEndTime || null,
+        requiredQualificationNames: taskForm.requiredQualificationNames,
       };
       if (editingTask) {
         await updateGroupTask(currentSpaceId, groupId, editingTask.id, payload);
@@ -611,7 +712,7 @@ export default function GroupDetailPage() {
       setEditingTask(null);
       setTaskForm(DEFAULT_TASK_FORM);
     } catch {
-      setTaskError("שגיאה בשמירת משימה");
+      setTaskError(tErrors("generic"));
     } finally {
       setTaskSaving(false);
     }
@@ -642,14 +743,14 @@ export default function GroupDetailPage() {
         newConstraintFrom || null,
         newConstraintUntil || null
       );
-      // Reload to get full DTO
+      // Reload to get full DTO — keep all scope types (group, person, role)
       const updated = await getConstraints(currentSpaceId);
-      setConstraints(updated.filter(c => c.scopeId === groupId));
+      setConstraints(updated);
       setShowConstraintForm(false);
       setNewConstraintFrom("");
       setNewConstraintUntil("");
     } catch {
-      setConstraintError("שגיאה ביצירת אילוץ");
+      setConstraintError(tErrors("errorCreateConstraint"));
     } finally {
       setConstraintSaving(false);
     }
@@ -661,7 +762,7 @@ export default function GroupDetailPage() {
       await deleteConstraint(currentSpaceId, id);
       setConstraints(prev => prev.filter(c => c.id !== id));
     } catch {
-      setConstraintDeleteErrors(prev => ({ ...prev, [id]: "שגיאה במחיקת אילוץ" }));
+      setConstraintDeleteErrors(prev => ({ ...prev, [id]: tErrors("errorDeleteConstraint") }));
     }
   }
 
@@ -679,22 +780,81 @@ export default function GroupDetailPage() {
       setConstraints(prev => prev.map(c => c.id === id ? { ...c, severity: editConstraintSeverity, rulePayloadJson: editConstraintPayload, effectiveFrom: editConstraintFrom || null, effectiveUntil: editConstraintUntil || null } : c));
       setEditingConstraintId(null);
     } catch {
-      setEditConstraintError("שגיאה בעדכון אילוץ");
+      setEditConstraintError(tErrors("generic"));
     } finally {
       setEditConstraintSaving(false);
     }
   }
 
+  // ── Group role handlers ──────────────────────────────────────────────────
+  async function handleCreateRole(name: string, description: string | null, permissionLevel = "view") {
+    if (!currentSpaceId) return;
+    await createGroupRole(currentSpaceId, groupId, { name, description, permissionLevel });
+    const updated = await getGroupRoles(currentSpaceId, groupId);
+    setGroupRoles(updated);
+  }
+
+  async function handleUpdateRole(roleId: string, name: string, description: string | null, permissionLevel = "view") {
+    if (!currentSpaceId) return;
+    await updateGroupRole(currentSpaceId, groupId, roleId, { name, description, permissionLevel });
+    const updated = await getGroupRoles(currentSpaceId, groupId);
+    setGroupRoles(updated);
+  }
+
+  async function handleDeactivateRole(roleId: string) {
+    if (!currentSpaceId) return;
+    await deactivateGroupRole(currentSpaceId, groupId, roleId);
+    setGroupRoles(prev => prev.map(r => r.id === roleId ? { ...r, isActive: false } : r));
+  }
+
+  async function handleUpdateMemberRole(personId: string, roleId: string | null) {
+    if (!currentSpaceId) return;
+    await updateMemberRole(currentSpaceId, groupId, personId, roleId);
+    // Update local state so the badge refreshes immediately
+    const roleName = roleId ? (groupRoles.find(r => r.id === roleId)?.name ?? null) : null;
+    setMembers(prev => prev.map(m =>
+      m.personId === personId ? { ...m, roleId: roleId ?? null, roleName } : m
+    ));
+  }
+
+  // ── Qualification handlers ───────────────────────────────────────────────
+  async function handleCreateQualification(name: string, description: string | null) {
+    if (!currentSpaceId) return;
+    await createGroupQualification(currentSpaceId, groupId, name, description);
+    const updated = await getGroupQualifications(currentSpaceId, groupId);
+    setGroupQualifications(updated);
+  }
+
+  async function handleDeactivateQualification(qualId: string) {
+    if (!currentSpaceId) return;
+    await deactivateGroupQualification(currentSpaceId, groupId, qualId);
+    setGroupQualifications(prev => prev.filter(q => q.id !== qualId));
+  }
+
+  async function handleAssignQualification(personId: string, qualificationId: string) {
+    if (!currentSpaceId) return;
+    await assignMemberQualification(currentSpaceId, groupId, personId, qualificationId);
+    const qual = groupQualifications.find(q => q.id === qualificationId);
+    setMemberQualifications(prev => [
+      ...prev.filter(mq => !(mq.personId === personId && mq.qualificationId === qualificationId)),
+      { id: crypto.randomUUID(), personId, qualificationId, qualificationName: qual?.name ?? "" },
+    ]);
+  }
+
+  async function handleRemoveQualification(personId: string, qualificationId: string) {
+    if (!currentSpaceId) return;
+    await removeMemberQualification(currentSpaceId, groupId, personId, qualificationId);
+    setMemberQualifications(prev => prev.filter(mq => !(mq.personId === personId && mq.qualificationId === qualificationId)));
+  }
   // ── Settings handlers ────────────────────────────────────────────────────
-  async function handleRenameGroup() {
-    if (!currentSpaceId || !newGroupName.trim()) return;
+  async function handleRenameGroup() {    if (!currentSpaceId || !newGroupName.trim()) return;
     setRenameSaving(true);
     setRenameError(null);
     try {
       await renameGroup(currentSpaceId, groupId, newGroupName);
       setGroup(prev => prev ? { ...prev, name: newGroupName } : prev);
     } catch {
-      setRenameError("שגיאה בשינוי שם");
+      setRenameError(tErrors("generic"));
     } finally {
       setRenameSaving(false);
     }
@@ -711,13 +871,13 @@ export default function GroupDetailPage() {
       setSettingsSaved(true);
       setTimeout(() => setSettingsSaved(false), 3000);
     } catch {
-      setSettingsError("שגיאה בשמירת הגדרות");
+      setSettingsError(tErrors("generic"));
     } finally {
       setSavingSettings(false);
     }
   }
 
-  async function handleTriggerSolver() {
+  async function handleTriggerSolver(startTime?: string) {
     if (!currentSpaceId) return;
     setSolverPolling(true);
     setSolverStatus(null);
@@ -730,7 +890,7 @@ export default function GroupDetailPage() {
     try {
       const res = await apiClient.post<{ runId: string }>(
         `/spaces/${currentSpaceId}/schedule-runs/trigger`,
-        { triggerMode: "standard" }
+        { triggerMode: "standard", groupId, startTime: startTime ?? null }
       );
       const runId = res.data.runId;
 
@@ -740,16 +900,21 @@ export default function GroupDetailPage() {
           if (pollingRef.current) clearInterval(pollingRef.current);
           setSolverPolling(false);
           setSolverStatus("TimedOut");
-          setSolverError("הסולבר לא הגיב בזמן סביר. בדוק שהשירות פועל.");
+          setSolverError("Solver did not respond in time. Check that the service is running.");
           return;
         }
 
         try {
-          const statusRes = await apiClient.get<{ status: string }>(
+          const statusRes = await apiClient.get<{ status: string; errorSummary?: string | null }>(
             `/spaces/${currentSpaceId}/schedule-runs/${runId}`
           );
           const status = statusRes.data.status;
           setSolverStatus(status);
+
+          // Show pre-flight / solver error immediately when failed
+          if (status === "Failed" && statusRes.data.errorSummary) {
+            setSolverError(statusRes.data.errorSummary);
+          }
 
           const terminal = status === "Completed" || status === "Failed" || status === "TimedOut";
           if (terminal) {
@@ -783,18 +948,21 @@ export default function GroupDetailPage() {
               setLastRunSummary(null);
             }
 
-            // Switch to schedule tab so the admin sees the result immediately
-            setActiveTab("schedule");
+            // Switch to schedule tab only on success so the admin can see the result.
+            // On failure, stay on the current tab so the error message remains visible.
+            if (status === "Completed") {
+              setActiveTab("schedule");
+            }
           }
         } catch {
           if (pollingRef.current) clearInterval(pollingRef.current);
           setSolverPolling(false);
-          setSolverError("שגיאה בבדיקת סטטוס");
+          setSolverError("Error checking status");
         }
       }, 3000);
     } catch {
       setSolverPolling(false);
-      setSolverError("שגיאה בהפעלת הסולבר");
+      setSolverError("Error starting solver");
     }
   }
 
@@ -815,7 +983,7 @@ export default function GroupDetailPage() {
       setHasPendingTransfer(true);
       setTransferPersonId("");
     } catch {
-      setTransferError("שגיאה בהעברת בעלות");
+      setTransferError(tErrors("generic"));
     } finally {
       setTransferSaving(false);
     }
@@ -839,7 +1007,7 @@ export default function GroupDetailPage() {
       await softDeleteGroup(currentSpaceId, groupId);
       router.push("/groups");
     } catch {
-      setDeleteError("שגיאה במחיקת קבוצה");
+      setDeleteError(tErrors("generic"));
     } finally {
       setDeleteSaving(false);
     }
@@ -883,7 +1051,7 @@ export default function GroupDetailPage() {
           </div>
           <div className="flex-1">
             <h1 className="text-xl font-bold text-slate-900">{group.name}</h1>
-            <p className="text-sm text-slate-400">{group.memberCount ?? 0} חברים</p>
+            <p className="text-sm text-slate-400">{group.memberCount ?? 0} {tGroups("members")}</p>
           </div>
           {/* Admin mode toggle — always visible to group owner */}
           <button
@@ -905,7 +1073,7 @@ export default function GroupDetailPage() {
             <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
             </svg>
-            {isAdmin ? "יציאה ממצב ניהול" : "כניסה למצב ניהול"}
+            {isAdmin ? tGroups("exitAdminMode") : tGroups("enterAdminMode")}
           </button>
         </div>
 
@@ -935,31 +1103,40 @@ export default function GroupDetailPage() {
               scheduleData={scheduleData}
               scheduleLoading={scheduleLoading}
               scheduleError={scheduleError}
+              scheduleIsOffline={scheduleIsOffline}
               draftVersion={draftVersion}
               lastRunSummary={lastRunSummary}
               isAdmin={isAdmin}
               publishSaving={publishSaving}
               discardSaving={discardSaving}
               scheduleVersionError={scheduleVersionError}
+              currentUserName={displayName ?? undefined}
+              groupName={group?.name}
+              spaceId={currentSpaceId ?? undefined}
               onOpenDraftModal={() => setShowDraftModal(true)}
               onPublish={handlePublish}
               onDiscard={handleDiscard}
+              onTriggerSolver={handleTriggerSolver}
             />
           )}
 
           {activeTab === "members" && (
             <MembersTab
               isAdmin={isAdmin}
+              isOwner={!!group?.ownerPersonId && members.some(m => m.personId === group.ownerPersonId && m.linkedUserId === userId)}
               members={members}
               membersLoading={membersLoading}
               membersError={membersError}
               membersSearch={membersSearch}
               removeErrors={removeErrors}
+              groupRoles={groupRoles}
               onSearchChange={setMembersSearch}
               onSelectMember={m => { setSelectedMember(m); setMemberEditForm(null); }}
               onRemoveMember={handleRemoveMember}
               onOpenAddMember={() => setShowAddMember(true)}
+              onOpenImport={() => { setImportMode("members"); setShowImportModal(true); }}
               onOpenInvite={handleInvite}
+              onUpdateMemberRole={handleUpdateMemberRole}
             />
           )}
 
@@ -1028,16 +1205,26 @@ export default function GroupDetailPage() {
               isAdmin={isAdmin}
               groupTasks={groupTasks}
               groupTasksLoading={groupTasksLoading}
+              groupQualifications={groupQualifications}
               showTaskForm={showTaskForm}
               editingTask={editingTask}
               taskForm={taskForm}
               taskSaving={taskSaving}
               taskError={taskError}
-              onOpenCreate={() => { setEditingTask(null); setTaskForm(DEFAULT_TASK_FORM); setShowTaskForm(true); }}
+              onOpenCreate={() => {
+                const now = new Date();
+                // Default start = current date at current hour, minutes zeroed
+                const pad = (n: number) => String(n).padStart(2, "0");
+                const defaultStart = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}T${pad(now.getHours())}:00`;
+                setEditingTask(null);
+                setTaskForm({ ...DEFAULT_TASK_FORM, startsAt: defaultStart });
+                setShowTaskForm(true);
+              }}
+              onOpenImport={() => { setImportMode("tasks"); setShowImportModal(true); }}
               onCloseForm={() => { setShowTaskForm(false); setEditingTask(null); }}
               onFormChange={setTaskForm}
               onFormSubmit={handleTaskSubmit}
-              onEditTask={t => { setEditingTask(t); setTaskForm({ name: t.name, startsAt: t.startsAt?.slice(0, 16) ?? "", endsAt: t.endsAt?.slice(0, 16) ?? "", shiftDurationMinutes: t.shiftDurationMinutes, requiredHeadcount: t.requiredHeadcount, burdenLevel: t.burdenLevel, allowsDoubleShift: t.allowsDoubleShift, allowsOverlap: t.allowsOverlap, concurrentTaskIds: [], dailyStartTime: t.dailyStartTime ?? "", dailyEndTime: t.dailyEndTime ?? "" }); setShowTaskForm(true); }}
+              onEditTask={t => { setEditingTask(t); setTaskForm({ name: t.name, startsAt: t.startsAt?.slice(0, 16) ?? "", endsAt: t.endsAt?.slice(0, 16) ?? "", shiftDurationMinutes: t.shiftDurationMinutes, requiredHeadcount: t.requiredHeadcount, burdenLevel: t.burdenLevel, allowsDoubleShift: t.allowsDoubleShift, allowsOverlap: t.allowsOverlap, concurrentTaskIds: [], dailyStartTime: t.dailyStartTime ?? "", dailyEndTime: t.dailyEndTime ?? "", requiredQualificationNames: t.requiredQualificationNames ?? [] }); setShowTaskForm(true); }}
               onDeleteTask={handleDeleteTask}
             />
           )}
@@ -1079,6 +1266,32 @@ export default function GroupDetailPage() {
               onEditUntilChange={setEditConstraintUntil}
               onEditSeverityChange={setEditConstraintSeverity}
               onUpdateConstraint={handleUpdateConstraint}
+              groupId={groupId}
+              groupRoles={groupRoles}
+              groupRolesLoading={groupRolesLoading}
+              members={members}
+              taskOptions={constraintTaskOptions}
+              onCreateWithScope={async (scopeType, scopeId, form) => {
+                if (!currentSpaceId) return;
+                try {
+                  await createConstraint(
+                    currentSpaceId, scopeType, scopeId,
+                    form.severity, form.ruleType, form.payload,
+                    form.from || null, form.until || null
+                  );
+                } catch (err: unknown) {
+                  // Extract the server error message and re-throw so SectionCreateForm can display it
+                  const apiMsg =
+                    (err as { response?: { data?: { error?: string; message?: string } } })
+                      ?.response?.data?.error ??
+                    (err as { response?: { data?: { error?: string; message?: string } } })
+                      ?.response?.data?.message ??
+                    tErrors("errorCreateConstraint");
+                  throw new Error(apiMsg);
+                }
+                const updated = await getConstraints(currentSpaceId);
+                setConstraints(updated);
+              }}
             />
           )}
 
@@ -1120,8 +1333,39 @@ export default function GroupDetailPage() {
             />
           )}
 
+          {activeTab === "qualifications" && currentSpaceId && (
+            <QualificationsTab
+              isAdmin={isAdmin}
+              members={members}
+              qualifications={groupQualifications}
+              memberQualifications={memberQualifications}
+              loading={qualificationsLoading}
+              onCreateQualification={handleCreateQualification}
+              onDeactivateQualification={handleDeactivateQualification}
+              onAssign={handleAssignQualification}
+              onRemove={handleRemoveQualification}
+            />
+          )}
+
+          {activeTab === "roles" && (
+            <RolesTab
+              isAdmin={isAdmin}
+              groupRoles={groupRoles}
+              groupRolesLoading={groupRolesLoading}
+              members={members}
+              onCreateRole={handleCreateRole}
+              onUpdateRole={handleUpdateRole}
+              onDeactivateRole={handleDeactivateRole}
+              onUpdateMemberRole={handleUpdateMemberRole}
+            />
+          )}
+
           {activeTab === "stats" && currentSpaceId && (
-            <StatsTab groupId={groupId} spaceId={currentSpaceId} members={members} />
+            <StatsTab groupId={groupId} spaceId={currentSpaceId} />
+          )}
+
+          {activeTab === "live-status" && currentSpaceId && (
+            <LiveStatusPanel spaceId={currentSpaceId} groupId={groupId} />
           )}
         </div>
       </div>
@@ -1133,6 +1377,7 @@ export default function GroupDetailPage() {
           onClose={() => setShowDraftModal(false)}
           spaceId={currentSpaceId}
           draftVersionId={draftVersion.id}
+          groupMemberIds={new Set(members.map(m => m.personId))}
           isAdmin={isAdmin}
           onPublish={async () => { await handlePublish(); setShowDraftModal(false); }}
           onDiscard={async () => { await handleDiscard(); setShowDraftModal(false); }}
@@ -1140,33 +1385,52 @@ export default function GroupDetailPage() {
         />
       )}
 
+      {/* Import modal */}
+      {showImportModal && currentSpaceId && (
+        <ImportModal
+          open={showImportModal}
+          onClose={() => setShowImportModal(false)}
+          spaceId={currentSpaceId}
+          groupId={groupId}
+          onImported={() => {
+            setShowImportModal(false);
+            // Reload the relevant tab data
+            if (importMode === "members") {
+              getGroupMembers(currentSpaceId, groupId).then(setMembers).catch(() => {});
+            } else {
+              listGroupTasks(currentSpaceId, groupId).then(setGroupTasks).catch(() => {});
+            }
+          }}
+        />
+      )}
+
       {/* Add member modal */}
-      <Modal title="הוסף חבר חדש" open={showAddMember} onClose={() => { setShowAddMember(false); setAddMemberName(""); setAddMemberPhone(""); setAddMemberEmail(""); setAddMemberError(null); }}>
+      <Modal title={tGroups("members_tab.addMember")} open={showAddMember} onClose={() => { setShowAddMember(false); setAddMemberName(""); setAddMemberPhone(""); setAddMemberEmail(""); setAddMemberError(null); }}>
         <form onSubmit={handleAddMember} className="space-y-4">
           <div>
-            <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">שם מלא *</label>
+            <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">{tGroups("members_tab.fullName")} *</label>
             <input
               type="text"
               value={addMemberName}
               onChange={e => setAddMemberName(e.target.value)}
-              placeholder="שם מלא"
+              placeholder={tGroups("members_tab.fullName")}
               required
               className="w-full border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
           <div>
-            <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">מספר טלפון <span className="text-slate-400 normal-case font-normal">(אופציונלי — לשליחת הזמנה)</span></label>
+            <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">{tGroups("members_tab.phone")} <span className="text-slate-400 normal-case font-normal">({tGroups("members_tab.optionalInvite")})</span></label>
             <input
               type="tel"
               value={addMemberPhone}
               onChange={e => setAddMemberPhone(e.target.value)}
-              placeholder="+972..."
+              placeholder="+1..."
               dir="ltr"
               className="w-full border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
           <div>
-            <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">אימייל <span className="text-slate-400 normal-case font-normal">(אופציונלי — לשליחת הזמנה)</span></label>
+            <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">{tGroups("members_tab.email")} <span className="text-slate-400 normal-case font-normal">({tGroups("members_tab.optionalInvite")})</span></label>
             <input
               type="email"
               value={addMemberEmail}
@@ -1179,7 +1443,7 @@ export default function GroupDetailPage() {
           {addMemberError && <p className="text-sm text-red-600">{addMemberError}</p>}
           <button type="submit" disabled={addMemberSaving}
             className="w-full bg-blue-500 hover:bg-blue-600 text-white text-sm font-medium px-4 py-2.5 rounded-xl disabled:opacity-50 transition-colors">
-            {addMemberSaving ? "מוסיף..." : "הוסף חבר"}
+            {addMemberSaving ? tGroups("members_tab.adding") : tGroups("members_tab.addMember")}
           </button>
         </form>
       </Modal>

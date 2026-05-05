@@ -141,18 +141,18 @@ public class SolverWorkerService : BackgroundService
         {
             // Build solver input
             input = await normalizer.BuildAsync(
-                job.SpaceId, job.RunId, job.TriggerMode, job.BaselineVersionId, ct);
+                job.SpaceId, job.RunId, job.TriggerMode, job.BaselineVersionId, job.GroupId, job.StartTime, ct);
 
             // ── Pre-flight checks ─────────────────────────────────────────────
             if (input.TaskSlots.Count == 0)
             {
-                run.MarkFailed("No future tasks to schedule.");
-                await db.SaveChangesAsync(ct);
                 var (noTasksTitle, noTasksBody) = input.Locale switch {
                     "en" => ("No tasks to schedule", "No future tasks found in the current time window. Create tasks with future dates and try again."),
                     "ru" => ("Нет задач для планирования", "Не найдено будущих задач в текущем временном окне. Создайте задачи с будущими датами и повторите попытку."),
                     _    => ("אין משימות לסידור", "לא נמצאו משימות עתידיות בטווח הזמן הנוכחי. צור משימות עם תאריכים עתידיים ונסה שוב.")
                 };
+                run.MarkFailed(noTasksBody);
+                await db.SaveChangesAsync(ct);
                 await notifier.NotifySpaceAdminsAsync(
                     job.SpaceId, "solver_no_tasks", noTasksTitle, noTasksBody, ct: ct);
                 return;
@@ -160,13 +160,13 @@ public class SolverWorkerService : BackgroundService
 
             if (input.People.Count == 0)
             {
-                run.MarkFailed("No active members to schedule.");
-                await db.SaveChangesAsync(ct);
                 var (noPeopleTitle, noPeopleBody) = input.Locale switch {
                     "en" => ("No active members", "No active members found in the group. Add members and try again."),
                     "ru" => ("Нет активных участников", "В группе не найдено активных участников. Добавьте участников и повторите попытку."),
                     _    => ("אין חברים פעילים", "לא נמצאו חברים פעילים בקבוצה. הוסף חברים ונסה שוב.")
                 };
+                run.MarkFailed(noPeopleBody);
+                await db.SaveChangesAsync(ct);
                 await notifier.NotifySpaceAdminsAsync(
                     job.SpaceId, "solver_no_people", noPeopleTitle, noPeopleBody, ct: ct);
                 return;
@@ -270,7 +270,7 @@ public class SolverWorkerService : BackgroundService
                     "ru" => "Невозможно составить расписание — недостаточно участников",
                     _    => "Cannot schedule — not enough members"
                 };
-                run.MarkFailed($"Not enough people: need {totalMinPeople} ({taskSummary}), have {input.People.Count}.");
+                run.MarkFailed(reason);
                 await db.SaveChangesAsync(ct);
                 await notifier.NotifySpaceAdminsAsync(
                     job.SpaceId, "solver_preflight_failed", preflightTitle, reason, ct: ct);
@@ -378,8 +378,11 @@ public class SolverWorkerService : BackgroundService
 
                 await db.SaveChangesAsync(ct);
 
-                // Update fairness counters after successful solve
-                await mediator.Send(new UpdateFairnessCountersCommand(job.SpaceId, version.Id), ct);
+                // Update fairness counters in a separate scope so its DbContext
+                // instance doesn't conflict with the worker's ongoing context.
+                using var fairnessScope = _scopeFactory.CreateScope();
+                var fairnessMediator = fairnessScope.ServiceProvider.GetRequiredService<IMediator>();
+                await fairnessMediator.Send(new UpdateFairnessCountersCommand(job.SpaceId, version.Id), ct);
             }
             else
             {

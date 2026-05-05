@@ -44,6 +44,9 @@ export interface GroupMemberDto {
   invitationStatus: string;
   profileImageUrl: string | null;
   birthday: string | null;
+  linkedUserId: string | null;
+  roleId: string | null;
+  roleName: string | null;
 }
 
 export interface DeletedGroupDto {
@@ -190,4 +193,141 @@ export async function pinGroupMessage(
   isPinned: boolean
 ): Promise<void> {
   await apiClient.patch(`/spaces/${spaceId}/groups/${groupId}/messages/${messageId}/pin`, { isPinned });
+}
+
+// ── Group Roles ───────────────────────────────────────────────────────────────
+
+export interface GroupRoleDto {
+  id: string;
+  name: string;
+  description: string | null;
+  isActive: boolean;
+  isDefault: boolean;
+  permissionLevel: "View" | "ViewAndEdit" | "Owner";
+}
+
+export async function getGroupRoles(spaceId: string, groupId: string): Promise<GroupRoleDto[]> {
+  const { data } = await apiClient.get(`/spaces/${spaceId}/groups/${groupId}/roles`);
+  return data as GroupRoleDto[];
+}
+
+export async function createGroupRole(
+  spaceId: string,
+  groupId: string,
+  payload: { name: string; description?: string | null; permissionLevel?: string }
+): Promise<{ id: string }> {
+  const { data } = await apiClient.post(`/spaces/${spaceId}/groups/${groupId}/roles`, payload);
+  return data as { id: string };
+}
+
+export async function updateGroupRole(
+  spaceId: string,
+  groupId: string,
+  roleId: string,
+  payload: { name: string; description?: string | null; permissionLevel?: string }
+): Promise<void> {
+  await apiClient.put(`/spaces/${spaceId}/groups/${groupId}/roles/${roleId}`, payload);
+}
+
+export async function deactivateGroupRole(
+  spaceId: string,
+  groupId: string,
+  roleId: string
+): Promise<void> {
+  await apiClient.delete(`/spaces/${spaceId}/groups/${groupId}/roles/${roleId}`);
+}
+
+export async function updateMemberRole(
+  spaceId: string,
+  groupId: string,
+  personId: string,
+  roleId: string | null
+): Promise<void> {
+  await apiClient.patch(`/spaces/${spaceId}/groups/${groupId}/members/${personId}/role`, { roleId });
+}
+
+export interface GroupScheduleAssignmentDto {
+  id: string;
+  personId: string;
+  personName: string;
+  taskTypeName: string;
+  slotStartsAt: string;
+  slotEndsAt: string;
+  source: string;
+}
+
+export async function getGroupSchedule(
+  spaceId: string,
+  groupId: string
+): Promise<GroupScheduleAssignmentDto[]> {
+  const { data } = await apiClient.get(`/spaces/${spaceId}/groups/${groupId}/schedule`);
+  return data as GroupScheduleAssignmentDto[];
+}
+
+// ── Live Status ───────────────────────────────────────────────────────────────
+
+export interface MemberLiveStatusDto {
+  personId: string;
+  displayName: string;
+  status: "on_mission" | "at_home" | "blocked" | "free_in_base";
+  taskName: string | null;
+  slotEndsAt: string | null;
+  location: string | null;
+}
+
+export async function getGroupLiveStatus(
+  spaceId: string,
+  groupId: string
+): Promise<MemberLiveStatusDto[]> {
+  const { data } = await apiClient.get(
+    `/spaces/${spaceId}/groups/${groupId}/live-status`
+  );
+  return data as MemberLiveStatusDto[];
+}
+
+// ── Qualifications ────────────────────────────────────────────────────────────
+
+export interface GroupQualificationDto {
+  id: string;
+  name: string;
+  description: string | null;
+  isActive: boolean;
+}
+
+export interface MemberQualificationDto {
+  id: string;
+  personId: string;
+  qualificationId: string;
+  qualificationName: string;
+}
+
+export async function getGroupQualifications(spaceId: string, groupId: string): Promise<GroupQualificationDto[]> {
+  const { data } = await apiClient.get(`/spaces/${spaceId}/groups/${groupId}/qualifications`);
+  return data;
+}
+
+export async function createGroupQualification(spaceId: string, groupId: string, name: string, description?: string | null): Promise<{ id: string }> {
+  const { data } = await apiClient.post(`/spaces/${spaceId}/groups/${groupId}/qualifications`, { name, description });
+  return data;
+}
+
+export async function updateGroupQualification(spaceId: string, groupId: string, qualificationId: string, name: string, description?: string | null): Promise<void> {
+  await apiClient.put(`/spaces/${spaceId}/groups/${groupId}/qualifications/${qualificationId}`, { name, description });
+}
+
+export async function deactivateGroupQualification(spaceId: string, groupId: string, qualificationId: string): Promise<void> {
+  await apiClient.delete(`/spaces/${spaceId}/groups/${groupId}/qualifications/${qualificationId}`);
+}
+
+export async function getMemberQualifications(spaceId: string, groupId: string): Promise<MemberQualificationDto[]> {
+  const { data } = await apiClient.get(`/spaces/${spaceId}/groups/${groupId}/qualifications/members`);
+  return data;
+}
+
+export async function assignMemberQualification(spaceId: string, groupId: string, personId: string, qualificationId: string): Promise<void> {
+  await apiClient.post(`/spaces/${spaceId}/groups/${groupId}/qualifications/members/${personId}`, { qualificationId });
+}
+
+export async function removeMemberQualification(spaceId: string, groupId: string, personId: string, qualificationId: string): Promise<void> {
+  await apiClient.delete(`/spaces/${spaceId}/groups/${groupId}/qualifications/members/${personId}/${qualificationId}`);
 }

@@ -1,14 +1,18 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useTranslations } from "next-intl";
 import AppShell from "@/components/shell/AppShell";
-import ScheduleTable from "@/components/schedule/ScheduleTable";
+import ScheduleTable2D from "@/components/schedule/ScheduleTable2D";
+import OverrideModal, { OverridePerson } from "@/components/schedule/OverrideModal";
 import DiffSummaryCard from "@/components/schedule/DiffSummaryCard";
 import {
   getScheduleVersions, getVersionDetail,
-  publishVersion, rollbackVersion, triggerSolve, downloadExport,
+  publishVersion, rollbackVersion, discardVersion, triggerSolve, downloadExport,
+  applyManualOverride, removeManualOverride,
   ScheduleVersionDto, ScheduleVersionDetailDto
 } from "@/lib/api/schedule";
+import { getGroupMembers } from "@/lib/api/groups";
 import { useSpaceStore } from "@/lib/store/spaceStore";
 import { useAuthStore } from "@/lib/store/authStore";
 import { clsx } from "clsx";
@@ -46,21 +50,58 @@ interface VersionListSidebarProps {
   onSelect: (v: ScheduleVersionDto) => void;
 }
 
+function formatVersionTime(dateStr: string | null | undefined): string {
+  if (!dateStr) return "";
+  const d = new Date(dateStr);
+  return d.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
+}
+
+function formatVersionDay(dateStr: string | null | undefined): string {
+  if (!dateStr) return "";
+  const d = new Date(dateStr);
+  const today = new Date();
+  const yesterday = new Date(Date.now() - 86400000);
+  if (d.toDateString() === today.toDateString()) return "Today";
+  if (d.toDateString() === yesterday.toDateString()) return "Yesterday";
+  return d.toLocaleDateString(undefined, { day: "numeric", month: "short" });
+}
+
 function VersionListSidebar({ versions, selectedId, loading, onSelect }: VersionListSidebarProps) {
+  const t = useTranslations("admin");
+  const [showHistory, setShowHistory] = useState(false);
+
+  // Separate active (draft/published) from history (archived/rolled_back/discarded)
+  const activeVersions = versions.filter(v =>
+    v.status === "Draft" || v.status === "Published"
+  );
+  const historyVersions = versions.filter(v =>
+    v.status === "Archived" || v.status === "RolledBack" || v.status === "Discarded"
+  );
+
+  // Group history by publish day
+  const historyByDay = historyVersions.reduce<Record<string, ScheduleVersionDto[]>>((acc, v) => {
+    const dayKey = formatVersionDay(v.publishedAt ?? v.createdAt);
+    if (!acc[dayKey]) acc[dayKey] = [];
+    acc[dayKey].push(v);
+    return acc;
+  }, {});
+
   return (
     <div className="space-y-3">
-      <h2 className="text-xs font-semibold text-slate-500 uppercase tracking-wider">גרסאות</h2>
+      <h2 className="text-xs font-semibold text-slate-500 uppercase tracking-wider">{t("versions")}</h2>
       {loading && (
         <div className="flex items-center gap-2 text-slate-400 text-sm py-4">
           <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
             <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
             <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
           </svg>
-          טוען...
+          {t("loading")}
         </div>
       )}
+
+      {/* Active versions (Draft + Published) */}
       <div className="space-y-1.5">
-        {versions.map(v => (
+        {activeVersions.map(v => (
           <button
             key={v.id}
             onClick={() => onSelect(v)}
@@ -71,13 +112,70 @@ function VersionListSidebar({ versions, selectedId, loading, onSelect }: Version
                 : "border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50"
             )}
           >
-            <div className="font-semibold text-slate-900">v{v.versionNumber}</div>
+            <div className="flex items-center justify-between">
+              <span className="font-semibold text-slate-900">v{v.versionNumber}</span>
+              {v.publishedAt && (
+                <span className="text-xs text-slate-400">{formatVersionTime(v.publishedAt)}</span>
+              )}
+            </div>
             <div className="mt-1.5">
               <StatusBadge status={v.status} />
             </div>
           </button>
         ))}
       </div>
+
+      {/* History toggle */}
+      {historyVersions.length > 0 && (
+        <div className="pt-1">
+          <button
+            onClick={() => setShowHistory(h => !h)}
+            className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-slate-700 transition-colors w-full"
+          >
+            <svg
+              className={clsx("w-3.5 h-3.5 transition-transform", showHistory && "rotate-90")}
+              fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+            </svg>
+            <span className="font-medium">History ({historyVersions.length})</span>
+          </button>
+
+          {showHistory && (
+            <div className="mt-2 space-y-3">
+              {Object.entries(historyByDay).map(([day, dayVersions]) => (
+                <div key={day}>
+                  <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-1 px-1">{day}</p>
+                  <div className="space-y-1">
+                    {dayVersions.map(v => (
+                      <button
+                        key={v.id}
+                        onClick={() => onSelect(v)}
+                        className={clsx(
+                          "w-full text-start px-3 py-2 rounded-lg border text-xs transition-all",
+                          selectedId === v.id
+                            ? "border-blue-300 bg-blue-50 shadow-sm"
+                            : "border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50"
+                        )}
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="font-medium text-slate-700">v{v.versionNumber}</span>
+                          {(v.publishedAt ?? v.createdAt) && (
+                            <span className="text-slate-400">{formatVersionTime(v.publishedAt ?? v.createdAt)}</span>
+                          )}
+                        </div>
+                        <div className="mt-1">
+                          <StatusBadge status={v.status} />
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -88,6 +186,7 @@ interface InfeasibilityBannerProps {
 }
 
 function InfeasibilityBanner({ summaryJson }: InfeasibilityBannerProps) {
+  const t = useTranslations("admin");
   if (!summaryJson) return null;
   let summary: {
     feasible?: boolean;
@@ -110,7 +209,7 @@ function InfeasibilityBanner({ summaryJson }: InfeasibilityBannerProps) {
         <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
           <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
         </svg>
-        הסידור לא ניתן לביצוע
+        {t("infeasible")}
       </div>
       {reasons.length > 0 && (
         <ul className="list-disc list-inside space-y-0.5 text-red-700">
@@ -124,13 +223,11 @@ function InfeasibilityBanner({ summaryJson }: InfeasibilityBannerProps) {
       )}
       {(conflicts > 0 || uncovered > 0) && (
         <p className="text-red-600 text-xs">
-          {conflicts > 0 && `${conflicts} אילוצים קשים לא ניתנים לסיפוק. `}
-          {uncovered > 0 && `${uncovered} משמרות ללא כיסוי מספיק.`}
+          {conflicts > 0 && t("infeasibleHardConflicts", { count: conflicts }) + " "}
+          {uncovered > 0 && t("infeasibleUncovered", { count: uncovered })}
         </p>
       )}
-      <p className="text-red-600 text-xs mt-1">
-        ניתן לפתור על ידי: הוספת חברים נוספים, הרחבת אופק הזמן, או הקלת אילוצים.
-      </p>
+      <p className="text-red-600 text-xs mt-1">{t("infeasibleSolution")}</p>
     </div>
   );
 }
@@ -142,16 +239,43 @@ interface VersionDetailPanelProps {
   spaceId: string | null;
   onPublish: () => void;
   onRollback: (id: string) => void;
+  onDiscard: (id: string) => void;
+  onCellClick?: (slotKey: string, taskName: string, assignees: string[]) => void;
 }
 
-function VersionDetailPanel({ selected, actionLoading, spaceId, onPublish, onRollback }: VersionDetailPanelProps) {
+function VersionDetailPanel({ selected, actionLoading, spaceId, onPublish, onRollback, onDiscard, onCellClick }: VersionDetailPanelProps) {
+  const t = useTranslations("admin");
+  const today = new Date().toISOString().split("T")[0];
+  const [selectedDate, setSelectedDate] = useState(today);
+
+  function prevDay() {
+    const d = new Date(selectedDate + "T00:00:00");
+    d.setDate(d.getDate() - 1);
+    setSelectedDate(d.toISOString().split("T")[0]);
+  }
+
+  function nextDay() {
+    const d = new Date(selectedDate + "T00:00:00");
+    d.setDate(d.getDate() + 1);
+    setSelectedDate(d.toISOString().split("T")[0]);
+  }
+
+  function formatDateLabel(dateStr: string): string {
+    if (dateStr === today) return t("today");
+    const yesterday = new Date(Date.now() - 86400000).toISOString().split("T")[0];
+    const tomorrow = new Date(Date.now() + 86400000).toISOString().split("T")[0];
+    if (dateStr === yesterday) return t("yesterday");
+    if (dateStr === tomorrow) return t("tomorrow");
+    return new Date(dateStr + "T00:00:00").toLocaleDateString(undefined, { day: "numeric", month: "short" });
+  }
+
   return (
     <div className="col-span-2 space-y-4">
       {/* Action bar */}
       <div className="flex items-center gap-2 flex-wrap">
         <div className="flex items-center gap-2 me-2">
           <span className="text-sm font-medium text-slate-700">
-            גרסה {selected.version.versionNumber}
+            {t("version")} {selected.version.versionNumber}
           </span>
           <StatusBadge status={selected.version.status} />
         </div>
@@ -165,7 +289,20 @@ function VersionDetailPanel({ selected, actionLoading, spaceId, onPublish, onRol
             <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
             </svg>
-            פרסם
+            {t("publish")}
+          </button>
+        )}
+
+        {selected.version.status === "Draft" && (
+          <button
+            onClick={() => onDiscard(selected.version.id)}
+            disabled={actionLoading}
+            className="flex items-center gap-1.5 bg-white hover:bg-red-50 text-red-600 border border-red-200 text-xs font-medium px-3 py-1.5 rounded-lg disabled:opacity-50 transition-colors"
+          >
+            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+            </svg>
+            {t("discard")}
           </button>
         )}
 
@@ -178,7 +315,7 @@ function VersionDetailPanel({ selected, actionLoading, spaceId, onPublish, onRol
             <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
             </svg>
-            שחזר
+            {t("rollback")}
           </button>
         )}
 
@@ -208,13 +345,44 @@ function VersionDetailPanel({ selected, actionLoading, spaceId, onPublish, onRol
       <InfeasibilityBanner summaryJson={selected.version.summaryJson} />
 
       {selected.diff && <DiffSummaryCard diff={selected.diff} />}
-      <ScheduleTable assignments={selected.assignments} />
+
+      {/* Date navigation */}
+      <div className="flex items-center gap-2">
+        <button onClick={prevDay} className="p-2 rounded-lg border border-slate-200 hover:bg-slate-50 transition-colors">
+          <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+          </svg>
+        </button>
+        <button
+          onClick={() => setSelectedDate(today)}
+          className={`px-3 py-1.5 rounded-lg text-sm font-medium border transition-colors ${
+            selectedDate === today ? "bg-blue-500 text-white border-blue-500" : "border-slate-200 text-slate-600 hover:bg-slate-50"
+          }`}
+        >
+          {t("today")}
+        </button>
+        <button onClick={nextDay} className="p-2 rounded-lg border border-slate-200 hover:bg-slate-50 transition-colors">
+          <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+          </svg>
+        </button>
+        <span className="text-sm font-medium text-slate-700 mr-1">{formatDateLabel(selectedDate)}</span>
+      </div>
+
+      {/* 2D schedule table */}
+      <ScheduleTable2D
+        assignments={selected.assignments}
+        filterDate={selectedDate}
+        onCellClick={onCellClick}
+      />
     </div>
   );
 }
 
 // ── AdminSchedulePage ────────────────────────────────────────────────────────
 export default function AdminSchedulePage() {
+  const t = useTranslations("admin");
+  const tSchedule = useTranslations("admin.schedule");
   const { currentSpaceId } = useSpaceStore();
   const { isAdminMode } = useAuthStore();
 
@@ -223,6 +391,23 @@ export default function AdminSchedulePage() {
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
   const [message, setMessage] = useState<{ text: string; type: "success" | "error" } | null>(null);
+
+  // ── Start time override ──────────────────────────────────────────────────
+  // Default to current datetime (local), formatted for datetime-local input
+  function nowLocalInput(): string {
+    const d = new Date();
+    const pad = (n: number) => String(n).padStart(2, "0");
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  }
+  const [solverStartTime, setSolverStartTime] = useState(nowLocalInput);
+
+  // ── Override modal state ─────────────────────────────────────────────────
+  const [overrideCell, setOverrideCell] = useState<{
+    slotKey: string; taskName: string; assignees: string[];
+  } | null>(null);
+  const [eligiblePeople, setEligiblePeople] = useState<OverridePerson[]>([]);
+  const [overrideSaving, setOverrideSaving] = useState(false);
+  const [overrideError, setOverrideError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!currentSpaceId || !isAdminMode) { setLoading(false); return; }
@@ -239,6 +424,13 @@ export default function AdminSchedulePage() {
       if (draft) {
         const detail = await getVersionDetail(currentSpaceId, draft.id);
         setSelected(detail);
+      } else {
+        // No draft — select the most recent published version if available
+        const published = v.find(x => x.status === "Published");
+        if (published) {
+          const detail = await getVersionDetail(currentSpaceId, published.id);
+          setSelected(detail);
+        }
       }
     } finally {
       setLoading(false);
@@ -255,11 +447,15 @@ export default function AdminSchedulePage() {
     if (!currentSpaceId) return;
     setActionLoading(true);
     try {
-      const { runId } = await triggerSolve(currentSpaceId);
-      setMessage({ text: `סולבר הופעל. מזהה: ${runId}`, type: "success" });
+      // Convert local datetime-local input to ISO UTC string
+      const startTimeIso = solverStartTime
+        ? new Date(solverStartTime).toISOString()
+        : undefined;
+      const { runId } = await triggerSolve(currentSpaceId, "standard", undefined, startTimeIso);
+      setMessage({ text: t("solverStarted", { runId }), type: "success" });
       setTimeout(loadVersions, 3000);
     } catch {
-      setMessage({ text: "שגיאה בהפעלת הסולבר.", type: "error" });
+      setMessage({ text: t("errorSolver"), type: "error" });
     } finally { setActionLoading(false); }
   }
 
@@ -267,11 +463,14 @@ export default function AdminSchedulePage() {
     if (!currentSpaceId) return;
     setActionLoading(true);
     try {
-      const { runId } = await triggerSolve(currentSpaceId, "emergency");
-      setMessage({ text: `סולבר חירום הופעל. מזהה: ${runId}`, type: "success" });
+      const startTimeIso = solverStartTime
+        ? new Date(solverStartTime).toISOString()
+        : undefined;
+      const { runId } = await triggerSolve(currentSpaceId, "emergency", undefined, startTimeIso);
+      setMessage({ text: t("emergencyStarted", { runId }), type: "success" });
       setTimeout(loadVersions, 3000);
     } catch {
-      setMessage({ text: "שגיאה בהפעלת סולבר חירום.", type: "error" });
+      setMessage({ text: t("errorEmergencySolver"), type: "error" });
     } finally { setActionLoading(false); }
   }
 
@@ -280,10 +479,10 @@ export default function AdminSchedulePage() {
     setActionLoading(true);
     try {
       await publishVersion(currentSpaceId, selected.version.id);
-      setMessage({ text: "Version published successfully.", type: "success" });
+      setMessage({ text: tSchedule("publishedSuccess"), type: "success" });
       await loadVersions();
     } catch {
-      setMessage({ text: "Failed to publish.", type: "error" });
+      setMessage({ text: tSchedule("publishedError"), type: "error" });
     } finally { setActionLoading(false); }
   }
 
@@ -292,11 +491,87 @@ export default function AdminSchedulePage() {
     setActionLoading(true);
     try {
       const { newVersionId } = await rollbackVersion(currentSpaceId, versionId);
-      setMessage({ text: `Rollback created. New draft version ID: ${newVersionId}`, type: "success" });
+      setMessage({ text: tSchedule("rollbackSuccess", { newVersionId }), type: "success" });
       await loadVersions();
     } catch {
-      setMessage({ text: "Failed to rollback.", type: "error" });
+      setMessage({ text: tSchedule("rollbackError"), type: "error" });
     } finally { setActionLoading(false); }
+  }
+
+  async function handleDiscard(versionId: string) {
+    if (!currentSpaceId) return;
+    setActionLoading(true);
+    try {
+      await discardVersion(currentSpaceId, versionId);
+      setMessage({ text: tSchedule("discardSuccess"), type: "success" });
+      await loadVersions();
+    } catch {
+      setMessage({ text: tSchedule("discardError"), type: "error" });
+    } finally { setActionLoading(false); }
+  }
+
+  // ── Override handlers ────────────────────────────────────────────────────
+  async function handleCellClick(slotKey: string, taskName: string, assignees: string[]) {
+    if (!currentSpaceId || !selected) return;
+    setOverrideCell({ slotKey, taskName, assignees });
+    setOverrideError(null);
+
+    // Load eligible people from all assignments in the current version
+    // (use unique person IDs from the selected version's assignments as a proxy)
+    const uniquePersons = Array.from(
+      new Map(selected.assignments.map(a => [a.personId, a.personName])).entries()
+    ).map(([personId, displayName]) => ({ personId, displayName }));
+    setEligiblePeople(uniquePersons);
+  }
+
+  async function handleOverrideConfirm(slotKey: string, newPersonIds: string[]) {
+    if (!currentSpaceId) return;
+    setOverrideSaving(true);
+    setOverrideError(null);
+    // slotKey = "${startsAt}|${endsAt}" — we need the actual slot ID
+    // The slot ID is the taskSlotId from the assignment matching this slotKey
+    const slotId = selected?.assignments.find(a =>
+      `${a.slotStartsAt}|${a.slotEndsAt}` === slotKey
+    )?.taskSlotId;
+    if (!slotId) {
+      setOverrideError(tSchedule("shiftNotFound"));
+      setOverrideSaving(false);
+      return;
+    }
+    try {
+      await applyManualOverride(currentSpaceId, slotId, newPersonIds);
+      setMessage({ text: tSchedule("overrideApplied"), type: "success" });
+      setOverrideCell(null);
+      await loadVersions();
+    } catch {
+      setOverrideError(tSchedule("overrideError"));
+    } finally {
+      setOverrideSaving(false);
+    }
+  }
+
+  async function handleOverrideClear(slotKey: string) {
+    if (!currentSpaceId) return;
+    setOverrideSaving(true);
+    setOverrideError(null);
+    const slotId = selected?.assignments.find(a =>
+      `${a.slotStartsAt}|${a.slotEndsAt}` === slotKey
+    )?.taskSlotId;
+    if (!slotId) {
+      setOverrideError(tSchedule("shiftNotFound"));
+      setOverrideSaving(false);
+      return;
+    }
+    try {
+      await removeManualOverride(currentSpaceId, slotId);
+      setMessage({ text: tSchedule("shiftCleared"), type: "success" });
+      setOverrideCell(null);
+      await loadVersions();
+    } catch {
+      setOverrideError(tSchedule("shiftClearError"));
+    } finally {
+      setOverrideSaving(false);
+    }
   }
 
   if (!isAdminMode) {
@@ -306,7 +581,7 @@ export default function AdminSchedulePage() {
           <svg className="w-12 h-12 text-slate-200 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
           </svg>
-          <p className="text-slate-500 text-sm">יש להיכנס למצב מנהל כדי לנהל סידורים.</p>
+          <p className="text-slate-500 text-sm">{t("adminRequired")}</p>
         </div>
       </AppShell>
     );
@@ -316,12 +591,25 @@ export default function AdminSchedulePage() {
     <AppShell>
       <div className="max-w-5xl space-y-6">
         {/* Header */}
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between flex-wrap gap-3">
           <div>
-            <h1 className="text-2xl font-bold text-slate-900">ניהול סידור</h1>
-            <p className="text-sm text-slate-500 mt-1">ניהול ופרסום גרסאות סידור</p>
+            <h1 className="text-2xl font-bold text-slate-900">{t("title")}</h1>
+            <p className="text-sm text-slate-500 mt-1">{t("manageScheduleSubtitle")}</p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
+            {/* Start time override */}
+            <div className="flex items-center gap-1.5 border border-slate-200 rounded-xl px-3 py-1.5 bg-white">
+              <svg className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <label className="text-xs text-slate-500 whitespace-nowrap">{t("solverStartTime")}</label>
+              <input
+                type="datetime-local"
+                value={solverStartTime}
+                onChange={e => setSolverStartTime(e.target.value)}
+                className="text-xs text-slate-700 border-none outline-none bg-transparent"
+              />
+            </div>
             <button
               onClick={handleEmergencyTrigger}
               disabled={actionLoading}
@@ -330,7 +618,7 @@ export default function AdminSchedulePage() {
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
               </svg>
-              סידור חירום
+              {t("runEmergency")}
             </button>
             <button
               onClick={handleTrigger}
@@ -347,7 +635,7 @@ export default function AdminSchedulePage() {
                   <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
                 </svg>
               )}
-              הפעל סולבר
+              {t("runSolver")}
             </button>
           </div>
         </div>
@@ -385,17 +673,35 @@ export default function AdminSchedulePage() {
               spaceId={currentSpaceId}
               onPublish={handlePublish}
               onRollback={handleRollback}
+              onDiscard={handleDiscard}
+              onCellClick={handleCellClick}
             />
           ) : (
             <div className="col-span-2 flex flex-col items-center justify-center py-16 text-center bg-white rounded-xl border border-slate-200">
               <svg className="w-10 h-10 text-slate-200 mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
               </svg>
-              <p className="text-slate-400 text-sm">בחר גרסה לצפייה בפרטים.</p>
+              <p className="text-slate-400 text-sm">{t("selectVersion")}</p>
             </div>
           )}
         </div>
       </div>
+
+      {/* Override modal */}
+      {overrideCell && (
+        <OverrideModal
+          open={!!overrideCell}
+          slotKey={overrideCell.slotKey}
+          taskName={overrideCell.taskName}
+          currentAssignees={overrideCell.assignees}
+          eligiblePeople={eligiblePeople}
+          saving={overrideSaving}
+          error={overrideError}
+          onConfirm={handleOverrideConfirm}
+          onClear={handleOverrideClear}
+          onClose={() => { setOverrideCell(null); setOverrideError(null); }}
+        />
+      )}
     </AppShell>
   );
 }

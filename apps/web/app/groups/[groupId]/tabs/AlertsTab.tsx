@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import Modal from "@/components/Modal";
 import { getSeverityBadge } from "@/lib/utils/alertSeverity";
 import type { GroupAlertDto } from "@/lib/api/groups";
@@ -37,13 +38,6 @@ interface Props {
   onUpdateAlert: (id: string) => void;
 }
 
-const SEVERITIES = [
-  { value: "info", label: "מידע" },
-  { value: "warning", label: "אזהרה" },
-  { value: "critical", label: "קריטי" },
-  { value: "success", label: "הצלחה" },
-];
-
 export default function AlertsTab({
   isAdmin, alerts, alertsLoading, alertsError, alertDeleteErrors,
   showAlertForm, newAlertTitle, newAlertBody, newAlertSeverity, alertSubmitting, alertSubmitError,
@@ -51,22 +45,30 @@ export default function AlertsTab({
   onOpenCreateForm, onCloseCreateForm, onCreateTitleChange, onCreateBodyChange, onCreateSeverityChange, onCreateSubmit,
   onDeleteAlert, onStartEdit, onCloseEdit, onEditTitleChange, onEditBodyChange, onEditSeverityChange, onUpdateAlert,
 }: Props) {
+  const t = useTranslations("groups.alerts_tab");
+  const tCommon = useTranslations("common");
   const editingAlert = alerts.find(a => a.id === editingAlertId) ?? null;
+
+  const SEVERITIES = [
+    { value: "info", label: t("info") },
+    { value: "warning", label: t("warning") },
+    { value: "critical", label: t("critical") },
+  ];
 
   return (
     <div className="space-y-4">
       {isAdmin && (
         <button onClick={onOpenCreateForm} className="flex items-center gap-2 text-sm font-medium text-blue-600 border border-blue-200 bg-blue-50 hover:bg-blue-100 px-4 py-2.5 rounded-xl transition-colors">
-          + צור התראה חדשה
+          {t("newAlert")}
         </button>
       )}
 
-      {alertsLoading && <p className="text-sm text-slate-400 py-8">טוען התראות...</p>}
+      {alertsLoading && <p className="text-sm text-slate-400 py-8">{tCommon("loading")}</p>}
       {alertsError && <p className="text-sm text-red-600">{alertsError}</p>}
 
       {!alertsLoading && alerts.length === 0 && (
         <div className="flex flex-col items-center justify-center py-16 text-center bg-white rounded-xl border border-slate-200">
-          <p className="text-slate-400 text-sm">אין התראות</p>
+          <p className="text-slate-400 text-sm">{t("noAlerts")}</p>
         </div>
       )}
 
@@ -82,8 +84,8 @@ export default function AlertsTab({
               </div>
               {isAdmin && (
                 <div className="flex gap-1.5 flex-shrink-0">
-                  <button onClick={() => onStartEdit(a)} className="text-xs text-slate-500 hover:text-slate-700 border border-slate-200 px-2 py-1 rounded-lg hover:bg-slate-50 transition-colors">ערוך</button>
-                  <button onClick={() => onDeleteAlert(a.id)} className="text-xs text-red-500 hover:text-red-700 border border-red-100 px-2 py-1 rounded-lg hover:bg-red-50 transition-colors">מחק</button>
+                  <button onClick={() => onStartEdit(a)} className="text-xs text-slate-500 hover:text-slate-700 border border-slate-200 px-2 py-1 rounded-lg hover:bg-slate-50 transition-colors">{t("edit")}</button>
+                  <button onClick={() => onDeleteAlert(a.id)} className="text-xs text-red-500 hover:text-red-700 border border-red-100 px-2 py-1 rounded-lg hover:bg-red-50 transition-colors">{t("delete")}</button>
                 </div>
               )}
             </div>
@@ -94,18 +96,18 @@ export default function AlertsTab({
       </div>
 
       {/* Create modal */}
-      <Modal title="התראה חדשה" open={showAlertForm} onClose={onCloseCreateForm} maxWidth={480}>
+      <Modal title={t("newAlert")} open={showAlertForm} onClose={onCloseCreateForm} maxWidth={480}>
         <form onSubmit={onCreateSubmit} className="space-y-4">
           <div>
-            <label className="block text-xs text-slate-500 mb-1">כותרת *</label>
-            <input type="text" value={newAlertTitle} onChange={e => onCreateTitleChange(e.target.value)} placeholder="כותרת ההתראה" required className="w-full border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+            <label className="block text-xs text-slate-500 mb-1">{t("title")} *</label>
+            <input type="text" value={newAlertTitle} onChange={e => onCreateTitleChange(e.target.value)} placeholder={t("title")} required className="w-full border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
           </div>
           <div>
-            <label className="block text-xs text-slate-500 mb-1">תוכן *</label>
-            <textarea value={newAlertBody} onChange={e => onCreateBodyChange(e.target.value)} placeholder="תוכן ההתראה" required rows={3} className="w-full border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none" />
+            <label className="block text-xs text-slate-500 mb-1">{t("body")} *</label>
+            <textarea value={newAlertBody} onChange={e => onCreateBodyChange(e.target.value)} placeholder={t("body")} required rows={3} className="w-full border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none" />
           </div>
           <div>
-            <label className="block text-xs text-slate-500 mb-1">רמת חומרה</label>
+            <label className="block text-xs text-slate-500 mb-1">{t("severity")}</label>
             <select value={newAlertSeverity} onChange={e => onCreateSeverityChange(e.target.value)} className="w-full border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
               {SEVERITIES.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
             </select>
@@ -113,27 +115,27 @@ export default function AlertsTab({
           {alertSubmitError && <p className="text-sm text-red-600">{alertSubmitError}</p>}
           <div className="flex gap-2">
             <button type="submit" disabled={alertSubmitting} className="bg-blue-500 hover:bg-blue-600 text-white text-sm font-medium px-4 py-2.5 rounded-xl disabled:opacity-50 transition-colors">
-              {alertSubmitting ? "שולח..." : "שלח"}
+              {alertSubmitting ? t("sending") : t("send")}
             </button>
-            <button type="button" onClick={onCloseCreateForm} className="text-sm text-slate-500 border border-slate-200 px-4 py-2.5 rounded-xl hover:bg-slate-50 transition-colors">ביטול</button>
+            <button type="button" onClick={onCloseCreateForm} className="text-sm text-slate-500 border border-slate-200 px-4 py-2.5 rounded-xl hover:bg-slate-50 transition-colors">{t("cancel")}</button>
           </div>
         </form>
       </Modal>
 
       {/* Edit modal */}
       {editingAlert && (
-        <Modal title="עריכת התראה" open={!!editingAlertId} onClose={onCloseEdit} maxWidth={480}>
+        <Modal title={t("edit")} open={!!editingAlertId} onClose={onCloseEdit} maxWidth={480}>
           <div className="space-y-4">
             <div>
-              <label className="block text-xs text-slate-500 mb-1">כותרת</label>
+              <label className="block text-xs text-slate-500 mb-1">{t("title")}</label>
               <input type="text" value={editAlertTitle} onChange={e => onEditTitleChange(e.target.value)} className="w-full border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
             </div>
             <div>
-              <label className="block text-xs text-slate-500 mb-1">תוכן</label>
+              <label className="block text-xs text-slate-500 mb-1">{t("body")}</label>
               <textarea value={editAlertBody} onChange={e => onEditBodyChange(e.target.value)} rows={3} className="w-full border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none" />
             </div>
             <div>
-              <label className="block text-xs text-slate-500 mb-1">רמת חומרה</label>
+              <label className="block text-xs text-slate-500 mb-1">{t("severity")}</label>
               <select value={editAlertSeverity} onChange={e => onEditSeverityChange(e.target.value)} className="w-full border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
                 {SEVERITIES.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
               </select>
@@ -141,9 +143,9 @@ export default function AlertsTab({
             {editAlertError && <p className="text-sm text-red-600">{editAlertError}</p>}
             <div className="flex gap-2">
               <button onClick={() => onUpdateAlert(editingAlert.id)} disabled={editAlertSaving} className="bg-blue-500 hover:bg-blue-600 text-white text-sm font-medium px-4 py-2.5 rounded-xl disabled:opacity-50 transition-colors">
-                {editAlertSaving ? "שומר..." : "שמור"}
+                {editAlertSaving ? t("saving") : t("save")}
               </button>
-              <button onClick={onCloseEdit} className="text-sm text-slate-500 border border-slate-200 px-4 py-2.5 rounded-xl hover:bg-slate-50 transition-colors">ביטול</button>
+              <button onClick={onCloseEdit} className="text-sm text-slate-500 border border-slate-200 px-4 py-2.5 rounded-xl hover:bg-slate-50 transition-colors">{t("cancel")}</button>
             </div>
           </div>
         </Modal>

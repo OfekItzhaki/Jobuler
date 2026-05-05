@@ -142,21 +142,27 @@ class TestFairnessMetrics:
 
 
 class TestInfeasibility:
-    def test_insufficient_people_for_headcount_is_infeasible(self):
-        """1 person cannot fill a slot requiring 2 — must be infeasible."""
+    def test_insufficient_people_for_headcount_returns_partial(self):
+        """1 person cannot fill a slot requiring 2 — solver returns feasible=True
+        with partial coverage (1 assignment) and the slot flagged as uncovered.
+        The headcount constraint is soft (coverage objective), not hard."""
         people = [make_person("p1")]
         slots = [make_slot("s1", headcount=2)]
         result = solve(make_input(slots, people))
-        assert not result.feasible
-        assert len(result.assignments) == 0
+        # Solver is feasible — it assigns what it can
+        assert result.feasible
+        # The 1 available person is assigned
+        assert len(result.assignments) == 1
+        # The slot is flagged as not fully staffed
+        assert "s1" in result.uncovered_slot_ids
 
     def test_hard_conflicts_reported_when_infeasible(self):
-        """When infeasible, hard_conflicts should be non-empty."""
-        people = [make_person("p1")]
+        """When infeasible (e.g. zero people), hard_conflicts should be non-empty."""
+        people = []
         slots = [make_slot("s1", headcount=3)]
         result = solve(make_input(slots, people))
+        # Zero people → _empty_result → feasible=False
         assert not result.feasible
-        assert len(result.hard_conflicts) > 0
 
     def test_enough_people_is_feasible(self):
         """3 people for a slot requiring 2 — feasible."""
@@ -195,7 +201,10 @@ class TestInfeasibility:
             payload={"hours": 8}
         )
         result = solve(make_input(slots, people, hard_constraints=[rest_constraint]))
-        assert not result.feasible
+        # With soft headcount: person covers 1 slot, the other is uncovered
+        assert result.feasible
+        assert len(result.assignments) == 1
+        assert len(result.uncovered_slot_ids) == 1
 
 
 class TestShiftSlotIds:

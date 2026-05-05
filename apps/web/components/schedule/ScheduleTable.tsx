@@ -12,6 +12,7 @@ interface ScheduleTableProps {
 
 export default function ScheduleTable({ assignments, filterDate, title }: ScheduleTableProps) {
   const t = useTranslations("schedule");
+  const tCommon = useTranslations("common");
   const [search, setSearch] = useState("");
 
   const filtered = assignments
@@ -21,7 +22,7 @@ export default function ScheduleTable({ assignments, filterDate, title }: Schedu
       a.taskTypeName.toLowerCase().includes(search.toLowerCase()));
 
   const formatTime = (iso: string) =>
-    new Date(iso).toLocaleTimeString("he-IL", { hour: "2-digit", minute: "2-digit" });
+    new Date(iso).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
 
   return (
     <div className="space-y-3">
@@ -36,14 +37,14 @@ export default function ScheduleTable({ assignments, filterDate, title }: Schedu
         <input
           value={search}
           onChange={e => setSearch(e.target.value)}
-          placeholder="חיפוש לפי שם או משימה..."
+          placeholder={t("filterByName")}
           className="w-full border border-slate-200 rounded-xl pl-9 pr-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
         />
       </div>
 
       {filtered.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-12 text-center bg-white rounded-xl border border-slate-200">
-          <p className="text-sm text-slate-500">{search ? "לא נמצאו תוצאות" : t("noAssignments")}</p>
+          <p className="text-sm text-slate-500">{search ? tCommon("noResults") : t("noAssignments")}</p>
         </div>
       ) : (
         <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
@@ -53,7 +54,7 @@ export default function ScheduleTable({ assignments, filterDate, title }: Schedu
                 <th className="px-4 py-3 text-start text-xs font-semibold text-slate-500 uppercase tracking-wider">{t("person")}</th>
                 <th className="px-4 py-3 text-start text-xs font-semibold text-slate-500 uppercase tracking-wider">{t("task")}</th>
                 <th className="px-4 py-3 text-start text-xs font-semibold text-slate-500 uppercase tracking-wider">{t("time")}</th>
-                <th className="px-4 py-3 text-start text-xs font-semibold text-slate-500 uppercase tracking-wider">מקור</th>
+                <th className="px-4 py-3 text-start text-xs font-semibold text-slate-500 uppercase tracking-wider">{t("source")}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -71,7 +72,7 @@ export default function ScheduleTable({ assignments, filterDate, title }: Schedu
                         : "bg-slate-100 text-slate-600"
                     }`}>
                       <span className={`w-1.5 h-1.5 rounded-full ${a.source === "Override" ? "bg-amber-500" : "bg-slate-400"}`} />
-                      {a.source === "Override" ? "עקיפה" : "סולבר"}
+                      {a.source === "Override" ? t("sourceOverride") : t("sourceSolver")}
                     </span>
                   </td>
                 </tr>

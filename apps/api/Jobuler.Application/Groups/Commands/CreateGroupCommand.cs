@@ -1,5 +1,6 @@
 using Jobuler.Domain.Groups;
 using Jobuler.Domain.People;
+using Jobuler.Domain.Spaces;
 using Jobuler.Infrastructure.Persistence;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
@@ -52,6 +53,16 @@ public class CreateGroupCommandHandler : IRequestHandler<CreateGroupCommand, Gui
         _db.Groups.Add(group);
         // Save group first so the FK constraint on group_memberships is satisfied
         await _db.SaveChangesAsync(ct);
+
+        // Auto-create the default "Member" role for this group.
+        // This role has no permissions, cannot be deleted, and is assigned to members
+        // added by non-owner admins. The owner can rename it but not remove it.
+        var defaultRole = SpaceRole.CreateForGroup(
+            req.SpaceId, group.Id, "Member", req.CreatedByUserId,
+            description: "Default role with no permissions",
+            permissionLevel: RolePermissionLevel.View,
+            isDefault: true);
+        _db.SpaceRoles.Add(defaultRole);
 
         _db.GroupMemberships.Add(GroupMembership.Create(req.SpaceId, group.Id, person.Id, isOwner: true));
         await _db.SaveChangesAsync(ct);

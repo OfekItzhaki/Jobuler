@@ -63,13 +63,20 @@ public class SpaceRoleConfiguration : IEntityTypeConfiguration<SpaceRole>
         builder.HasKey(r => r.Id);
         builder.Property(r => r.Id).HasColumnName("id");
         builder.Property(r => r.SpaceId).HasColumnName("space_id");
+        builder.Property(r => r.GroupId).HasColumnName("group_id").IsRequired(false);
         builder.Property(r => r.Name).HasColumnName("name").IsRequired();
         builder.Property(r => r.Description).HasColumnName("description");
         builder.Property(r => r.IsActive).HasColumnName("is_active");
+        builder.Property(r => r.IsDefault).HasColumnName("is_default");
         builder.Property(r => r.CreatedByUserId).HasColumnName("created_by_user_id");
+        builder.Property(r => r.PermissionLevel).HasColumnName("permission_level")
+            .HasConversion(
+                v => v.ToString().ToSnakeCase(),
+                v => Enum.Parse<RolePermissionLevel>(v.ToPascalCase(), true));
         builder.Property(r => r.CreatedAt).HasColumnName("created_at");
         builder.Property(r => r.UpdatedAt).HasColumnName("updated_at");
-        builder.HasIndex(r => new { r.SpaceId, r.Name }).IsUnique();
+        // Unique index is now (space_id, group_id, name) — enforced at DB level via migration 027
+        // EF index omitted here to avoid conflict with the DB-level partial unique index
     }
 }
 

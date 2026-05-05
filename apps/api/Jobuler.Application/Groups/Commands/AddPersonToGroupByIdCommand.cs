@@ -1,3 +1,4 @@
+using Jobuler.Application.Common;
 using Jobuler.Domain.Groups;
 using Jobuler.Domain.Notifications;
 using Jobuler.Infrastructure.Persistence;
@@ -8,13 +9,19 @@ namespace Jobuler.Application.Groups.Commands;
 
 /// <summary>
 /// Adds an existing Person (already in the space) to a group by their PersonId.
-/// Used when creating a name-only person and immediately adding them to a group.
+/// Optionally assigns a group role at add time.
+///
+/// Role assignment rules:
+/// - Group owner: may assign any active role that belongs to this group.
+/// - Non-owner admin: may only add the member with no role (RoleId must be null).
+///   The group owner can assign a role later via PATCH /members/{personId}/role.
 /// </summary>
 public record AddPersonToGroupByIdCommand(
     Guid SpaceId,
     Guid GroupId,
     Guid PersonId,
-    Guid RequestingUserId) : IRequest;
+    Guid RequestingUserId,
+    Guid? RoleId = null) : IRequest;
 
 public class AddPersonToGroupByIdCommandHandler : IRequestHandler<AddPersonToGroupByIdCommand>
 {
@@ -29,7 +36,31 @@ public class AddPersonToGroupByIdCommandHandler : IRequestHandler<AddPersonToGro
             .FirstOrDefaultAsync(p => p.Id == req.PersonId && p.SpaceId == req.SpaceId && p.IsActive, ct)
             ?? throw new KeyNotFoundException("Person not found in this space.");
 
-        // Idempotent — skip if already a member
+        // Determine if the requesting user is the group owner
+        var requestingPerson = await _db.People.AsNoTracking()
+            .FirstOrDefaultAsync(p => p.SpaceId == req.SpaceId && p.LinkedUserId == req.RequestingUserId, ct);
+
+        var isGroupOwner = requestingPerson is not null && await _db.GroupMemberships.AsNoTracking()
+            .AnyAsync(m => m.GroupId == req.GroupId && m.PersonId == requestingPerson.Id && m.IsOwner, ct);
+
+        // Non-owners cannot assign roles at add time
+        if (req.RoleId.HasValue && !isGroupOwner)
+            throw new DomainValidationException(
+                "Only the group owner can assign a role when adding a member. The member will be added with no role.");
+
+        // Validate the role belongs to this group (if provided)
+        if (req.RoleId.HasValue)
+        {
+            var roleExists = await _db.SpaceRoles.AsNoTracking()
+                .AnyAsync(r => r.Id == req.RoleId.Value
+                    && r.SpaceId == req.SpaceId
+                    && r.GroupId == req.GroupId
+                    && r.IsActive, ct);
+            if (!roleExists)
+                throw new KeyNotFoundException("Role not found in this group.");
+        }
+
+        // Idempotent — skip membership creation if already a member
         var alreadyMember = await _db.GroupMemberships
             .AnyAsync(m => m.GroupId == req.GroupId && m.PersonId == req.PersonId, ct);
 
@@ -51,8 +82,33 @@ public class AddPersonToGroupByIdCommandHandler : IRequestHandler<AddPersonToGro
                     $"הוספת לקבוצה \"{groupName}\".",
                     System.Text.Json.JsonSerializer.Serialize(new { groupId = req.GroupId })));
             }
-
-            await _db.SaveChangesAsync(ct);
         }
+
+        // Determine the effective role to assign:
+        // - Owner provided a specific role → use it (already validated above)
+        // - Non-owner → automatically assign the group's default role (no permissions)
+        var effectiveRoleId = req.RoleId;
+        if (!isGroupOwner)
+        {
+            effectiveRoleId = await _db.SpaceRoles.AsNoTracking()
+                .Where(r => r.SpaceId == req.SpaceId && r.GroupId == req.GroupId && r.IsDefault && r.IsActive)
+                .Select(r => (Guid?)r.Id)
+                .FirstOrDefaultAsync(ct);
+        }
+
+        // Assign role if we have one and the person isn't already assigned it
+        if (effectiveRoleId.HasValue)
+        {
+            var alreadyAssigned = await _db.PersonRoleAssignments
+                .AnyAsync(a => a.PersonId == req.PersonId
+                    && a.RoleId == effectiveRoleId.Value
+                    && a.GroupId == req.GroupId, ct);
+
+            if (!alreadyAssigned)
+                _db.PersonRoleAssignments.Add(
+                    PersonRoleAssignment.Create(req.SpaceId, req.PersonId, effectiveRoleId.Value, req.GroupId));
+        }
+
+        await _db.SaveChangesAsync(ct);
     }
 }

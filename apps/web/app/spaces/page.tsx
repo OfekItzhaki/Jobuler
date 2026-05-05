@@ -49,7 +49,7 @@ export default function SpacesPage() {
       setNewName("");
       setShowCreate(false);
     } catch {
-      setError("שגיאה ביצירת מרחב.");
+      setError(t("spaces.errorCreate"));
     } finally {
       setCreating(false);
     }
@@ -67,14 +67,14 @@ export default function SpacesPage() {
         {/* Header */}
         <div className="text-center">
           <div className="flex justify-center mb-4">
-            <div className="w-12 h-12 rounded-2xl bg-blue-500 flex items-center justify-center shadow-lg shadow-blue-500/30">
-              <svg className="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
-              </svg>
-            </div>
+            <img
+              src="/favicon.jpeg"
+              alt="Shifter"
+              className="w-16 h-16 rounded-2xl shadow-lg object-cover"
+            />
           </div>
           <h1 className="text-2xl font-bold text-slate-900">{t("app.name")}</h1>
-          <p className="text-sm text-slate-500 mt-1">בחר מרחב עבודה להמשך</p>
+          <p className="text-sm text-slate-500 mt-1">{t("spaces.selectWorkspace")}</p>
         </div>
 
         {/* Loading */}
@@ -91,7 +91,7 @@ export default function SpacesPage() {
         {!loading && spaces.length === 0 && (
           <div className="text-center py-6 bg-white rounded-2xl border border-slate-100 shadow-sm">
             <p className="text-slate-500 text-sm">
-              אינך שייך למרחב עדיין. צור אחד למטה.
+              {t("spaces.notMember")}
             </p>
           </div>
         )}
@@ -135,16 +135,16 @@ export default function SpacesPage() {
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
             </svg>
-            צור מרחב חדש
+            {t("spaces.createNew")}
           </button>
         ) : (
           <form onSubmit={handleCreate} className="bg-white border border-slate-200 rounded-2xl p-5 space-y-4 shadow-sm">
-            <h2 className="text-sm font-semibold text-slate-900">מרחב חדש</h2>
+            <h2 className="text-sm font-semibold text-slate-900">{t("spaces.newWorkspace")}</h2>
             <input
               type="text"
               value={newName}
               onChange={e => setNewName(e.target.value)}
-              placeholder="שם המרחב"
+              placeholder={t("spaces.workspaceName")}
               className="w-full border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-shadow"
               autoFocus
             />
@@ -155,14 +155,14 @@ export default function SpacesPage() {
                 disabled={creating || !newName.trim()}
                 className="flex-1 bg-blue-500 hover:bg-blue-600 text-white text-sm py-2.5 rounded-xl font-medium disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
-                {creating ? "יוצר..." : "צור"}
+                {creating ? t("spaces.creating") : t("spaces.create")}
               </button>
               <button
                 type="button"
                 onClick={() => setShowCreate(false)}
                 className="px-4 text-sm text-slate-500 hover:text-slate-700 font-medium transition-colors"
               >
-                ביטול
+                {t("spaces.cancel")}
               </button>
             </div>
           </form>

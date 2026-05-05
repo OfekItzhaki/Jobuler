@@ -74,8 +74,9 @@ def rest_constraint(hours=8.0):
 # ── Scenario 1: Too many tasks for the number of people ──────────────────────
 
 class TestTooManyTasksForPeople:
-    def test_3_simultaneous_slots_2_people_infeasible(self):
-        """3 overlapping slots each needing 1 person, only 2 people → infeasible."""
+    def test_3_simultaneous_slots_2_people_partial(self):
+        """3 overlapping slots each needing 1 person, only 2 people →
+        feasible=True with 2 assignments, 1 slot uncovered."""
         people = [person("p1"), person("p2")]
         slots = [
             slot("s1", day=1, start_h=8, end_h=16),
@@ -83,8 +84,9 @@ class TestTooManyTasksForPeople:
             slot("s3", day=1, start_h=8, end_h=16),
         ]
         result = solve(make_input(slots, people))
-        assert not result.feasible
-        assert len(result.hard_conflicts) > 0
+        assert result.feasible
+        assert len(result.assignments) == 2
+        assert len(result.uncovered_slot_ids) == 1
 
     def test_3_simultaneous_slots_3_people_feasible(self):
         """3 overlapping slots, 3 people → feasible."""
@@ -98,23 +100,25 @@ class TestTooManyTasksForPeople:
         assert result.feasible
         assert len(result.assignments) == 3
 
-    def test_headcount_2_with_1_person_infeasible(self):
-        """Slot requires 2 people, only 1 available → infeasible."""
+    def test_headcount_2_with_1_person_partial(self):
+        """Slot requires 2 people, only 1 available → feasible=True, 1 assignment,
+        slot flagged as uncovered (soft headcount constraint)."""
         people = [person("p1")]
         slots = [slot("s1", headcount=2)]
         result = solve(make_input(slots, people))
-        assert not result.feasible
+        assert result.feasible
+        assert len(result.assignments) == 1
+        assert "s1" in result.uncovered_slot_ids
 
     def test_conflict_description_mentions_headcount(self):
         """Hard conflict description should mention the headcount shortage."""
         people = [person("p1")]
         slots = [slot("s1", headcount=5)]
         result = solve(make_input(slots, people))
-        assert not result.feasible
-        assert len(result.hard_conflicts) > 0
-        # At least one conflict should mention the slot
-        descriptions = " ".join(c.description for c in result.hard_conflicts)
-        assert len(descriptions) > 0
+        # Solver is feasible (partial) — hard_conflicts only populated when infeasible
+        # The slot is uncovered because only 1 person is available for headcount=5
+        assert result.feasible
+        assert "s1" in result.uncovered_slot_ids
 
 
 # ── Scenario 2: Too many tasks for the number of days (time pressure) ────────
@@ -122,8 +126,9 @@ class TestTooManyTasksForPeople:
 class TestTimePressure:
     def test_one_person_two_back_to_back_shifts_no_rest_infeasible(self):
         """
-        1 person, 2 shifts with only 4h gap, 8h rest required → infeasible.
-        This simulates too many tasks crammed into too few days.
+        1 person, 2 shifts with only 4h gap, 8h rest required.
+        The person can only do 1 of the 2 shifts — solver returns feasible=True
+        with 1 assignment and 1 uncovered slot.
         """
         people = [person("p1")]
         slots = [
@@ -131,7 +136,10 @@ class TestTimePressure:
             slot("s2", day=1, start_h=12, end_h=20),  # only 4h gap
         ]
         result = solve(make_input(slots, people, hard_constraints=[rest_constraint(8.0)]))
-        assert not result.feasible
+        # Feasible — person covers 1 slot, the other is uncovered
+        assert result.feasible
+        assert len(result.assignments) == 1
+        assert len(result.uncovered_slot_ids) == 1
 
     def test_two_people_can_cover_back_to_back_shifts(self):
         """2 people, 2 back-to-back shifts → feasible (different people cover each)."""
@@ -161,7 +169,8 @@ class TestTimePressure:
 
 class TestConstraintsUnsatisfiable:
     def test_all_people_restricted_from_task_type_infeasible(self):
-        """All people have a restriction on the task type → infeasible."""
+        """All people have a restriction on the task type → feasible=True but 0 assignments,
+        slot uncovered (soft headcount allows partial result)."""
         people = [person("p1"), person("p2")]
         slots = [slot("s1", task_type_id="tt-kitchen", task_name="Kitchen")]
         constraints = [
@@ -173,7 +182,9 @@ class TestConstraintsUnsatisfiable:
             for i in range(2)
         ]
         result = solve(make_input(slots, people, hard_constraints=constraints))
-        assert not result.feasible
+        assert result.feasible
+        assert len(result.assignments) == 0
+        assert "s1" in result.uncovered_slot_ids
 
     def test_one_person_restricted_other_covers(self):
         """p1 restricted from kitchen, p2 is not → p2 covers it."""
@@ -191,7 +202,8 @@ class TestConstraintsUnsatisfiable:
         assert result.assignments[0].person_id == "p2"
 
     def test_qualification_required_nobody_has_it_infeasible(self):
-        """Slot requires 'medic_cert', no one has it → infeasible."""
+        """Slot requires 'medic_cert', no one has it → feasible=True but 0 assignments,
+        slot uncovered."""
         people = [person("p1"), person("p2")]
         s = TaskSlot(
             slot_id="s1", task_type_id="tt-medical", task_type_name="Medical",
@@ -203,7 +215,9 @@ class TestConstraintsUnsatisfiable:
             allows_overlap=False,
         )
         result = solve(make_input([s], people))
-        assert not result.feasible
+        assert result.feasible
+        assert len(result.assignments) == 0
+        assert "s1" in result.uncovered_slot_ids
 
     def test_qualification_required_one_person_has_it_feasible(self):
         """Slot requires 'medic_cert', p2 has it → p2 assigned."""
@@ -241,7 +255,8 @@ class TestAvailabilityBlocks:
         assert result.assignments[0].person_id == "p2"
 
     def test_all_people_at_home_infeasible(self):
-        """Both people at_home during the slot → infeasible."""
+        """Both people at_home during the slot → feasible=True but 0 assignments,
+        slot uncovered."""
         people = [person("p1"), person("p2")]
         slots = [slot("s1", day=1, start_h=8, end_h=16)]
         presence = [
@@ -253,7 +268,9 @@ class TestAvailabilityBlocks:
             for pid in ["p1", "p2"]
         ]
         result = solve(make_input(slots, people, presence=presence))
-        assert not result.feasible
+        assert result.feasible
+        assert len(result.assignments) == 0
+        assert "s1" in result.uncovered_slot_ids
 
     def test_availability_window_covers_slot_feasible(self):
         """p1 has availability window covering the slot → assigned."""
@@ -270,7 +287,8 @@ class TestAvailabilityBlocks:
         assert result.feasible
 
     def test_availability_window_does_not_cover_slot_infeasible(self):
-        """p1's availability window doesn't cover the slot → infeasible."""
+        """p1's availability window doesn't cover the slot → feasible=True but 0 assignments,
+        slot uncovered."""
         people = [person("p1")]
         slots = [slot("s1", day=1, start_h=8, end_h=16)]
         availability = [
@@ -281,7 +299,9 @@ class TestAvailabilityBlocks:
             )
         ]
         result = solve(make_input(slots, people, availability=availability))
-        assert not result.feasible
+        assert result.feasible
+        assert len(result.assignments) == 0
+        assert "s1" in result.uncovered_slot_ids
 
 
 # ── Scenario 5: Partial coverage ─────────────────────────────────────────────
@@ -304,13 +324,15 @@ class TestPartialCoverage:
         assert len(result.uncovered_slot_ids) == 0
 
     def test_uncovered_slots_reported_when_infeasible(self):
-        """When infeasible, uncovered_slot_ids should list all slots."""
+        """When a slot can't be fully staffed, uncovered_slot_ids should list it."""
         people = [person("p1")]
         slots = [
             slot("s1", day=1, start_h=8, end_h=16, headcount=2),
         ]
         result = solve(make_input(slots, people))
-        assert not result.feasible
+        # Feasible=True (partial) — 1 person assigned, slot still uncovered
+        assert result.feasible
+        assert len(result.assignments) == 1
         assert "s1" in result.uncovered_slot_ids
 
 

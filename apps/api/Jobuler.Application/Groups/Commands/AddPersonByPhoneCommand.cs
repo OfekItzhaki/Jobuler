@@ -1,3 +1,4 @@
+using Jobuler.Application.Common;
 using Jobuler.Domain.Groups;
 using Jobuler.Domain.Notifications;
 using Jobuler.Domain.People;
@@ -13,12 +14,14 @@ namespace Jobuler.Application.Groups.Commands;
 /// - If a Person already exists in this space with that phone, reuses it.
 /// - Otherwise creates a new Person record with the phone number.
 /// - Sends an in-app notification if the user has an account.
+/// - Optionally assigns a group role at add time (group owner only).
 /// </summary>
 public record AddPersonByPhoneCommand(
     Guid SpaceId,
     Guid GroupId,
     string PhoneNumber,
-    Guid RequestingUserId) : IRequest<AddPersonByPhoneResult>;
+    Guid RequestingUserId,
+    Guid? RoleId = null) : IRequest<AddPersonByPhoneResult>;
 
 public record AddPersonByPhoneResult(Guid PersonId, bool IsNewPerson, bool HasLinkedUser);
 
@@ -30,6 +33,30 @@ public class AddPersonByPhoneCommandHandler : IRequestHandler<AddPersonByPhoneCo
     public async Task<AddPersonByPhoneResult> Handle(AddPersonByPhoneCommand req, CancellationToken ct)
     {
         var phone = req.PhoneNumber.Trim();
+
+        // Determine if the requesting user is the group owner
+        var requestingPerson = await _db.People.AsNoTracking()
+            .FirstOrDefaultAsync(p => p.SpaceId == req.SpaceId && p.LinkedUserId == req.RequestingUserId, ct);
+
+        var isGroupOwner = requestingPerson is not null && await _db.GroupMemberships.AsNoTracking()
+            .AnyAsync(m => m.GroupId == req.GroupId && m.PersonId == requestingPerson.Id && m.IsOwner, ct);
+
+        // Non-owners cannot assign roles at add time
+        if (req.RoleId.HasValue && !isGroupOwner)
+            throw new DomainValidationException(
+                "Only the group owner can assign a role when adding a member.");
+
+        // Validate the role belongs to this group (if provided)
+        if (req.RoleId.HasValue)
+        {
+            var roleExists = await _db.SpaceRoles.AsNoTracking()
+                .AnyAsync(r => r.Id == req.RoleId.Value
+                    && r.SpaceId == req.SpaceId
+                    && r.GroupId == req.GroupId
+                    && r.IsActive, ct);
+            if (!roleExists)
+                throw new KeyNotFoundException("Role not found in this group.");
+        }
 
         // 1. Find user account by phone number
         var user = await _db.Users.AsNoTracking()
@@ -93,6 +120,28 @@ public class AddPersonByPhoneCommandHandler : IRequestHandler<AddPersonByPhoneCo
                     optOutToken = invitation.OptOutToken
                 }));
             _db.Notifications.Add(notification);
+        }
+
+        // 7. Assign role — owner uses provided roleId, non-owner gets the default role automatically
+        var effectiveRoleId = req.RoleId;
+        if (!isGroupOwner)
+        {
+            effectiveRoleId = await _db.SpaceRoles.AsNoTracking()
+                .Where(r => r.SpaceId == req.SpaceId && r.GroupId == req.GroupId && r.IsDefault && r.IsActive)
+                .Select(r => (Guid?)r.Id)
+                .FirstOrDefaultAsync(ct);
+        }
+
+        if (effectiveRoleId.HasValue)
+        {
+            var alreadyAssigned = await _db.PersonRoleAssignments
+                .AnyAsync(a => a.PersonId == person.Id
+                    && a.RoleId == effectiveRoleId.Value
+                    && a.GroupId == req.GroupId, ct);
+
+            if (!alreadyAssigned)
+                _db.PersonRoleAssignments.Add(
+                    PersonRoleAssignment.Create(req.SpaceId, person.Id, effectiveRoleId.Value, req.GroupId));
         }
 
         await _db.SaveChangesAsync(ct);

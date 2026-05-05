@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useTranslations } from "next-intl";
 import AppShell from "@/components/shell/AppShell";
 import { useAuthStore } from "@/lib/store/authStore";
 import { useSpaceStore } from "@/lib/store/spaceStore";
@@ -31,6 +32,9 @@ function SummaryCard({ label, value, sub }: { label: string; value: string | num
 }
 
 export default function StatsPage() {
+  const t = useTranslations("groups.stats_tab");
+  const tAdmin = useTranslations("admin");
+  const tStats = useTranslations("admin.stats");
   const { adminGroupId } = useAuthStore();
   const { currentSpaceId } = useSpaceStore();
 
@@ -44,40 +48,38 @@ export default function StatsPage() {
     setError(null);
     getBurdenStats(currentSpaceId)
       .then(setStats)
-      .catch(() => setError("שגיאה בטעינת הסטטיסטיקות"))
+      .catch(() => setError(tStats("errorLoading")))
       .finally(() => setLoading(false));
   }, [currentSpaceId, adminGroupId]);
 
   return (
     <AppShell>
-      <div style={{ maxWidth: 1100, direction: "rtl" }}>
+      <div style={{ maxWidth: 1100 }}>
         <div style={{ marginBottom: "1.5rem" }}>
-          <h1 style={{ fontSize: "1.5rem", fontWeight: 800, color: "#0f172a", margin: 0 }}>סטטיסטיקות</h1>
+          <h1 style={{ fontSize: "1.5rem", fontWeight: 800, color: "#0f172a", margin: 0 }}>{tStats("title")}</h1>
           <p style={{ fontSize: "0.875rem", color: "#64748b", margin: "0.25rem 0 0" }}>
-            נתוני עומס והוגנות לפי אדם
+            {tStats("subtitle")}
           </p>
         </div>
 
-        {/* Not in admin mode */}
         {!adminGroupId && (
           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "5rem 0", textAlign: "center", background: "white", borderRadius: 16, border: "1px solid #e2e8f0" }}>
             <svg width="48" height="48" fill="none" viewBox="0 0 24 24" stroke="#cbd5e1" strokeWidth={1.5} style={{ marginBottom: 12 }}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
             </svg>
             <p style={{ fontSize: "0.875rem", color: "#64748b", margin: 0 }}>
-              יש להיכנס למצב ניהול בקבוצה כדי לצפות בסטטיסטיקות
+              {tAdmin("adminRequired")}
             </p>
           </div>
         )}
 
-        {/* Loading */}
         {adminGroupId && loading && (
           <div style={{ display: "flex", alignItems: "center", gap: 10, color: "#94a3b8", fontSize: "0.875rem", padding: "2rem 0" }}>
             <svg className="animate-spin" width="20" height="20" fill="none" viewBox="0 0 24 24">
               <circle style={{ opacity: 0.25 }} cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
               <path style={{ opacity: 0.75 }} fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
             </svg>
-            טוען...
+            {tAdmin("loading")}
           </div>
         )}
 
@@ -85,26 +87,23 @@ export default function StatsPage() {
 
         {stats && adminGroupId && (
           <>
-            {/* Summary cards */}
             <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "1rem", marginBottom: "1.5rem" }}>
-              <SummaryCard label="אנשים פעילים" value={stats.totalPeople} />
-              <SummaryCard label="שיבוצים סה״כ" value={stats.totalPublishedAssignments} />
-              <SummaryCard label="ממוצע לאדם" value={stats.averageAssignmentsPerPerson} sub="שיבוצים" />
-              <SummaryCard label="גרסאות פורסמו" value={stats.totalPublishedVersions} />
+              <SummaryCard label={t("activeMembers")} value={stats.totalPeople} />
+              <SummaryCard label={t("totalAssignments")} value={stats.totalPublishedAssignments} />
+              <SummaryCard label={t("avgPerPerson")} value={stats.averageAssignmentsPerPerson} />
+              <SummaryCard label={tStats("publishedVersions")} value={stats.totalPublishedVersions} />
             </div>
 
-            {/* Leaderboards 2x2 */}
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem", marginBottom: "1.5rem" }}>
-              <StatsLeaderboard title="הכי הרבה שיבוצים" entries={stats.mostAssignments} />
-              <StatsLeaderboard title="הכי הרבה משימות שנואות" entries={stats.mostHatedTasks} valueColor="#dc2626" />
-              <StatsLeaderboard title="ציון עומס גבוה ביותר" entries={stats.highestBurdenScore} valueColor="#d97706" />
-              <StatsLeaderboard title="איזון עומס הטוב ביותר" entries={stats.bestBurdenBalance} valueColor="#16a34a" />
+              <StatsLeaderboard title={t("mostAssignments")} entries={stats.mostAssignments} />
+              <StatsLeaderboard title={t("mostHatedTasks")} entries={stats.mostHatedTasks} valueColor="#dc2626" />
+              <StatsLeaderboard title={t("highestBurdenScore")} entries={stats.highestBurdenScore} valueColor="#d97706" />
+              <StatsLeaderboard title={t("bestBurdenBalance")} entries={stats.bestBurdenBalance} valueColor="#16a34a" />
             </div>
 
-            {/* People table */}
             <div style={{ marginBottom: "0.75rem" }}>
               <h2 style={{ fontSize: "1rem", fontWeight: 700, color: "#0f172a", margin: "0 0 0.75rem" }}>
-                פירוט לפי אדם
+                {t("detailByPerson")}
               </h2>
               <StatsPeopleTable people={stats.people} />
             </div>
