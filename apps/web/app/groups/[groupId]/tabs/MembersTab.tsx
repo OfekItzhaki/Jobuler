@@ -34,10 +34,6 @@ export default function MembersTab({
 }: Props) {
   const t = useTranslations("groups.members_tab");
   const tCommon = useTranslations("common");
-  const [editingRoleFor, setEditingRoleFor] = useState<string | null>(null);
-  const [roleEditValue, setRoleEditValue] = useState<string>("");
-  const [roleSaving, setRoleSaving] = useState(false);
-  const [roleErrors, setRoleErrors] = useState<Record<string, string>>({});
   const [confirmRemove, setConfirmRemove] = useState<string | null>(null);
 
   const filtered = members.filter(m =>
@@ -45,19 +41,6 @@ export default function MembersTab({
     m.fullName.toLowerCase().includes(membersSearch.toLowerCase()) ||
     (m.displayName ?? "").toLowerCase().includes(membersSearch.toLowerCase())
   );
-
-  async function handleSaveRole(personId: string) {
-    setRoleSaving(true);
-    setRoleErrors(prev => ({ ...prev, [personId]: "" }));
-    try {
-      await onUpdateMemberRole(personId, roleEditValue || null);
-      setEditingRoleFor(null);
-    } catch {
-      setRoleErrors(prev => ({ ...prev, [personId]: "Error updating role" }));
-    } finally {
-      setRoleSaving(false);
-    }
-  }
 
   return (
     <div className="space-y-4">
@@ -136,18 +119,6 @@ export default function MembersTab({
                 <button onClick={() => onSelectMember(m)} className="text-xs text-blue-600 hover:underline">{t("details")}</button>
                 {isAdmin && !m.isOwner && (
                   <>
-                    {isOwner && (
-                      <button
-                        onClick={() => {
-                          setEditingRoleFor(m.personId);
-                          setRoleEditValue(m.roleId ?? "");
-                          setRoleErrors(prev => ({ ...prev, [m.personId]: "" }));
-                        }}
-                        className="text-xs text-slate-500 hover:text-slate-700 border border-slate-200 px-2 py-1 rounded-lg hover:bg-slate-50 transition-colors"
-                      >
-                        {t("role")}
-                      </button>
-                    )}
                     <button onClick={() => onOpenInvite(m.personId)} className="text-xs text-slate-500 hover:text-slate-700 border border-slate-200 px-2 py-1 rounded-lg hover:bg-slate-50 transition-colors">{t("invite")}</button>
                     {confirmRemove === m.personId ? (
                       <>
@@ -177,42 +148,6 @@ export default function MembersTab({
                 )}
               </div>
             </div>
-
-            {/* Inline role editor — owner only */}
-            {editingRoleFor === m.personId && (
-              <div className="mt-3 pt-3 border-t border-slate-100 flex items-center gap-2 flex-wrap">
-                <select
-                  value={roleEditValue}
-                  onChange={e => setRoleEditValue(e.target.value)}
-                  className="flex-1 min-w-0 border border-slate-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                >
-                  <option value="">{t("noRole")}</option>
-                  {groupRoles
-                    .filter(r => r.isActive)
-                    .map(r => (
-                      <option key={r.id} value={r.id}>
-                        {r.name}{r.isDefault ? ` (${t("defaultRole")})` : ""}
-                      </option>
-                    ))}
-                </select>
-                <button
-                  onClick={() => handleSaveRole(m.personId)}
-                  disabled={roleSaving}
-                  className="bg-blue-500 hover:bg-blue-600 text-white text-xs font-medium px-3 py-1.5 rounded-lg disabled:opacity-50 transition-colors"
-                >
-                  {roleSaving ? tCommon("loading") : tCommon("save")}
-                </button>
-                <button
-                  onClick={() => setEditingRoleFor(null)}
-                  className="text-xs text-slate-500 border border-slate-200 px-3 py-1.5 rounded-lg hover:bg-slate-50 transition-colors"
-                >
-                  {tCommon("cancel")}
-                </button>
-                {roleErrors[m.personId] && (
-                  <p className="w-full text-xs text-red-600">{roleErrors[m.personId]}</p>
-                )}
-              </div>
-            )}
 
             {removeErrors[m.personId] && (
               <p className="text-xs text-red-600 mt-1">{removeErrors[m.personId]}</p>
@@ -328,9 +263,18 @@ export function MemberProfileModal({ member, isAdmin, editForm, saving, error, o
         ) : (
           <div className="space-y-4">
             <div className="flex items-center gap-4">
-              <div className="w-16 h-16 rounded-full bg-blue-500 flex items-center justify-center text-white text-2xl font-bold flex-shrink-0">
-                {(member.displayName ?? member.fullName).charAt(0).toUpperCase()}
-              </div>
+              {member.profileImageUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={member.profileImageUrl}
+                  alt={member.displayName ?? member.fullName}
+                  className="w-16 h-16 rounded-full object-cover flex-shrink-0"
+                />
+              ) : (
+                <div className="w-16 h-16 rounded-full bg-blue-500 flex items-center justify-center text-white text-2xl font-bold flex-shrink-0">
+                  {(member.displayName ?? member.fullName).charAt(0).toUpperCase()}
+                </div>
+              )}
               <div>
                 <p className="text-lg font-semibold text-slate-900">{member.displayName ?? member.fullName}</p>
                 {member.roleName && <p className="text-sm text-slate-500">{member.roleName}</p>}
